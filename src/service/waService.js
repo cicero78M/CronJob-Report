@@ -285,7 +285,9 @@ const hardInitRetryCounts = new WeakMap();
 const maxHardInitRetries = 3;
 const hardInitRetryBaseDelayMs = 120000;
 const hardInitRetryMaxDelayMs = 900000;
-const qrAwaitingReinitGraceMs = 120000;
+// Grace period to wait after QR code is shown before considering reinit
+// This gives users time to scan the QR code
+const qrAwaitingReinitGraceMs = 180000; // Increased to 3 minutes for better UX
 const logoutDisconnectReasons = new Set([
   "LOGGED_OUT",
   "UNPAIRED",
@@ -468,6 +470,34 @@ async function cleanupStaleBrowserLocksOnStartup(client) {
       );
     }
   }
+}
+
+async function checkChromeAvailability() {
+  const chromePaths = [
+    process.env.WA_PUPPETEER_EXECUTABLE_PATH,
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/opt/google/chrome/chrome',
+  ].filter(Boolean);
+
+  for (const chromePath of chromePaths) {
+    try {
+      await fs.promises.access(chromePath, fs.constants.X_OK);
+      console.log(`[WA] ✅ Chrome/Chromium found: ${chromePath}`);
+      return { available: true, path: chromePath };
+    } catch {
+      // Continue checking other paths
+    }
+  }
+
+  console.error('[WA] ❌ Chrome/Chromium not found in common locations');
+  console.error('[WA] 💡 Install Chrome or set WA_PUPPETEER_EXECUTABLE_PATH environment variable');
+  console.error('[WA] 💡 Ubuntu/Debian: sudo apt-get install chromium-browser');
+  console.error('[WA] 💡 CentOS/RHEL: sudo yum install chromium');
+  
+  return { available: false, path: null };
 }
 
 async function inferClientReadyState(client, label, contextLabel) {
@@ -922,6 +952,14 @@ async function reinitializeClient(client, options = {}) {
 }
 
 if (shouldInitWhatsAppClients) {
+  // Pre-flight check: Verify Chrome/Chromium is available
+  console.log('[WA] 🔍 Checking Chrome/Chromium availability...');
+  const chromeCheck = await checkChromeAvailability();
+  if (!chromeCheck.available) {
+    console.warn('[WA] ⚠️  Chrome/Chromium not found. WhatsApp initialization may fail.');
+    console.warn('[WA] ⚠️  Device pairing will not work without Chrome/Chromium.');
+  }
+
   const clientsToInit = [
     { label: "WA", client: waClient },
     { label: "WA-GATEWAY", client: waGatewayClient },
