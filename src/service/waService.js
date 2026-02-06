@@ -1407,11 +1407,12 @@ if (shouldInitWhatsAppClients) {
           sessionPathExists && hasPersistedAuthSession(sessionPath);
         
         // More aggressive handling for persistent "close" state
+        // Trigger session clear earlier since we've already exhausted retries
         const closeStateRetryCount = state.closeStateRetryCount || 0;
         const shouldClearCloseSession =
           normalizedStateLower === "close" &&
           hasSessionContent &&
-          (closeStateRetryCount >= 2 || reinitAttempts >= 2);
+          (closeStateRetryCount >= 1 || reinitAttempts >= 1);
         
         // Track close state retries
         if (normalizedStateLower === "close") {
@@ -1501,19 +1502,43 @@ if (shouldInitWhatsAppClients) {
               )
           );
         }
-        if (typeof client?.connect === "function") {
+        // Fallback: For persistent CLOSE state that didn't trigger session clear above,
+        // use reinitializeClient with session clearing instead of just reconnectClient
+        if (normalizedStateLower === "close" && hasSessionContent && !canClearFallbackSession) {
+          if (typeof client?.reinitialize === "function") {
+            console.warn(
+              `[${label}] getState=${normalizedState} after retries; ` +
+                `reinitializing with clear session (${reinitAttempts + 1}/${maxFallbackReinitAttempts}); ` +
+                `reason: persistent close state fallback`
+            );
+            reinitializeClient(client, {
+              clearAuthSession: true,
+              trigger: "fallback-close-persistent",
+              reason: `persistent close state after ${maxFallbackStateRetries} retries`,
+            }).catch((err) => {
+              console.error(
+                `[${label}] Reinit failed after fallback getState=${normalizedState}: ${err?.message}`
+              );
+            });
+            scheduleFallbackReadyCheck(client, delayMs);
+          } else {
+            console.warn(
+              `[${label}] reinitialize not available; unable to reinit after fallback getState=${normalizedState}`
+            );
+          }
+        } else if (typeof client?.connect === "function") {
           console.warn(
-            `[${label}] getState=${normalizedState} after retries; reinitializing (${reinitAttempts + 1}/${maxFallbackReinitAttempts})`
+            `[${label}] getState=${normalizedState} after retries; reconnecting (${reinitAttempts + 1}/${maxFallbackReinitAttempts})`
           );
           reconnectClient(client).catch((err) => {
             console.error(
-              `[${label}] Reinit failed after fallback getState=${normalizedState}: ${err?.message}`
+              `[${label}] Reconnect failed after fallback getState=${normalizedState}: ${err?.message}`
             );
           });
           scheduleFallbackReadyCheck(client, delayMs);
         } else {
           console.warn(
-            `[${label}] connect not available; unable to reinit after fallback getState=${normalizedState}`
+            `[${label}] connect not available; unable to reconnect after fallback getState=${normalizedState}`
           );
         }
       } catch (e) {
