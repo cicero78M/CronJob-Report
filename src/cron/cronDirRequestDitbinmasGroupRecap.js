@@ -6,9 +6,9 @@ import {
   minPhoneDigitLength,
   normalizeUserWhatsAppId,
   sendWithClientFallback,
+  normalizeGroupId,
 } from '../utils/waHelper.js';
 import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
-import { normalizeGroupId } from './cronDirRequestFetchSosmed.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';

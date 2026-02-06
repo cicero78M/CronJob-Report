@@ -32,15 +32,12 @@ function mockCommonModules({ adminIds = [] } = {}) {
     getAdminWAIds: () => adminIds,
     normalizeUserWhatsAppId,
     minPhoneDigitLength,
+    normalizeGroupId,
   }));
   jest.unstable_mockModule('../src/service/waService.js', () => ({
     default: {},
     waGatewayClient,
     waUserClient: {},
-  }));
-  jest.unstable_mockModule('../src/cron/cronDirRequestFetchSosmed.js', () => ({
-    runCron: jest.fn(),
-    normalizeGroupId,
   }));
 }
 

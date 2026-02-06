@@ -2,11 +2,11 @@ import { scheduleCronJob } from '../utils/cronScheduler.js';
 import { sendDebug } from '../middleware/debugHandler.js';
 import { absensiLikes } from '../handler/fetchabsensi/insta/absensiLikesInsta.js';
 import { absensiKomentar } from '../handler/fetchabsensi/tiktok/absensiKomentarTiktok.js';
-import { normalizeGroupId } from './cronDirRequestFetchSosmed.js';
 import {
   minPhoneDigitLength,
   normalizeUserWhatsAppId,
   sendWithClientFallback,
+  normalizeGroupId,
 } from '../utils/waHelper.js';
 import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
 
