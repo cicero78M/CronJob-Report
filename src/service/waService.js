@@ -515,8 +515,10 @@ async function cleanupStaleBrowserLocksOnStartup(client) {
     return;
   }
   
-  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
   const label = getClientReadinessState(client).label;
+  
+  // Use the same lock file list as authSessionIgnoreEntries
+  const lockFiles = Array.from(authSessionIgnoreEntries);
   
   for (const lockFile of lockFiles) {
     const lockPath = path.join(sessionPath, lockFile);
@@ -1529,8 +1531,6 @@ if (shouldInitWhatsAppClients) {
   )
     ? 300000 // 5 minutes
     : Number(process.env.WA_HEALTH_CHECK_INTERVAL_MS);
-  
-  const maxCloseStateDurationMs = 180000; // 3 minutes in close state is too long
   
   async function performHealthCheck() {
     const clients = [
