@@ -1407,7 +1407,9 @@ if (shouldInitWhatsAppClients) {
           sessionPathExists && hasPersistedAuthSession(sessionPath);
         
         // More aggressive handling for persistent "close" state
-        // Trigger session clear earlier since we've already exhausted retries
+        // Trigger session clear earlier (>= 1 instead of >= 2) since we've already exhausted
+        // 5 fallback state retries. At this point, we need immediate aggressive recovery
+        // rather than waiting longer, as the client is definitively stuck.
         const closeStateRetryCount = state.closeStateRetryCount || 0;
         const shouldClearCloseSession =
           normalizedStateLower === "close" &&
@@ -1502,8 +1504,10 @@ if (shouldInitWhatsAppClients) {
               )
           );
         }
-        // Fallback: For persistent CLOSE state that didn't trigger session clear above,
-        // use reinitializeClient with session clearing instead of just reconnectClient
+        // Fallback: For persistent CLOSE state that didn't trigger session clear above
+        // (i.e., canClearFallbackSession was false, meaning the earlier conditions weren't met),
+        // use reinitializeClient with session clearing instead of just reconnectClient.
+        // This ensures we don't fall into an infinite reconnect loop with a corrupted session.
         if (normalizedStateLower === "close" && hasSessionContent && !canClearFallbackSession) {
           if (typeof client?.reinitialize === "function") {
             console.warn(
