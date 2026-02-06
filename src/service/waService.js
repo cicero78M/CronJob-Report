@@ -1449,11 +1449,12 @@ if (shouldInitWhatsAppClients) {
         if (canClearFallbackSession && typeof client?.reinitialize === "function") {
           const clearReason =
             shouldClearCloseSession && !hasAuthIndicators
-              ? "getState close with persisted session"
+              ? `persistent close state (${closeStateRetryCount} retries)`
               : "getState unknown with auth indicator";
           console.warn(
             `[${label}] getState=${normalizedState} after retries; ` +
               `reinitializing with clear session (${reinitAttempts + 1}/${maxFallbackReinitAttempts}); ` +
+              `reason: ${clearReason}; ` +
               formatFallbackReadyContext(
                 state,
                 isConnectInFlight(),
@@ -1518,6 +1519,87 @@ if (shouldInitWhatsAppClients) {
   scheduleFallbackReadyCheck(waClient);
   scheduleFallbackReadyCheck(waUserClient);
   scheduleFallbackReadyCheck(waGatewayClient);
+
+  // =======================
+  // CONNECTION HEALTH MONITORING
+  // =======================
+  
+  const healthCheckIntervalMs = Number.isNaN(
+    Number(process.env.WA_HEALTH_CHECK_INTERVAL_MS)
+  )
+    ? 300000 // 5 minutes
+    : Number(process.env.WA_HEALTH_CHECK_INTERVAL_MS);
+  
+  const maxCloseStateDurationMs = 180000; // 3 minutes in close state is too long
+  
+  async function performHealthCheck() {
+    const clients = [
+      { label: "WA", client: waClient },
+      { label: "WA-USER", client: waUserClient },
+      { label: "WA-GATEWAY", client: waGatewayClient },
+    ];
+    
+    for (const { label, client } of clients) {
+      const state = getClientReadinessState(client, label);
+      
+      // Skip if already ready
+      if (state.ready) {
+        continue;
+      }
+      
+      // Check if stuck in close state
+      if (typeof client?.getState === "function") {
+        try {
+          const currentState = await client.getState();
+          const normalizedState = String(currentState || "").toLowerCase();
+          
+          if (normalizedState === "close") {
+            const closeRetryCount = state.closeStateRetryCount || 0;
+            
+            if (closeRetryCount >= 5) {
+              console.error(
+                `[${label}] HEALTH CHECK: Client stuck in close state for too long (${closeRetryCount} checks). ` +
+                `Triggering aggressive recovery with session clear.`
+              );
+              
+              if (typeof client?.reinitialize === "function") {
+                reinitializeClient(client, {
+                  clearAuthSession: true,
+                  trigger: "health-check-stuck-close",
+                  reason: `stuck in close state for ${closeRetryCount} health checks`,
+                }).catch((err) => {
+                  console.error(
+                    `[${label}] Health check reinit failed: ${err?.message}`
+                  );
+                });
+              }
+            } else {
+              console.warn(
+                `[${label}] HEALTH CHECK: Client in close state (retry count: ${closeRetryCount})`
+              );
+            }
+          }
+        } catch (err) {
+          console.warn(
+            `[${label}] HEALTH CHECK: getState failed: ${err?.message}`
+          );
+        }
+      }
+    }
+  }
+  
+  // Schedule periodic health checks
+  if (healthCheckIntervalMs > 0) {
+    setInterval(() => {
+      performHealthCheck().catch((err) => {
+        console.error(`[WA] Health check error: ${err?.message}`);
+      });
+    }, healthCheckIntervalMs);
+    
+    console.log(
+      `[WA] Health monitoring enabled with ${healthCheckIntervalMs}ms interval`
+    );
+  }
 
   await Promise.allSettled(initPromises);
 
