@@ -294,9 +294,11 @@ const logoutDisconnectReasons = new Set([
   "CONFLICT",
   "UNPAIRED_IDLE",
 ]);
-// Device pairing specific reasons that require QR scan
-// This is a subset of logoutDisconnectReasons used to trigger specific UNPAIRED handling
-// such as automatic browser lock cleanup and enhanced user messaging
+// Device pairing specific reasons that require QR scan and browser lock cleanup
+// This is an intentional subset of logoutDisconnectReasons to trigger enhanced handling:
+// - Automatic browser lock cleanup (SingletonLock, SingletonSocket, SingletonCookie)
+// - Special Indonesian user messaging for device unpairing scenarios
+// - Additional logging with emoji indicators for better visibility
 const deviceUnpairedReasons = new Set([
   "UNPAIRED",
   "UNPAIRED_IDLE",
@@ -456,8 +458,8 @@ async function cleanupStaleBrowserLocksOnStartup(client) {
   // Use the same lock file list as authSessionIgnoreEntries
   const lockFiles = Array.from(authSessionIgnoreEntries);
   
+  // User-facing message in Indonesian for target audience (Indonesian police department)
   console.log(`[${label}] 🧹 Membersihkan lock files untuk menghindari konflik browser...`);
-  // Note: User-facing messages in Indonesian for target audience
   
   for (const lockFile of lockFiles) {
     const lockPath = path.join(sessionPath, lockFile);
@@ -1042,6 +1044,8 @@ if (shouldInitWhatsAppClients) {
         state.lastAuthFailureMessage = `disconnect:${normalizedReason}`;
         
         // For UNPAIRED events, also clean browser locks immediately
+        // Fire-and-forget approach: cleanup errors are logged but don't block processing
+        // This ensures the client can continue attempting to reconnect even if cleanup fails
         if (isUnpaired) {
           console.log(`[${label}] Cleaning browser locks after device unpaired...`);
           cleanupStaleBrowserLocksOnStartup(client).catch(err => 
