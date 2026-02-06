@@ -1335,6 +1335,7 @@ export async function createWwebjsClient(clientId = 'wa-admin') {
 
   // Store references to internal event handlers so they can be removed without affecting external listeners
   let internalMessageHandler = null;
+  let internalQrHandler = null;
   let internalReadyHandler = null;
   let internalAuthFailureHandler = null;
   let internalDisconnectedHandler = null;
@@ -1344,6 +1345,9 @@ export async function createWwebjsClient(clientId = 'wa-admin') {
     // Remove only internal listeners, preserving external ones (e.g., from waService.js)
     if (internalMessageHandler) {
       client.removeListener('message', internalMessageHandler);
+    }
+    if (internalQrHandler) {
+      client.removeListener('qr', internalQrHandler);
     }
     if (internalReadyHandler) {
       client.removeListener('ready', internalReadyHandler);
@@ -1355,10 +1359,11 @@ export async function createWwebjsClient(clientId = 'wa-admin') {
       client.removeListener('disconnected', internalDisconnectedHandler);
     }
     
-    // Note: qr events are transient and safe to remove all
-    client.removeAllListeners('qr');
-
-    client.on('qr', (qr) => emitter.emit('qr', qr));
+    // Register internal QR handler that forwards to emitter
+    // CRITICAL: Only remove internal handler, NOT external handlers from waService.js
+    // External handlers set state.awaitingQrScan flag which is essential for device pairing
+    internalQrHandler = (qr) => emitter.emit('qr', qr);
+    client.on('qr', internalQrHandler);
     
     internalReadyHandler = async () => {
       console.log(`[WWEBJS] Client ready event received for clientId=${clientId}`);

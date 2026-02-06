@@ -143,11 +143,14 @@ test('wwebjs adapter re-registers event listeners after reinitialization', async
   jest.clearAllMocks();
   await client.reinitialize({ trigger: 'test' });
   
-  // Verify that removeListener was called (not removeAllListeners for message event)
-  // QR events should still use removeAllListeners
-  expect(mockClient.removeAllListeners).toHaveBeenCalledWith('qr');
-  // Other events should use removeListener
+  // Verify that removeListener was called for all event types (including QR)
+  // to preserve external listeners from waService.js
   expect(mockClient.removeListener).toHaveBeenCalled();
+  // QR events should now use removeListener (not removeAllListeners)
+  // to preserve external QR handlers that set awaitingQrScan state
+  const removeListenerCalls = mockClient.removeListener.mock.calls;
+  const qrListenerRemoved = removeListenerCalls.some(call => call[0] === 'qr');
+  expect(qrListenerRemoved).toBe(true);
   
   // The on() calls should have been made again for re-registration
   const onCallsAfterReinit = mockClient.on.mock.calls;
