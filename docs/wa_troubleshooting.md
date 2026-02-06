@@ -41,7 +41,58 @@ npm restart
 
 **Note**: This variable should ONLY be set to `"true"` during automated testing. NEVER in production or any environment that should receive chats. If you must run with it in a non-test environment (e.g., maintenance), ensure `WA_EXPECT_MESSAGES` is **unset** or `"false"` and understand the service will remain offline for chat handling.
 
-### 2. Client Not Ready
+### 2. Device Unpaired (Perangkat Tidak Tertaut)
+
+**Symptom**: Bot was working but suddenly stops responding. Logs show "UNPAIRED" or "UNPAIRED_IDLE" disconnect reasons.
+
+**Cause**: WhatsApp device linking was lost, requiring fresh QR scan.
+
+**Common Triggers**:
+- WhatsApp on phone logged out or uninstalled
+- Phone was offline for extended period
+- Multiple devices logged into same account (conflict)
+- Session data corruption
+- Browser profile locks preventing reconnection
+
+**Check logs for**:
+- `⚠️  Device UNPAIRED` - Clear indication device lost pairing
+- `Logout-style disconnect (UNPAIRED)` - Device unpairing event
+- `awaiting QR scan` - System waiting for new pairing
+
+**Automatic Recovery**:
+The system automatically:
+1. Detects UNPAIRED disconnect events
+2. Cleans browser lock files (SingletonLock, SingletonSocket, SingletonCookie)
+3. Generates new QR code in console
+4. Waits for user to scan QR code
+
+**Manual Steps**:
+```bash
+# 1. Check current pairing status
+node scripts/check-wa-device-pairing.js
+
+# 2. If browser locks are blocking, clean them manually
+cd ~/.cicero/wwebjs_auth
+rm -rf */Singleton*
+
+# 3. Restart application to get fresh QR code
+pm2 restart cicero_v2
+
+# 4. Watch logs for QR code
+pm2 logs cicero_v2 --lines 50
+
+# 5. Scan QR code from phone
+# Buka WhatsApp > Titik tiga > Perangkat Tertaut > Tautkan Perangkat
+```
+
+**Prevention**:
+- Keep phone online and connected
+- Don't log out of WhatsApp on phone
+- Avoid using same WhatsApp account on too many devices
+- Monitor for UNPAIRED events in logs
+- Set up alerts for device disconnections
+
+### 3. Client Not Ready
 
 **Symptom**: Users receive "🤖 Bot sedang memuat, silakan tunggu" (Bot is loading, please wait) message.
 
