@@ -320,12 +320,12 @@ const authenticatedReadyFallbackTimers = new Map();
 const authenticatedReadyTimeoutMs = Number.isNaN(
   Number(process.env.WA_AUTH_READY_TIMEOUT_MS)
 )
-  ? 45000
+  ? 60000
   : Number(process.env.WA_AUTH_READY_TIMEOUT_MS);
 const fallbackReadyCheckDelayMs = Number.isNaN(
   Number(process.env.WA_FALLBACK_READY_DELAY_MS)
 )
-  ? 60000
+  ? 90000
   : Number(process.env.WA_FALLBACK_READY_DELAY_MS);
 const fallbackReadyCooldownMs = Number.isNaN(
   Number(process.env.WA_FALLBACK_READY_COOLDOWN_MS)
@@ -335,17 +335,17 @@ const fallbackReadyCooldownMs = Number.isNaN(
 const defaultReadyTimeoutMs = Number.isNaN(
   Number(process.env.WA_READY_TIMEOUT_MS)
 )
-  ? Math.max(authenticatedReadyTimeoutMs, fallbackReadyCheckDelayMs + 5000)
+  ? 180000
   : Number(process.env.WA_READY_TIMEOUT_MS);
 const gatewayReadyTimeoutMs = Number.isNaN(
   Number(process.env.WA_GATEWAY_READY_TIMEOUT_MS)
 )
-  ? defaultReadyTimeoutMs + fallbackReadyCheckDelayMs
+  ? 240000
   : Number(process.env.WA_GATEWAY_READY_TIMEOUT_MS);
 const fallbackStateRetryCounts = new WeakMap();
 const fallbackReinitCounts = new WeakMap();
-const maxFallbackStateRetries = 3;
-const maxFallbackReinitAttempts = 2;
+const maxFallbackStateRetries = 5;
+const maxFallbackReinitAttempts = 3;
 const maxUnknownStateEscalationRetries = 2;
 const fallbackStateRetryMinDelayMs = 15000;
 const fallbackStateRetryMaxDelayMs = 30000;
@@ -436,6 +436,7 @@ function getClientReadinessState(client, label = "WA") {
       lastQrAt: null,
       lastQrPayloadSeen: null,
       unknownStateRetryCount: 0,
+      closeStateRetryCount: 0,
       fallbackCheckCompleted: false,
       fallbackCheckInFlight: false,
     });
@@ -505,6 +506,31 @@ function clearAuthenticatedFallbackTimer(client) {
   if (timer) {
     clearTimeout(timer);
     authenticatedReadyFallbackTimers.delete(client);
+  }
+}
+
+async function cleanupStaleBrowserLocksOnStartup(client) {
+  const sessionPath = client?.sessionPath;
+  if (!sessionPath) {
+    return;
+  }
+  
+  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+  const label = getClientReadinessState(client).label;
+  
+  for (const lockFile of lockFiles) {
+    const lockPath = path.join(sessionPath, lockFile);
+    try {
+      if (fs.existsSync(lockPath)) {
+        await fs.promises.rm(lockPath, { force: true });
+        console.log(`[${label}] Cleaned stale lock file: ${lockFile}`);
+      }
+    } catch (err) {
+      console.warn(
+        `[${label}] Failed to remove stale lock ${lockFile}:`,
+        err?.message || err
+      );
+    }
   }
 }
 
@@ -1051,6 +1077,9 @@ if (shouldInitWhatsAppClients) {
     });
 
     try {
+      console.log(`[${label}] Cleaning stale browser locks before initialization...`);
+      await cleanupStaleBrowserLocksOnStartup(client);
+      
       console.log(`[${label}] Initializing WhatsApp client...`);
       await client.initialize();
     } catch (err) {
@@ -1283,6 +1312,17 @@ if (shouldInitWhatsAppClients) {
             ? "unknown"
             : String(normalizedState).toLowerCase();
         console.log(`[${label}] getState: ${normalizedState}`);
+        
+        if (normalizedStateLower === "close") {
+          console.warn(
+            `[${label}] Client in CLOSE state; close retry count: ${state.closeStateRetryCount || 0}; ${formatFallbackReadyContext(
+              state,
+              isConnectInFlight(),
+              getConnectInFlightDurationMs()
+            )}`
+          );
+        }
+        
         if (normalizedStateLower === "unknown") {
           console.warn(
             `[${label}] fallback getState unknown; ${formatFallbackReadyContext(
@@ -1357,10 +1397,21 @@ if (shouldInitWhatsAppClients) {
         const sessionPathExists = sessionPath ? fs.existsSync(sessionPath) : false;
         const hasSessionContent =
           sessionPathExists && hasPersistedAuthSession(sessionPath);
+        
+        // More aggressive handling for persistent "close" state
+        const closeStateRetryCount = state.closeStateRetryCount || 0;
         const shouldClearCloseSession =
           normalizedStateLower === "close" &&
-          label === "WA-GATEWAY" &&
-          hasSessionContent;
+          hasSessionContent &&
+          (closeStateRetryCount >= 2 || reinitAttempts >= 2);
+        
+        // Track close state retries
+        if (normalizedStateLower === "close") {
+          state.closeStateRetryCount = closeStateRetryCount + 1;
+        } else {
+          state.closeStateRetryCount = 0;
+        }
+        
         const canClearFallbackSession =
           sessionPathExists &&
           ((shouldClearFallbackSession && hasAuthIndicators) ||
