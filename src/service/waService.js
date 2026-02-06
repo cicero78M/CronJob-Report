@@ -457,6 +457,7 @@ async function cleanupStaleBrowserLocksOnStartup(client) {
   const lockFiles = Array.from(authSessionIgnoreEntries);
   
   console.log(`[${label}] 🧹 Membersihkan lock files untuk menghindari konflik browser...`);
+  // Note: User-facing messages in Indonesian for target audience
   
   for (const lockFile of lockFiles) {
     const lockPath = path.join(sessionPath, lockFile);
@@ -976,6 +977,7 @@ if (shouldInitWhatsAppClients) {
 
     client.on("qr", (qr) => {
       const qrWithLabel = `\n========== ${label} ==========\n${qr}\n${"=".repeat(label.length + 22)}`;
+      // User-facing messages in Indonesian for target audience (Indonesian police department)
       console.log(`[${label}] 📱 QR Code received; scan dengan WhatsApp untuk menghubungkan perangkat:`);
       qrcode.generate(qrWithLabel, { small: true });
       console.log(`[${label}] 💡 Tip: Pastikan WhatsApp di ponsel Anda terbuka dan siap untuk scan QR`);
@@ -989,6 +991,7 @@ if (shouldInitWhatsAppClients) {
     });
 
     client.on("authenticated", () => {
+      // User-facing message in Indonesian for target audience
       console.log(`[${label}] ✅ Authenticated - Perangkat berhasil tertaut!`);
       clearLogoutAwaitingQr(client);
       scheduleAuthenticatedReadyFallback(client, label);
@@ -996,6 +999,7 @@ if (shouldInitWhatsAppClients) {
 
     client.on("auth_failure", (msg) => {
       console.error(`[${label}] ❌ Authentication failure: ${msg}`);
+      // User-facing message in Indonesian for target audience
       console.error(`[${label}] 💡 Solusi: Hapus folder session dan scan QR ulang`);
       state.lastAuthFailureAt = Date.now();
       state.lastAuthFailureMessage = String(msg || "auth_failure");
@@ -1019,6 +1023,7 @@ if (shouldInitWhatsAppClients) {
       const isUnpaired = isDeviceUnpairedReason(normalizedReason);
       
       if (isUnpaired) {
+        // User-facing message in Indonesian for target audience
         console.warn(`[${label}] ⚠️  Device UNPAIRED (${normalizedReason}): Perangkat tidak tertaut, perlu scan QR baru`);
       } else {
         console.warn(`[${label}] Disconnected: ${normalizedReason}`);
