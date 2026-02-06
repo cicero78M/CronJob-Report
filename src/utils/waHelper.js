@@ -14,6 +14,7 @@ const defaultMimeType = spreadsheetMimeTypes['.xlsx'];
 const validWaSuffixes = ['@c.us', '@s.whatsapp.net', '@g.us'];
 export const userWaSuffixes = ['@c.us', '@s.whatsapp.net'];
 export const minPhoneDigitLength = 8;
+const GROUP_ID_PATTERN = /^(\d{10,22})(?:@g\.us)?$/i;
 
 export function isValidWid(wid) {
   return (
@@ -29,6 +30,24 @@ export function extractPhoneDigits(value) {
 
 export function isValidPhoneDigits(token, minLength = minPhoneDigitLength) {
   return extractPhoneDigits(token).length >= minLength;
+}
+
+export function normalizeGroupId(groupId) {
+  if (!groupId) return null;
+
+  const trimmed = String(groupId).trim();
+  if (!trimmed) return null;
+
+  const invitePrefix = /^(?:https?:\/\/)?chat\.whatsapp\.com\/(?:invite\/)?/i;
+  const withoutPrefix = invitePrefix.test(trimmed)
+    ? trimmed.replace(invitePrefix, '').split(/[?#]/)[0]
+    : trimmed;
+
+  const token = withoutPrefix.replace(/\/+$/, '');
+  const match = token.match(GROUP_ID_PATTERN);
+  const candidate = match ? `${match[1]}@g.us` : token;
+
+  return /^\d{10,22}@g\.us$/.test(candidate) ? candidate.toLowerCase() : null;
 }
 
 export function getAdminWhatsAppList() {

@@ -7,13 +7,10 @@ import {
   getAdminWAIds,
   normalizeUserWhatsAppId,
   minPhoneDigitLength,
+  normalizeGroupId,
 } from '../utils/waHelper.js';
 import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
-import {
-  normalizeGroupId,
-  runCron as runDirRequestFetchSosmed,
-} from './cronDirRequestFetchSosmed.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
 const BIDHUMAS_CLIENT_ID = 'BIDHUMAS';
@@ -262,24 +259,10 @@ async function executeMenuActions({
 }
 
 export async function runBidhumasMenuSequence({
-  includeFetch = true,
   label = 'Menu 6, 9, 28, & 29 BIDHUMAS',
 } = {}) {
-  let fetchStatus = includeFetch ? 'pending' : 'skipped';
+  let fetchStatus = 'skipped (removed)';
   let sendStatus = 'pending';
-
-  if (includeFetch) {
-    try {
-      await logToAdmins('Mulai blok runDirRequestFetchSosmed (BIDHUMAS)');
-      await runDirRequestFetchSosmed();
-      fetchStatus = 'sosmed fetch selesai';
-      await logToAdmins('Selesai blok runDirRequestFetchSosmed (BIDHUMAS)');
-    } catch (err) {
-      fetchStatus = `gagal sosmed fetch: ${err.message || err}`;
-      sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: fetchStatus });
-      await logToAdmins(fetchStatus);
-    }
-  }
 
   try {
     await logToAdmins('Mulai sekuens BIDHUMAS (menu 6, 9, 28, & 29)');
@@ -366,18 +349,7 @@ export async function runCron({
     bidhumas: includeBidhumas ? 'pending' : 'dilewati (tidak dijadwalkan)',
   };
 
-  if (includeFetch) {
-    await logToAdmins('Mulai cron custom dirrequest: blok runDirRequestFetchSosmed');
-    try {
-      await runDirRequestFetchSosmed();
-      summary.fetch = 'sosmed fetch selesai';
-      await logToAdmins('Selesai blok runDirRequestFetchSosmed');
-    } catch (err) {
-      summary.fetch = `gagal sosmed fetch: ${err.message || err}`;
-      sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.fetch });
-      await logToAdmins(summary.fetch);
-    }
-  }
+  summary.fetch = 'skipped (removed)';
 
   if (includeDitbinmas) {
     try {
@@ -427,22 +399,11 @@ export async function runDitbinmasRecapAndCustomSequence(referenceDate = new Dat
   await logToAdmins('Mulai gabungan fetch konten/engagement, recap Ditbinmas, lalu cron custom dirrequest');
 
   const summary = {
-    fetch: 'pending',
+    fetch: 'skipped (removed)',
     ditbinmasSuperAdmins: 'pending',
     ditbinmasOperators: 'pending',
     customSequence: 'pending',
   };
-
-  try {
-    await logToAdmins('Mulai blok fetch konten dan engagement (likes + komentar)');
-    await runDirRequestFetchSosmed();
-    summary.fetch = 'fetch konten dan engagement selesai';
-    await logToAdmins('Selesai blok fetch konten dan engagement');
-  } catch (err) {
-    summary.fetch = `gagal fetch konten/engagement: ${err.message || err}`;
-    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.fetch });
-    await logToAdmins(summary.fetch);
-  }
 
   try {
     const recapSummary = await runDitbinmasRecapSequence(referenceDate, {

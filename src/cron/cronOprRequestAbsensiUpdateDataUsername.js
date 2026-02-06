@@ -2,9 +2,8 @@ import { scheduleCronJob } from '../utils/cronScheduler.js';
 import { sendDebug } from '../middleware/debugHandler.js';
 import { absensiUpdateDataUsername } from '../handler/fetchabsensi/wa/absensiUpdateDataUsername.js';
 import { findAllActiveOrgClientsWithSosmed } from '../model/clientModel.js';
-import { sendWithClientFallback } from '../utils/waHelper.js';
+import { sendWithClientFallback, normalizeGroupId } from '../utils/waHelper.js';
 import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
-import { normalizeGroupId } from './cronDirRequestFetchSosmed.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestAbsensiUpdateDataUsername.js';
 const CRON_EXPRESSION = '45 6 * * *';

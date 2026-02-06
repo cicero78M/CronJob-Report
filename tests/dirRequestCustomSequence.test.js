@@ -13,7 +13,6 @@ const findClientById = jest.fn(async () => ({
 }));
 const splitRecipientField = jest.fn((value) => (value ? value.split(',') : []));
 const normalizeGroupId = jest.fn((value) => value);
-const runDirRequestFetchSosmed = jest.fn(async () => {});
 const delayAfterSend = jest.fn(async () => {});
 const minPhoneDigitLength = 8;
 const normalizeUserWhatsAppId = (value, minLength = minPhoneDigitLength) => {
@@ -37,7 +36,6 @@ beforeEach(() => {
   findClientById.mockClear();
   splitRecipientField.mockClear();
   normalizeGroupId.mockClear();
-  runDirRequestFetchSosmed.mockClear();
   delayAfterSend.mockClear();
   process.env.DITSAMAPTA_EXTRA_ACTIONS = '';
 });
@@ -65,17 +63,13 @@ async function loadModules() {
     getAdminWAIds: () => [],
     normalizeUserWhatsAppId,
     minPhoneDigitLength,
+    normalizeGroupId,
   }));
 
   jest.unstable_mockModule('../src/service/waService.js', () => ({
     default: {},
     waGatewayClient: {},
     waUserClient: {},
-  }));
-
-  jest.unstable_mockModule('../src/cron/cronDirRequestFetchSosmed.js', () => ({
-    normalizeGroupId,
-    runCron: runDirRequestFetchSosmed,
   }));
 
   jest.unstable_mockModule('../src/cron/dirRequestThrottle.js', () => ({

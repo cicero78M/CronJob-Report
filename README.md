@@ -368,8 +368,6 @@ WhatsApp sessions are launched from `app.js`: `waClient` for operator interactio
 - Fallback readiness checks run after initialization for **all** WhatsApp clients. After ~60 seconds the service calls `getState()` and logs messages such as `[WA-USER] getState: CONNECTED` or `[WA-GATEWAY] getState error: ...`. If `isReady()`/`getState()` reports `CONNECTED/open`, the fallback is marked complete (one-shot per start/restart) and will not reschedule until the next reset triggered by `qr`, `authenticated`, `auth_failure`, disconnect/change_state, or a new `connect()`/`reinitialize()` call.
 - Reconnects are guarded by a shared connect lock: if a client is already initializing, further `connect()` calls (including hard-init retries or disconnect-driven reconnects) will wait for or skip the in-flight promise instead of launching a parallel session. This keeps the default retry timing the same (e.g., 5s reconnect delay, exponential hard-init retry delays) while preventing overlapping initializations.
 
-- `src/cron/cronDirRequestFetchSosmed.js` now runs as a standalone cron in the `always` manifest bucket and fires every 30 minutes from **06:00–22:00** (Asia/Jakarta), so it does not wait for any WhatsApp gateway/user readiness before refreshing Ditbinmas Instagram/TikTok data and broadcasting deltas when available.
-
 - The Instagram laphar cron (`cronInstaLaphar.js`) has been retired and removed from the manifest and seed data. New deployments will no longer register or seed this job; existing environments can safely drop its `cron_job_config` row if present.
 
 - The dirRequest cron group now focuses on reminder, Satbinmas media, and BIDHUMAS evening schedules; custom sequence and combined recap jobs are no longer registered in this bucket.

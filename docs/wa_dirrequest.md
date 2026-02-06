@@ -501,78 +501,12 @@ berpindah ke dashboard web atau menjalankan skrip manual.
   mengembalikan nilai kosong), cron berhenti tanpa mengirim pesan apa pun
   sehingga tidak membanjiri admin dengan laporan kosong.
 
-## Logging terstruktur Cron DirRequest Sosmed
-- Cron `cronDirRequestFetchSosmed` memakai helper log terstruktur dengan
-  atribut `phase`, `clientId`, `action`, `result`, `countsBefore`,
-  `countsAfter`, `recipients`, dan `skipReason` untuk mengirim pesan yang sama
-  ke saluran debug dan admin WA.
-- Target cron ini mencakup seluruh client aktif (direktorat maupun org) yang
-  memiliki Instagram atau TikTok aktif, bukan hanya direktorat.
-- Tahap logging utama yang dicetak berurutan:
-  1. **start**: memuat *Client ID* target dan penerima grup WA yang valid.
-  2. **timeCheck**: jika waktu Jakarta melewati **17:15 WIB**, cron tetap
-     menarik konten baru untuk memastikan refresh komentar malam memakai data
-     terbaru, tetapi pengiriman laporan ke grup dikunci untuk mencegah spam
-     larut malam.
-  3. **fetchPosts**: menarik konten baru IG/TikTok (hanya dilewati ketika
-     `forceEngagementOnly=true`, bukan karena batas waktu harian).
-  4. **refreshEngagement**: memperbarui likes/komentar menggunakan konten yang
-     baru diambil (termasuk setelah pukul 17:15 WIB).
-  5. **buildMessage**: merangkum aksi (fetch/refresh), delta konten, dan total
-     penerima.
-  6. **sendToRecipients**: mengirim narasi ke grup WA per client dan saluran
-     debug dengan status `sent` atau `skipped` (laporan grup disupresi setelah
-     17:15 WIB).
-- Pesan *no changes* tetap dicetak ketika tidak ada konten baru atau ketika
-  seluruh akun tidak berubah; log tersebut memuat `action=refresh_only` atau
-  `result=no_change` sehingga admin tahu cron berjalan tetapi tidak ada delta.
-- Eksekusi fetch sosmed memakai single-flight lock dengan antrean rerun.
-  Jika ada pemanggilan baru ketika proses sebelumnya masih berjalan, cron
-  mencatat status `queued` (atau `coalesced` ketika sudah ada antrean), lalu
-  otomatis menjalankan ulang setelah proses aktif selesai sehingga workflow
-  tetap bergerak tanpa tumpang tindih.
-- Contoh log WhatsApp/debug:
-  - **Sukses kirim** ke grup: `cronDirRequestFetchSosmed | clientId=DITBINMAS`
-    `action=fetch_dirrequest result=sent countsBefore=ig:12/tk:9`
-    `countsAfter=ig:15/tk:10 recipients=120363419830216549@g.us`.
-  - **Lewat 17:15** (kirim grup dikunci, refresh tetap jalan):
-    `cronDirRequestFetchSosmed | action=timeCheck result=limited`
-    `message="Setelah 17:15 WIB pengiriman ke grup dikunci; fetch post & refresh engagement tetap jalan supaya data komentar malam tetap terbaru"`
-    `meta={"jakartaTime":"17:16"}` diikuti log `tiktokFetch result=completed`
-    dan `sendReport result=suppressed`.
-  - **Error** pada refresh: `cronDirRequestFetchSosmed | clientId=BIDHUMAS`
-    `action=refreshEngagement result=error message="RapidAPI 429"`
-    `recipients=admin@c.us` (stack trace dicetak di log debug).
-- Error ditangkap dengan metadata (stack trace, nama error) dan dikirim ke
-  kedua saluran untuk mempermudah investigasi. Seluruh log selalu mencantumkan
-  *Client ID*, aksi yang dijalankan, delta sebelum/sesudah, daftar penerima,
-  dan alasan skip jika berlaku.
-
 ## Automasi Cron BIDHUMAS Malam
 - Cron `cronDirRequestBidhumasEvening.js` berjalan setiap hari pukul
   **22:00 WIB**. Urutan eksekusi: menjalankan menu **6** (Instagram likes),
   **9** (komentar TikTok), **2️⃣8️⃣** (rekap likes per konten), dan **2️⃣9️⃣**
   (rekap komentar per konten) khusus untuk client `BIDHUMAS` tanpa langkah fetch
   post/engagement tambahan di awal.
-- Hasil hanya dikirim ke Group WhatsApp BIDHUMAS (`client_group`) dan daftar
-  super admin BIDHUMAS (`client_super`). Operator atau admin WhatsApp lainnya
-  tidak menerima laporan ini.
-- Log progres dikirim ke admin WhatsApp untuk setiap fase: pembuka cron, daftar
-  penerima valid, progres per menu/penerima, hingga ringkasan akhir. Pesan
-  memakai label `[CRON DIRREQ BIDHUMAS 22:00]` agar mudah difilter.
-- Pengiriman setiap pesan dibatasi jeda **2 detik** per menu/penerima agar tidak
-  membanjiri gateway WA; jeda ini hanya memblokir alur BIDHUMAS saja, bukan cron
-  lain.
-
-## Penerima Cron DirRequest
-- Cron `cronDirRequestFetchSosmed` kini mengeksekusi **seluruh client bertipe
-  Direktorat** yang aktif dan memiliki status **TikTok** aktif. Instagram
-  bersifat opsional; jika `client_insta_status` nonaktif, cron otomatis
-  melewati fetch/refresh Instagram tapi tetap memproses TikTok.
-- Eksekusi dilakukan **berurutan** mengikuti urutan `client_id` dari tabel
-  `clients`.
-- Pesan laporan tugas kini dikirim **hanya ke Group WA** milik masing-masing
-  client berdasarkan kolom `client_group` (format wajib `@g.us`). Nomor
   **Super Admin** dan **Operator** tidak lagi dipakai untuk cron ini.
 - Client Direktorat yang tidak memiliki group valid akan dilewati sehingga
   tidak ada pesan broadcast keluar.

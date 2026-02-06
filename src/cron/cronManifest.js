@@ -30,12 +30,6 @@ export default [
     description: 'Send Ditsamapta incomplete Instagram/TikTok data recaps to admin recipients only.',
   },
   {
-    jobKey: './src/cron/cronDirRequestFetchSosmed.js',
-    modulePath: './src/cron/cronDirRequestFetchSosmed.js',
-    bucket: 'always',
-    description: 'Fetch Ditbinmas Instagram/TikTok posts, refresh engagement metrics, and broadcast status deltas.',
-  },
-  {
     jobKey: './src/cron/cronDashboardSubscriptionExpiry.js',
     modulePath: './src/cron/cronDashboardSubscriptionExpiry.js',
     bucket: 'waClient',
