@@ -320,12 +320,12 @@ const authenticatedReadyFallbackTimers = new Map();
 const authenticatedReadyTimeoutMs = Number.isNaN(
   Number(process.env.WA_AUTH_READY_TIMEOUT_MS)
 )
-  ? 45000
+  ? 60000
   : Number(process.env.WA_AUTH_READY_TIMEOUT_MS);
 const fallbackReadyCheckDelayMs = Number.isNaN(
   Number(process.env.WA_FALLBACK_READY_DELAY_MS)
 )
-  ? 60000
+  ? 90000
   : Number(process.env.WA_FALLBACK_READY_DELAY_MS);
 const fallbackReadyCooldownMs = Number.isNaN(
   Number(process.env.WA_FALLBACK_READY_COOLDOWN_MS)
@@ -335,17 +335,17 @@ const fallbackReadyCooldownMs = Number.isNaN(
 const defaultReadyTimeoutMs = Number.isNaN(
   Number(process.env.WA_READY_TIMEOUT_MS)
 )
-  ? Math.max(authenticatedReadyTimeoutMs, fallbackReadyCheckDelayMs + 5000)
+  ? 180000
   : Number(process.env.WA_READY_TIMEOUT_MS);
 const gatewayReadyTimeoutMs = Number.isNaN(
   Number(process.env.WA_GATEWAY_READY_TIMEOUT_MS)
 )
-  ? defaultReadyTimeoutMs + fallbackReadyCheckDelayMs
+  ? 240000
   : Number(process.env.WA_GATEWAY_READY_TIMEOUT_MS);
 const fallbackStateRetryCounts = new WeakMap();
 const fallbackReinitCounts = new WeakMap();
-const maxFallbackStateRetries = 3;
-const maxFallbackReinitAttempts = 2;
+const maxFallbackStateRetries = 5;
+const maxFallbackReinitAttempts = 3;
 const maxUnknownStateEscalationRetries = 2;
 const fallbackStateRetryMinDelayMs = 15000;
 const fallbackStateRetryMaxDelayMs = 30000;
@@ -436,6 +436,7 @@ function getClientReadinessState(client, label = "WA") {
       lastQrAt: null,
       lastQrPayloadSeen: null,
       unknownStateRetryCount: 0,
+      closeStateRetryCount: 0,
       fallbackCheckCompleted: false,
       fallbackCheckInFlight: false,
     });
@@ -505,6 +506,33 @@ function clearAuthenticatedFallbackTimer(client) {
   if (timer) {
     clearTimeout(timer);
     authenticatedReadyFallbackTimers.delete(client);
+  }
+}
+
+async function cleanupStaleBrowserLocksOnStartup(client) {
+  const sessionPath = client?.sessionPath;
+  if (!sessionPath) {
+    return;
+  }
+  
+  const label = getClientReadinessState(client).label;
+  
+  // Use the same lock file list as authSessionIgnoreEntries
+  const lockFiles = Array.from(authSessionIgnoreEntries);
+  
+  for (const lockFile of lockFiles) {
+    const lockPath = path.join(sessionPath, lockFile);
+    try {
+      if (fs.existsSync(lockPath)) {
+        await fs.promises.rm(lockPath, { force: true });
+        console.log(`[${label}] Cleaned stale lock file: ${lockFile}`);
+      }
+    } catch (err) {
+      console.warn(
+        `[${label}] Failed to remove stale lock ${lockFile}:`,
+        err?.message || err
+      );
+    }
   }
 }
 
@@ -1051,6 +1079,9 @@ if (shouldInitWhatsAppClients) {
     });
 
     try {
+      console.log(`[${label}] Cleaning stale browser locks before initialization...`);
+      await cleanupStaleBrowserLocksOnStartup(client);
+      
       console.log(`[${label}] Initializing WhatsApp client...`);
       await client.initialize();
     } catch (err) {
@@ -1283,6 +1314,17 @@ if (shouldInitWhatsAppClients) {
             ? "unknown"
             : String(normalizedState).toLowerCase();
         console.log(`[${label}] getState: ${normalizedState}`);
+        
+        if (normalizedStateLower === "close") {
+          console.warn(
+            `[${label}] Client in CLOSE state; close retry count: ${state.closeStateRetryCount || 0}; ${formatFallbackReadyContext(
+              state,
+              isConnectInFlight(),
+              getConnectInFlightDurationMs()
+            )}`
+          );
+        }
+        
         if (normalizedStateLower === "unknown") {
           console.warn(
             `[${label}] fallback getState unknown; ${formatFallbackReadyContext(
@@ -1357,10 +1399,21 @@ if (shouldInitWhatsAppClients) {
         const sessionPathExists = sessionPath ? fs.existsSync(sessionPath) : false;
         const hasSessionContent =
           sessionPathExists && hasPersistedAuthSession(sessionPath);
+        
+        // More aggressive handling for persistent "close" state
+        const closeStateRetryCount = state.closeStateRetryCount || 0;
         const shouldClearCloseSession =
           normalizedStateLower === "close" &&
-          label === "WA-GATEWAY" &&
-          hasSessionContent;
+          hasSessionContent &&
+          (closeStateRetryCount >= 2 || reinitAttempts >= 2);
+        
+        // Track close state retries
+        if (normalizedStateLower === "close") {
+          state.closeStateRetryCount = closeStateRetryCount + 1;
+        } else {
+          state.closeStateRetryCount = 0;
+        }
+        
         const canClearFallbackSession =
           sessionPathExists &&
           ((shouldClearFallbackSession && hasAuthIndicators) ||
@@ -1398,11 +1451,12 @@ if (shouldInitWhatsAppClients) {
         if (canClearFallbackSession && typeof client?.reinitialize === "function") {
           const clearReason =
             shouldClearCloseSession && !hasAuthIndicators
-              ? "getState close with persisted session"
+              ? `persistent close state (${closeStateRetryCount} retries)`
               : "getState unknown with auth indicator";
           console.warn(
             `[${label}] getState=${normalizedState} after retries; ` +
               `reinitializing with clear session (${reinitAttempts + 1}/${maxFallbackReinitAttempts}); ` +
+              `reason: ${clearReason}; ` +
               formatFallbackReadyContext(
                 state,
                 isConnectInFlight(),
@@ -1467,6 +1521,85 @@ if (shouldInitWhatsAppClients) {
   scheduleFallbackReadyCheck(waClient);
   scheduleFallbackReadyCheck(waUserClient);
   scheduleFallbackReadyCheck(waGatewayClient);
+
+  // =======================
+  // CONNECTION HEALTH MONITORING
+  // =======================
+  
+  const healthCheckIntervalMs = Number.isNaN(
+    Number(process.env.WA_HEALTH_CHECK_INTERVAL_MS)
+  )
+    ? 300000 // 5 minutes
+    : Number(process.env.WA_HEALTH_CHECK_INTERVAL_MS);
+  
+  async function performHealthCheck() {
+    const clients = [
+      { label: "WA", client: waClient },
+      { label: "WA-USER", client: waUserClient },
+      { label: "WA-GATEWAY", client: waGatewayClient },
+    ];
+    
+    for (const { label, client } of clients) {
+      const state = getClientReadinessState(client, label);
+      
+      // Skip if already ready
+      if (state.ready) {
+        continue;
+      }
+      
+      // Check if stuck in close state
+      if (typeof client?.getState === "function") {
+        try {
+          const currentState = await client.getState();
+          const normalizedState = String(currentState || "").toLowerCase();
+          
+          if (normalizedState === "close") {
+            const closeRetryCount = state.closeStateRetryCount || 0;
+            
+            if (closeRetryCount >= 5) {
+              console.error(
+                `[${label}] HEALTH CHECK: Client stuck in close state for too long (${closeRetryCount} checks). ` +
+                `Triggering aggressive recovery with session clear.`
+              );
+              
+              if (typeof client?.reinitialize === "function") {
+                reinitializeClient(client, {
+                  clearAuthSession: true,
+                  trigger: "health-check-stuck-close",
+                  reason: `stuck in close state for ${closeRetryCount} health checks`,
+                }).catch((err) => {
+                  console.error(
+                    `[${label}] Health check reinit failed: ${err?.message}`
+                  );
+                });
+              }
+            } else {
+              console.warn(
+                `[${label}] HEALTH CHECK: Client in close state (retry count: ${closeRetryCount})`
+              );
+            }
+          }
+        } catch (err) {
+          console.warn(
+            `[${label}] HEALTH CHECK: getState failed: ${err?.message}`
+          );
+        }
+      }
+    }
+  }
+  
+  // Schedule periodic health checks
+  if (healthCheckIntervalMs > 0) {
+    setInterval(() => {
+      performHealthCheck().catch((err) => {
+        console.error(`[WA] Health check error: ${err?.message}`);
+      });
+    }, healthCheckIntervalMs);
+    
+    console.log(
+      `[WA] Health monitoring enabled with ${healthCheckIntervalMs}ms interval`
+    );
+  }
 
   await Promise.allSettled(initPromises);
 
