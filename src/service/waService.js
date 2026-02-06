@@ -292,6 +292,11 @@ const logoutDisconnectReasons = new Set([
   "CONFLICT",
   "UNPAIRED_IDLE",
 ]);
+// Device pairing specific reasons that require QR scan
+const deviceUnpairedReasons = new Set([
+  "UNPAIRED",
+  "UNPAIRED_IDLE",
+]);
 const disconnectChangeStates = new Set([
   "DISCONNECTED",
   "UNPAIRED",
@@ -305,6 +310,11 @@ const authSessionIgnoreEntries = new Set([
   "SingletonCookie",
   "SingletonSocket",
 ]);
+
+function isDeviceUnpairedReason(reason) {
+  const normalized = normalizeDisconnectReason(reason);
+  return deviceUnpairedReasons.has(normalized);
+}
 
 function getFallbackStateRetryDelayMs() {
   const jitterRange = fallbackStateRetryMaxDelayMs - fallbackStateRetryMinDelayMs;
@@ -442,12 +452,14 @@ async function cleanupStaleBrowserLocksOnStartup(client) {
   // Use the same lock file list as authSessionIgnoreEntries
   const lockFiles = Array.from(authSessionIgnoreEntries);
   
+  console.log(`[${label}] 🧹 Membersihkan lock files untuk menghindari konflik browser...`);
+  
   for (const lockFile of lockFiles) {
     const lockPath = path.join(sessionPath, lockFile);
     try {
       if (fs.existsSync(lockPath)) {
-        await fs.promises.rm(lockPath, { force: true });
-        console.log(`[${label}] Cleaned stale lock file: ${lockFile}`);
+        await fs.promises.rm(lockPath, { force: true, recursive: true });
+        console.log(`[${label}] ✓ Cleaned stale lock file: ${lockFile}`);
       }
     } catch (err) {
       console.warn(
@@ -924,8 +936,11 @@ if (shouldInitWhatsAppClients) {
 
     client.on("qr", (qr) => {
       const qrWithLabel = `\n========== ${label} ==========\n${qr}\n${"=".repeat(label.length + 22)}`;
-      console.log(`[${label}] QR Code received; scan dengan WhatsApp:`);
+      console.log(`[${label}] 📱 QR Code received; scan dengan WhatsApp untuk menghubungkan perangkat:`);
       qrcode.generate(qrWithLabel, { small: true });
+      console.log(`[${label}] 💡 Tip: Pastikan WhatsApp di ponsel Anda terbuka dan siap untuk scan QR`);
+      console.log(`[${label}] 📋 Langkah: Buka WhatsApp > Titik tiga > Perangkat Tertaut > Tautkan Perangkat`);
+      
       state.lastQrAt = Date.now();
       state.lastQrPayloadSeen = qr;
       state.awaitingQrScan = true;
@@ -934,13 +949,14 @@ if (shouldInitWhatsAppClients) {
     });
 
     client.on("authenticated", () => {
-      console.log(`[${label}] Authenticated`);
+      console.log(`[${label}] ✅ Authenticated - Perangkat berhasil tertaut!`);
       clearLogoutAwaitingQr(client);
       scheduleAuthenticatedReadyFallback(client, label);
     });
 
     client.on("auth_failure", (msg) => {
-      console.error(`[${label}] Authentication failure: ${msg}`);
+      console.error(`[${label}] ❌ Authentication failure: ${msg}`);
+      console.error(`[${label}] 💡 Solusi: Hapus folder session dan scan QR ulang`);
       state.lastAuthFailureAt = Date.now();
       state.lastAuthFailureMessage = String(msg || "auth_failure");
       clearAuthenticatedFallbackTimer(client);
@@ -960,17 +976,33 @@ if (shouldInitWhatsAppClients) {
 
     client.on("disconnected", (reason) => {
       const normalizedReason = normalizeDisconnectReason(reason);
-      console.warn(`[${label}] Disconnected: ${normalizedReason}`);
+      const isUnpaired = isDeviceUnpairedReason(normalizedReason);
+      
+      if (isUnpaired) {
+        console.warn(`[${label}] ⚠️  Device UNPAIRED (${normalizedReason}): Perangkat tidak tertaut, perlu scan QR baru`);
+      } else {
+        console.warn(`[${label}] Disconnected: ${normalizedReason}`);
+      }
+      
       state.ready = false;
       state.lastDisconnectReason = normalizedReason;
       
       if (isLogoutDisconnectReason(normalizedReason)) {
+        const logType = isUnpaired ? "Device unpairing" : "Logout-style disconnect";
         console.warn(
-          `[${label}] Logout-style disconnect (${normalizedReason}); awaiting QR scan`
+          `[${label}] ${logType} (${normalizedReason}); awaiting QR scan`
         );
         state.awaitingQrScan = true;
         state.lastAuthFailureAt = Date.now();
         state.lastAuthFailureMessage = `disconnect:${normalizedReason}`;
+        
+        // For UNPAIRED events, also clean browser locks immediately
+        if (isUnpaired) {
+          console.log(`[${label}] Cleaning browser locks after device unpaired...`);
+          cleanupStaleBrowserLocksOnStartup(client).catch(err => 
+            console.warn(`[${label}] Failed to cleanup locks after unpaired:`, err?.message)
+          );
+        }
       }
       
       resetFallbackReadyState(client);
@@ -979,15 +1011,22 @@ if (shouldInitWhatsAppClients) {
 
     client.on("change_state", (newState) => {
       const normalizedState = String(newState || "").toUpperCase();
-      console.log(`[${label}] State changed: ${normalizedState}`);
+      const isUnpaired = isDeviceUnpairedReason(normalizedState);
+      
+      if (isUnpaired) {
+        console.log(`[${label}] ⚠️  State changed to UNPAIRED: ${normalizedState}`);
+      } else {
+        console.log(`[${label}] State changed: ${normalizedState}`);
+      }
       
       if (disconnectChangeStates.has(normalizedState)) {
         state.ready = false;
         state.lastDisconnectReason = normalizedState;
         
         if (isLogoutDisconnectReason(normalizedState)) {
+          const logType = isUnpaired ? "Device unpairing" : "Logout-style state";
           console.warn(
-            `[${label}] Logout-style state (${normalizedState}); awaiting QR scan`
+            `[${label}] ${logType} (${normalizedState}); awaiting QR scan`
           );
           state.awaitingQrScan = true;
           state.lastAuthFailureAt = Date.now();
