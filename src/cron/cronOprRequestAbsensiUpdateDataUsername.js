@@ -3,7 +3,7 @@ import { sendDebug } from '../middleware/debugHandler.js';
 import { absensiUpdateDataUsername } from '../handler/fetchabsensi/wa/absensiUpdateDataUsername.js';
 import { findAllActiveOrgClientsWithSosmed } from '../model/clientModel.js';
 import { sendWithClientFallback, normalizeGroupId } from '../utils/waHelper.js';
-import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
+import waClient, { waGatewayClient } from '../service/waService.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestAbsensiUpdateDataUsername.js';
 const CRON_EXPRESSION = '45 6 * * *';
@@ -14,7 +14,6 @@ const ROLE_FLAG = 'operator';
 const waFallbackClients = [
   { client: waGatewayClient, label: 'WA-GATEWAY' },
   { client: waClient, label: 'WA' },
-  { client: waUserClient, label: 'WA-USER' },
 ];
 
 function getGroupRecipient(client) {

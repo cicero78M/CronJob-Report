@@ -1,13 +1,12 @@
 import { query } from '../repository/db.js';
 import { expireSubscription } from './dashboardSubscriptionService.js';
 import { sendWithClientFallback, formatToWhatsAppId } from '../utils/waHelper.js';
-import waClient, { waGatewayClient, waUserClient } from './waService.js';
+import waClient, { waGatewayClient } from './waService.js';
 
 const DEFAULT_TIMEZONE = 'Asia/Jakarta';
 const waFallbackClients = [
   { client: waGatewayClient, label: 'WA-GATEWAY' },
   { client: waClient, label: 'WA' },
-  { client: waUserClient, label: 'WA-USER' },
 ];
 
 export function selectExpiredSubscriptions(subscriptions = [], now = new Date()) {

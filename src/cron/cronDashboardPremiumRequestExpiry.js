@@ -1,7 +1,7 @@
 import { scheduleCronJob } from '../utils/cronScheduler.js';
 import { expireDashboardPremiumRequests } from '../service/dashboardPremiumRequestService.js';
 import { formatToWhatsAppId, sendWithClientFallback, sendWAReport } from '../utils/waHelper.js';
-import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
+import waClient, { waGatewayClient } from '../service/waService.js';
 
 export const JOB_KEY = './src/cron/cronDashboardPremiumRequestExpiry.js';
 const CRON_EXPRESSION = '20 * * * *';
@@ -9,7 +9,6 @@ const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const waFallbackClients = [
   { client: waGatewayClient, label: 'WA-GATEWAY' },
   { client: waClient, label: 'WA' },
-  { client: waUserClient, label: 'WA-USER' },
 ];
 
 function buildRequesterMessage(request) {
