@@ -295,6 +295,8 @@ const logoutDisconnectReasons = new Set([
   "UNPAIRED_IDLE",
 ]);
 // Device pairing specific reasons that require QR scan
+// This is a subset of logoutDisconnectReasons used to trigger specific UNPAIRED handling
+// such as automatic browser lock cleanup and enhanced user messaging
 const deviceUnpairedReasons = new Set([
   "UNPAIRED",
   "UNPAIRED_IDLE",

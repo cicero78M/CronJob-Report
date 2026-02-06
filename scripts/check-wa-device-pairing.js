@@ -34,7 +34,7 @@ function resolveAuthDataPath() {
   if (configuredPath) {
     return path.resolve(configuredPath);
   }
-  const homeDir = os.homedir?.();
+  const homeDir = os.homedir();
   const baseDir = homeDir || process.cwd();
   return path.resolve(path.join(baseDir, DEFAULT_AUTH_DATA_PARENT_DIR, DEFAULT_AUTH_DATA_DIR));
 }
