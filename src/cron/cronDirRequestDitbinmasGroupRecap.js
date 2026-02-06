@@ -8,7 +8,7 @@ import {
   sendWithClientFallback,
   normalizeGroupId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
+import waClient, { waGatewayClient } from '../service/waService.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
@@ -21,7 +21,6 @@ const ACTIONS = [
 const waFallbackClients = [
   { client: waGatewayClient, label: 'WA-GATEWAY' },
   { client: waClient, label: 'WA' },
-  { client: waUserClient, label: 'WA-USER' },
 ];
 
 function logInvalidRecipient(value) {

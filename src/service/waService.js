@@ -121,12 +121,8 @@ export async function sendDashboardPremiumRequestNotification(client, request) {
 
 const DEFAULT_AUTH_DATA_PARENT_DIR = ".cicero";
 const DEFAULT_AUTH_DATA_DIR = "wwebjs_auth";
-const defaultUserClientId = "wa-userrequest";
 const defaultGatewayClientId = "wa-gateway";
-const rawUserClientId = String(env.USER_WA_CLIENT_ID || "");
 const rawGatewayClientId = String(env.GATEWAY_WA_CLIENT_ID || "");
-const normalizedUserClientId = rawUserClientId.trim();
-const normalizedUserClientIdLower = normalizedUserClientId.toLowerCase();
 const trimmedGatewayClientId = rawGatewayClientId.trim();
 const normalizedGatewayClientId = trimmedGatewayClientId.toLowerCase();
 const resolvedGatewayClientId = normalizedGatewayClientId || undefined;
@@ -178,49 +174,6 @@ const throwClientIdError = (message) => {
   throw new Error(`[WA] ${message}`);
 };
 
-const ensureUserClientIdConsistency = () => {
-  const authDataPath = resolveAuthDataPath();
-  if (!normalizedUserClientIdLower) {
-    throwClientIdError(
-      "USER_WA_CLIENT_ID kosong; set nilai unik lowercase (contoh: wa-userrequest-prod)."
-    );
-  }
-  if (
-    normalizedUserClientId &&
-    normalizedUserClientIdLower &&
-    normalizedUserClientId !== normalizedUserClientIdLower
-  ) {
-    const sessionPath = findSessionCaseMismatch(
-      authDataPath,
-      normalizedUserClientIdLower
-    );
-    const sessionHint = sessionPath
-      ? ` Ditemukan session berbeda di ${sessionPath}.`
-      : "";
-    throwClientIdError(
-      `USER_WA_CLIENT_ID harus lowercase. Nilai "${normalizedUserClientId}" tidak konsisten.${sessionHint} ` +
-        "Perbarui env/folder session agar cocok sebelum menjalankan proses."
-    );
-  }
-  if (normalizedUserClientIdLower === defaultUserClientId) {
-    throwClientIdError(
-      `USER_WA_CLIENT_ID masih default (${defaultUserClientId}); clientId harus unik dan lowercase. ` +
-        `Perbarui env dan bersihkan session lama di ${authDataPath}.`
-    );
-  }
-  const mismatchedSessionPath = findSessionCaseMismatch(
-    authDataPath,
-    normalizedUserClientIdLower
-  );
-  if (mismatchedSessionPath) {
-    throwClientIdError(
-      `Folder session "${path.basename(mismatchedSessionPath)}" tidak konsisten dengan ` +
-        `USER_WA_CLIENT_ID="${normalizedUserClientIdLower}". Rename atau hapus session lama di ` +
-        `${mismatchedSessionPath} agar konsisten.`
-    );
-  }
-};
-
 const ensureGatewayClientIdConsistency = () => {
   const authDataPath = resolveAuthDataPath();
   if (
@@ -259,54 +212,23 @@ const ensureGatewayClientIdConsistency = () => {
   }
 };
 
-const ensureClientIdUniqueness = () => {
-  if (normalizedUserClientIdLower === normalizedGatewayClientId) {
-    throwClientIdError(
-      `USER_WA_CLIENT_ID dan GATEWAY_WA_CLIENT_ID sama (${normalizedGatewayClientId}); ` +
-        "clientId harus unik. Perbarui env sebelum menjalankan proses."
-    );
-  }
-};
-
-ensureUserClientIdConsistency();
 ensureGatewayClientIdConsistency();
-ensureClientIdUniqueness();
 
 // Initialize WhatsApp client via whatsapp-web.js
 export let waClient = await createWwebjsClient();
-export let waUserClient = await createWwebjsClient(env.USER_WA_CLIENT_ID);
 export let waGatewayClient = await createWwebjsClient(resolvedGatewayClientId);
 
 const logClientIdIssue = (envVar, issueMessage) => {
   console.error(`[WA] ${envVar} ${issueMessage}; clientId harus unik.`);
 };
 
-if (!normalizedUserClientId) {
-  logClientIdIssue("USER_WA_CLIENT_ID", "kosong");
-}
 if (!normalizedGatewayClientId) {
   logClientIdIssue("GATEWAY_WA_CLIENT_ID", "kosong");
-}
-if (normalizedUserClientId === defaultUserClientId) {
-  logClientIdIssue(
-    "USER_WA_CLIENT_ID",
-    `masih default (${defaultUserClientId})`
-  );
 }
 if (normalizedGatewayClientId === defaultGatewayClientId) {
   logClientIdIssue(
     "GATEWAY_WA_CLIENT_ID",
     `masih default (${defaultGatewayClientId})`
-  );
-}
-if (
-  normalizedUserClientId &&
-  normalizedGatewayClientId &&
-  normalizedUserClientId === normalizedGatewayClientId
-) {
-  console.error(
-    `[WA] USER_WA_CLIENT_ID dan GATEWAY_WA_CLIENT_ID sama (${normalizedUserClientId}); ` +
-      "clientId harus unik."
   );
 }
 
@@ -738,7 +660,6 @@ function getListenerCount(client, eventName) {
 export function getWaReadinessSummary() {
   const clients = [
     { label: "WA", client: waClient },
-    { label: "WA-USER", client: waUserClient },
     { label: "WA-GATEWAY", client: waGatewayClient },
   ];
   const formatTimestamp = (value) =>
@@ -872,7 +793,6 @@ export function waitForWaReady(timeoutMs) {
 
 // Expose readiness helper for consumers like safeSendMessage
 waClient.waitForWaReady = () => waitForClientReady(waClient);
-waUserClient.waitForWaReady = () => waitForClientReady(waUserClient);
 waGatewayClient.waitForWaReady = () => waitForClientReady(waGatewayClient);
 
 // Ensure all message sends wait until client is ready
@@ -914,7 +834,6 @@ function wrapSendMessage(client) {
   };
 }
 wrapSendMessage(waClient);
-wrapSendMessage(waUserClient);
 wrapSendMessage(waGatewayClient);
 
 /**
@@ -922,7 +841,7 @@ wrapSendMessage(waGatewayClient);
  * This ensures all messages have been sent before the caller continues
  */
 export async function waitForAllMessageQueues() {
-  const clients = [waClient, waUserClient, waGatewayClient];
+  const clients = [waClient, waGatewayClient];
   const idlePromises = [];
   
   for (const client of clients) {
@@ -993,7 +912,6 @@ async function reinitializeClient(client, options = {}) {
 if (shouldInitWhatsAppClients) {
   const clientsToInit = [
     { label: "WA", client: waClient },
-    { label: "WA-USER", client: waUserClient },
     { label: "WA-GATEWAY", client: waGatewayClient },
   ];
 
@@ -1393,7 +1311,7 @@ if (shouldInitWhatsAppClients) {
           unknownStateRetryCount >= maxUnknownStateEscalationRetries;
         const shouldClearFallbackSession =
           normalizedStateLower === "unknown" &&
-          (label === "WA-GATEWAY" || label === "WA-USER");
+          label === "WA-GATEWAY";
         const hasAuthIndicators = hasAuthFailureIndicator(state);
         const sessionPath = client?.sessionPath || null;
         const sessionPathExists = sessionPath ? fs.existsSync(sessionPath) : false;
@@ -1519,7 +1437,6 @@ if (shouldInitWhatsAppClients) {
   };
 
   scheduleFallbackReadyCheck(waClient);
-  scheduleFallbackReadyCheck(waUserClient);
   scheduleFallbackReadyCheck(waGatewayClient);
 
   // =======================
@@ -1535,7 +1452,6 @@ if (shouldInitWhatsAppClients) {
   async function performHealthCheck() {
     const clients = [
       { label: "WA", client: waClient },
-      { label: "WA-USER", client: waUserClient },
       { label: "WA-GATEWAY", client: waGatewayClient },
     ];
     
@@ -1630,11 +1546,10 @@ if (shouldInitWhatsAppClients) {
   // Diagnostic checks to ensure message listeners are attached
   logWaServiceDiagnostics(
     waClient,
-    waUserClient,
     waGatewayClient,
     getWaReadinessSummary()
   );
-  checkMessageListenersAttached(waClient, waUserClient, waGatewayClient);
+  checkMessageListenersAttached(waClient, waGatewayClient);
 }
 
 export default waClient;

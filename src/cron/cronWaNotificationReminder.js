@@ -1,4 +1,4 @@
-import waClient, { waGatewayClient, waUserClient } from "../service/waService.js";
+import waClient, { waGatewayClient } from "../service/waService.js";
 import { sendWithClientFallback, formatToWhatsAppId } from "../utils/waHelper.js";
 import { getActiveUsersWithWhatsapp } from "../model/userModel.js";
 import { getShortcodesTodayByClient } from "../model/instaPostModel.js";
@@ -24,7 +24,6 @@ const WHATSAPP_SEND_DELAY_MS =
 const waFallbackClients = [
   { client: waGatewayClient, label: "WA-GATEWAY" },
   { client: waClient, label: "WA" },
-  { client: waUserClient, label: "WA-USER" },
 ];
 
 function delay(ms) {

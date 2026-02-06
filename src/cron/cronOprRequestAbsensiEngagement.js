@@ -8,7 +8,7 @@ import {
   sendWithClientFallback,
   normalizeGroupId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient, waUserClient } from '../service/waService.js';
+import waClient, { waGatewayClient } from '../service/waService.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestAbsensiEngagement.js';
 const CRON_EXPRESSION = '20 15,18,20 * * *';
@@ -20,7 +20,6 @@ const ABSENSI_MODE = 'all';
 const waFallbackClients = [
   { client: waGatewayClient, label: 'WA-GATEWAY' },
   { client: waClient, label: 'WA' },
-  { client: waUserClient, label: 'WA-USER' },
 ];
 
 async function getActiveClients() {

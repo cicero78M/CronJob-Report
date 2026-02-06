@@ -1,5 +1,5 @@
 import { sendDebug } from "../middleware/debugHandler.js";
-import waClient, { waGatewayClient, waUserClient } from "../service/waService.js";
+import waClient, { waGatewayClient } from "../service/waService.js";
 import { getAdminWAIds, sendWithClientFallback } from "../utils/waHelper.js";
 import {
   buildSatbinmasOfficialInstagramRecap,
@@ -11,7 +11,6 @@ const CRON_TAG = "CRON DIRREQ SATBINMAS OFFICIAL MEDIA";
 const waFallbackClients = [
   { client: waGatewayClient, label: "WA-GATEWAY" },
   { client: waClient, label: "WA" },
-  { client: waUserClient, label: "WA-USER" },
 ];
 
 function getRecipients() {
