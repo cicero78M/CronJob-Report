@@ -427,15 +427,14 @@ export class WAClient extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
+      let stateCheckInterval = null;
       
       const timer = setTimeout(() => {
         const elapsed = Date.now() - startTime;
         const state = this.isInitializing ? 'initializing' : 'unknown';
         
-        // Clean up listeners on timeout
-        this.removeAllListeners('ready');
-        this.removeAllListeners('auth_failure');
-        this.removeAllListeners('disconnected');
+        // Clean up listeners and interval on timeout
+        cleanup();
         
         // Build detailed error message
         let errorMsg = `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. `;
@@ -467,10 +466,44 @@ export class WAClient extends EventEmitter {
 
       const cleanup = () => {
         clearTimeout(timer);
+        if (stateCheckInterval) {
+          clearInterval(stateCheckInterval);
+        }
         this.removeAllListeners('ready');
         this.removeAllListeners('auth_failure');
         this.removeAllListeners('disconnected');
       };
+
+      // Set up state polling fallback mechanism
+      // This checks if the client is actually ready even if the ready event doesn't fire
+      // which can happen when WhatsApp Web gets stuck in loading state after authentication
+      stateCheckInterval = setInterval(async () => {
+        try {
+          // Only check state if authenticated but not ready yet
+          if (this.authenticated && !this.isReady) {
+            const state = await this.getState();
+            console.log(`[${this.config.clientId}] State check: ${state}`);
+            
+            // If state is CONNECTED, mark as ready even if event didn't fire
+            if (state === 'CONNECTED' || state === 'open') {
+              console.log(`[${this.config.clientId}] Client is ready via state check (fallback mechanism)`);
+              this.isReady = true;
+              this.isInitializing = false;
+              cleanup();
+              // Emit the ready event manually since it wasn't emitted by the underlying client
+              this.emit('ready');
+              resolve(true);
+            }
+          }
+        } catch (error) {
+          // Silently ignore state check errors to avoid noise during normal operation
+          // The timeout will handle the error case if state checks keep failing
+          // However, log unexpected errors for debugging
+          if (error && error.message && !error.message.includes('not initialized') && !error.message.includes('ERR_')) {
+            console.warn(`[${this.config.clientId}] Unexpected error during state check:`, error.message);
+          }
+        }
+      }, 5000); // Check every 5 seconds
 
       this.once('ready', () => {
         cleanup();
