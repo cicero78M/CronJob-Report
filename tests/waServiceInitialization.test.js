@@ -26,17 +26,19 @@ describe('waService initialization timing', () => {
       on: jest.fn(),
     };
     
+    // Create shared mock service object to avoid duplication
+    const mockWAService = {
+      createClient: jest.fn().mockReturnValue(mockWAClient),
+      initializeClient: jest.fn().mockResolvedValue(undefined),
+      getClient: jest.fn().mockReturnValue(mockWAClient),
+      waitForAllReady: jest.fn().mockResolvedValue(undefined),
+    };
+    
     // Mock the WAService and WAClient classes
-    jest.unstable_mockModule('../src/wa/WAService.js', () => {
-      return {
-        waService: {
-          createClient: jest.fn().mockReturnValue(mockWAClient),
-          initializeClient: jest.fn().mockResolvedValue(undefined),
-          getClient: jest.fn().mockReturnValue(mockWAClient),
-          waitForAllReady: jest.fn().mockResolvedValue(undefined),
-        },
-      };
-    });
+    jest.unstable_mockModule('../src/wa/WAService.js', () => ({
+      waService: mockWAService,
+      WAService: jest.fn().mockImplementation(() => mockWAService),
+    }));
     
     jest.unstable_mockModule('../src/wa/compatibility.js', () => ({
       WAClientCompat: class {
@@ -46,11 +48,7 @@ describe('waService initialization timing', () => {
           this.waitForWaReady = jest.fn().mockResolvedValue(true);
         }
       },
-      waService: {
-        createClient: jest.fn().mockReturnValue(mockWAClient),
-        initializeClient: jest.fn().mockResolvedValue(undefined),
-        getClient: jest.fn().mockReturnValue(mockWAClient),
-      },
+      waService: mockWAService,
     }));
     
     // Mock WAHelpers
@@ -160,5 +158,9 @@ describe('waService initialization timing', () => {
     );
     
     expect(waService.initializeClient).toHaveBeenCalledTimes(2);
+    
+    // Verify that waitForAllReady was called with extended timeout
+    expect(waService.waitForAllReady).toHaveBeenCalledTimes(1);
+    expect(waService.waitForAllReady).toHaveBeenCalledWith(300000); // 5 minutes
   });
 });

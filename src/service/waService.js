@@ -39,16 +39,23 @@ export async function initializeWAService() {
       });
 
       // Start initialization
+      console.log('[waService] Starting client initialization...');
       await Promise.all([
         waService.initializeClient('wa-client'),
         waService.initializeClient('wa-gateway')
       ]);
 
+      // Wait for clients to be ready with extended timeout (5 minutes)
+      // This ensures WhatsApp Web authentication completes before proceeding
+      console.log('[waService] Waiting for clients to be ready...');
+      const readyTimeout = 300000; // 5 minutes for QR code scanning and authentication
+      await waService.waitForAllReady(readyTimeout);
+
       // Create client instances after initialization completes
       _waClient = new WAClientCompat('wa-client');
       _waGatewayClient = new WAClientCompat('wa-gateway');
 
-      console.log('[waService] Clients initialized successfully');
+      console.log('[waService] Clients initialized and ready successfully');
     } catch (error) {
       console.error('[waService] Failed to initialize clients:', error);
       throw error;
