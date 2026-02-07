@@ -298,6 +298,10 @@ export class WAClient extends EventEmitter {
       const timer = setTimeout(() => {
         const elapsed = Date.now() - startTime;
         const state = this.isInitializing ? 'initializing' : 'unknown';
+        // Clean up listeners on timeout
+        this.removeAllListeners('ready');
+        this.removeAllListeners('auth_failure');
+        this.removeAllListeners('disconnected');
         reject(new Error(
           `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. ` +
           `Current state: ${state}. This may indicate: ` +
@@ -308,19 +312,26 @@ export class WAClient extends EventEmitter {
         ));
       }, timeout);
 
-      this.once('ready', () => {
+      const cleanup = () => {
         clearTimeout(timer);
+        this.removeAllListeners('ready');
+        this.removeAllListeners('auth_failure');
+        this.removeAllListeners('disconnected');
+      };
+
+      this.once('ready', () => {
+        cleanup();
         resolve(true);
       });
 
       this.once('auth_failure', (error) => {
-        clearTimeout(timer);
+        cleanup();
         reject(new Error(`[${this.config.clientId}] Authentication failed: ${error.message || error}`));
       });
 
       // Also listen for disconnection during wait
       this.once('disconnected', (reason) => {
-        clearTimeout(timer);
+        cleanup();
         reject(new Error(`[${this.config.clientId}] Disconnected while waiting for ready: ${reason}`));
       });
     });
