@@ -46,6 +46,13 @@ const initPromise = (async () => {
 })();
 
 /**
+ * Wait for initialization to complete
+ */
+export async function waitForInitialization() {
+  return initPromise;
+}
+
+/**
  * Wait for all message queues
  */
 export async function waitForAllMessageQueues() {

@@ -59,6 +59,9 @@ export class WAClientCompat {
   }
 
   async waitForWaReady(timeout = 60000) {
+    if (!this._client) {
+      throw new Error(`[WAClientCompat] Client ${this.clientId} not found`);
+    }
     return this._client.waitForReady(timeout);
   }
 

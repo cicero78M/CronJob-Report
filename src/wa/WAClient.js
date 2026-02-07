@@ -186,7 +186,7 @@ export class WAClient extends EventEmitter {
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+    const delay = this.reconnectDelay * (2 ** (this.reconnectAttempts - 1)); // Exponential backoff
     
     console.log(`[${this.config.clientId}] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
     

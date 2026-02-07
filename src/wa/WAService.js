@@ -113,7 +113,13 @@ export class WAService {
    */
   async _handleIncomingMessage(clientId, message) {
     // Check for duplicates
-    const messageKey = `${clientId}:${message.id._serialized}`;
+    const messageId = message.id?._serialized || message.id?.id || message.id;
+    if (!messageId) {
+      console.warn(`[WAService] Message without ID received from ${clientId}`);
+      return;
+    }
+    
+    const messageKey = `${clientId}:${messageId}`;
     if (this.deduplicator.isDuplicate(messageKey)) {
       console.log(`[WAService] Duplicate message ignored: ${messageKey}`);
       return;

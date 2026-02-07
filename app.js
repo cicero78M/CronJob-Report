@@ -67,10 +67,6 @@ async function initializeApp() {
     // Initialize new WA clients
     await initializeClients();
     
-    // Create compatibility wrappers
-    const waClient = new WAClientCompat('wa-client');
-    const waGatewayClient = new WAClientCompat('wa-gateway');
-    
     // Load always bucket
     await loadCronModules(cronBuckets.always)
       .then(activated => logBucketStatus('Always', activated))
@@ -91,6 +87,10 @@ async function initializeApp() {
     process.exit(1);
   }
 }
+
+// Create compatibility wrappers at module level
+const waClient = new WAClientCompat('wa-client');
+const waGatewayClient = new WAClientCompat('wa-gateway');
 
 // Start the application
 initializeApp();
