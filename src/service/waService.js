@@ -27,7 +27,10 @@ export async function initializeWAService() {
         clientId: env.APP_SESSION_NAME || 'wa-admin',
         authPath: env.WA_AUTH_DATA_PATH,
         webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
-        webVersion: env.WA_WEB_VERSION
+        webVersion: env.WA_WEB_VERSION,
+        maxInitRetries: env.WA_INIT_MAX_RETRIES,
+        initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
+        qrTimeout: env.WA_QR_TIMEOUT_MS
       });
 
       // Create gateway client
@@ -35,7 +38,10 @@ export async function initializeWAService() {
         clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod',
         authPath: env.WA_AUTH_DATA_PATH,
         webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
-        webVersion: env.WA_WEB_VERSION
+        webVersion: env.WA_WEB_VERSION,
+        maxInitRetries: env.WA_INIT_MAX_RETRIES,
+        initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
+        qrTimeout: env.WA_QR_TIMEOUT_MS
       });
 
       // Start initialization
