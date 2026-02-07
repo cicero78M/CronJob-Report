@@ -10,5 +10,6 @@ export { WAMessageQueue } from './WAMessageQueue.js';
 export { WAMessageDeduplicator } from './WAMessageDeduplicator.js';
 export * as WAHelpers from './WAHelpers.js';
 
-// Export default service instance for convenience
-export default waService;
+// Import and re-export for default
+import { waService as defaultService } from './WAService.js';
+export default defaultService;

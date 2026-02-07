@@ -177,12 +177,12 @@ export class WAService {
     console.log('[WAService] Destroying service...');
 
     // Destroy all clients
-    for (const [clientId, client] of this.clients.entries()) {
+    for (const client of this.clients.values()) {
       await client.destroy();
     }
 
     // Disconnect all queues
-    for (const [clientId, queue] of this.queues.entries()) {
+    for (const queue of this.queues.values()) {
       await queue.disconnect();
     }
 
