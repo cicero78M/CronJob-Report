@@ -49,9 +49,12 @@ export class WAMessageQueue {
       throw new Error(`[${this.clientId}] Client is not ready`);
     }
 
+    // Normalize options to ensure it's always an object
+    const normalizedOptions = options || {};
+
     return this.limiter.schedule(async () => {
       try {
-        const result = await client.sendMessage(to, content, options);
+        const result = await client.sendMessage(to, content, normalizedOptions);
         console.log(`[${this.clientId}] Message sent to ${to}`);
         return result;
       } catch (error) {

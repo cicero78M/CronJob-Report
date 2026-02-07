@@ -95,7 +95,10 @@ export class WAService {
       throw new Error(`[WAService] Client ${clientId} not found`);
     }
 
-    return queue.schedule(client, to, content, options);
+    // Normalize options to ensure it's always an object
+    const normalizedOptions = options || {};
+
+    return queue.schedule(client, to, content, normalizedOptions);
   }
 
   /**
