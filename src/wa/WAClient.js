@@ -495,9 +495,13 @@ export class WAClient extends EventEmitter {
               resolve(true);
             }
           }
-        } catch {
-          // Silently ignore state check errors to avoid noise
+        } catch (error) {
+          // Silently ignore state check errors to avoid noise during normal operation
           // The timeout will handle the error case if state checks keep failing
+          // However, log unexpected errors for debugging
+          if (error && error.message && !error.message.includes('not initialized') && !error.message.includes('ERR_')) {
+            console.warn(`[${this.config.clientId}] Unexpected error during state check:`, error.message);
+          }
         }
       }, 5000); // Check every 5 seconds
 
