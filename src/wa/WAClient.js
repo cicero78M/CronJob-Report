@@ -287,9 +287,25 @@ export class WAClient extends EventEmitter {
       return true;
     }
 
+    // Check if client is even initialized
+    if (!this.client) {
+      throw new Error(`[${this.config.clientId}] Client not initialized. Call initialize() first.`);
+    }
+
     return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      
       const timer = setTimeout(() => {
-        reject(new Error(`[${this.config.clientId}] Timeout waiting for ready event`));
+        const elapsed = Date.now() - startTime;
+        const state = this.isInitializing ? 'initializing' : 'unknown';
+        reject(new Error(
+          `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. ` +
+          `Current state: ${state}. This may indicate: ` +
+          `1) WhatsApp Web QR code needs to be scanned, ` +
+          `2) Network connectivity issues, or ` +
+          `3) WhatsApp Web service is down. ` +
+          `Consider increasing the timeout or checking authentication status.`
+        ));
       }, timeout);
 
       this.once('ready', () => {
@@ -299,7 +315,13 @@ export class WAClient extends EventEmitter {
 
       this.once('auth_failure', (error) => {
         clearTimeout(timer);
-        reject(error);
+        reject(new Error(`[${this.config.clientId}] Authentication failed: ${error.message || error}`));
+      });
+
+      // Also listen for disconnection during wait
+      this.once('disconnected', (reason) => {
+        clearTimeout(timer);
+        reject(new Error(`[${this.config.clientId}] Disconnected while waiting for ready: ${reason}`));
       });
     });
   }

@@ -45,18 +45,24 @@ function scheduleCronBucket(client, bucketKey, label) {
       .then(activated => logBucketStatus(label, activated))
       .catch(err => console.error(`[CRON] Failed to activate ${label} cron bucket`, err));
 
+  // Listen for ready event in case client reconnects
   client.on('ready', () => {
     console.log(`[CRON] ${label} client ready event`);
     activateBucket();
   });
 
+  // Since initializeWAService() now waits for clients to be ready,
+  // this call should return immediately. We still call it to verify.
   client
     .waitForWaReady()
     .then(() => {
-      console.log(`[CRON] ${label} client ready`);
+      console.log(`[CRON] ${label} client confirmed ready`);
       return activateBucket();
     })
-    .catch(err => console.error(`[CRON] Error waiting for ${label} readiness`, err));
+    .catch(err => {
+      console.error(`[CRON] Error waiting for ${label} readiness`, err);
+      console.error(`[CRON] This should not happen if initializeWAService() completed successfully`);
+    });
 }
 
 // Initialize WhatsApp clients with new architecture
