@@ -2,7 +2,7 @@ import './src/utils/logger.js';
 // Note: Environment validation happens automatically through imports in services
 import cronManifest from './src/cron/cronManifest.js';
 import { registerDirRequestCrons } from './src/cron/dirRequest/index.js';
-import { initializeClients, WAClientCompat } from './src/wa/compatibility.js';
+import { initializeWAService, waClient, waGatewayClient } from './src/service/waService.js';
 import { startOtpWorker } from './src/service/otpQueue.js';
 
 const cronBuckets = cronManifest.reduce((buckets, { bucket, modulePath }) => {
@@ -64,10 +64,11 @@ async function initializeApp() {
   try {
     console.log('[APP] Initializing WhatsApp clients with new architecture...');
     
-    // Initialize new WA clients
-    await initializeClients();
+    // Initialize WA service and clients - MUST complete before any cron jobs run
+    await initializeWAService();
+    console.log('[APP] WhatsApp clients initialized and ready');
     
-    // Load always bucket
+    // Load always bucket AFTER WA clients are initialized
     await loadCronModules(cronBuckets.always)
       .then(activated => logBucketStatus('Always', activated))
       .catch(err => console.error('[CRON] Failed to activate always cron bucket', err));
@@ -87,10 +88,6 @@ async function initializeApp() {
     process.exit(1);
   }
 }
-
-// Create compatibility wrappers at module level
-const waClient = new WAClientCompat('wa-client');
-const waGatewayClient = new WAClientCompat('wa-gateway');
 
 // Start the application
 initializeApp();
