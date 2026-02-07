@@ -140,3 +140,4 @@ node_modules/
 .env
 .env.example
 .wwebjs_auth/
+.backup/

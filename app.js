@@ -2,7 +2,7 @@ import './src/utils/logger.js';
 // Note: Environment validation happens automatically through imports in services
 import cronManifest from './src/cron/cronManifest.js';
 import { registerDirRequestCrons } from './src/cron/dirRequest/index.js';
-import { waClient, waGatewayClient } from './src/service/waService.js';
+import { initializeClients, WAClientCompat } from './src/wa/compatibility.js';
 import { startOtpWorker } from './src/service/otpQueue.js';
 
 const cronBuckets = cronManifest.reduce((buckets, { bucket, modulePath }) => {
@@ -59,14 +59,38 @@ function scheduleCronBucket(client, bucketKey, label) {
     .catch(err => console.error(`[CRON] Error waiting for ${label} readiness`, err));
 }
 
-loadCronModules(cronBuckets.always)
-  .then(activated => logBucketStatus('Always', activated))
-  .catch(err => console.error('[CRON] Failed to activate always cron bucket', err));
+// Initialize WhatsApp clients with new architecture
+async function initializeApp() {
+  try {
+    console.log('[APP] Initializing WhatsApp clients with new architecture...');
+    
+    // Initialize new WA clients
+    await initializeClients();
+    
+    // Load always bucket
+    await loadCronModules(cronBuckets.always)
+      .then(activated => logBucketStatus('Always', activated))
+      .catch(err => console.error('[CRON] Failed to activate always cron bucket', err));
 
-scheduleCronBucket(waClient, 'waClient', 'WA client');
-registerDirRequestCrons(waGatewayClient);
+    // Schedule cron buckets
+    scheduleCronBucket(waClient, 'waClient', 'WA client');
+    registerDirRequestCrons(waGatewayClient);
 
-startOtpWorker().catch(err => console.error('[OTP] worker error', err));
+    // Start OTP worker
+    await startOtpWorker().catch(err => console.error('[OTP] worker error', err));
 
-console.log('Cicero CronJob service started - Web endpoints and wabot menus removed');
-console.log('Only automated cron jobs and background workers are running');
+    console.log('[APP] Cicero CronJob service started with new WA bot architecture');
+    console.log('[APP] Web endpoints and wabot menus removed');
+    console.log('[APP] Only automated cron jobs and background workers are running');
+  } catch (error) {
+    console.error('[APP] Failed to initialize application:', error);
+    process.exit(1);
+  }
+}
+
+// Create compatibility wrappers at module level
+const waClient = new WAClientCompat('wa-client');
+const waGatewayClient = new WAClientCompat('wa-gateway');
+
+// Start the application
+initializeApp();
