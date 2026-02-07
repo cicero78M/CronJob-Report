@@ -35,6 +35,12 @@ describe('waService initialization timing', () => {
           getClient: jest.fn().mockReturnValue(mockWAClient),
           waitForAllReady: jest.fn().mockResolvedValue(undefined),
         },
+        WAService: jest.fn().mockImplementation(() => ({
+          createClient: jest.fn().mockReturnValue(mockWAClient),
+          initializeClient: jest.fn().mockResolvedValue(undefined),
+          getClient: jest.fn().mockReturnValue(mockWAClient),
+          waitForAllReady: jest.fn().mockResolvedValue(undefined),
+        })),
       };
     });
     
@@ -50,6 +56,7 @@ describe('waService initialization timing', () => {
         createClient: jest.fn().mockReturnValue(mockWAClient),
         initializeClient: jest.fn().mockResolvedValue(undefined),
         getClient: jest.fn().mockReturnValue(mockWAClient),
+        waitForAllReady: jest.fn().mockResolvedValue(undefined),
       },
     }));
     
@@ -160,5 +167,9 @@ describe('waService initialization timing', () => {
     );
     
     expect(waService.initializeClient).toHaveBeenCalledTimes(2);
+    
+    // Verify that waitForAllReady was called with extended timeout
+    expect(waService.waitForAllReady).toHaveBeenCalledTimes(1);
+    expect(waService.waitForAllReady).toHaveBeenCalledWith(300000); // 5 minutes
   });
 });
