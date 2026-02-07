@@ -23,9 +23,10 @@ class WAClientConfig {
     this.puppeteerOptions = options.puppeteerOptions || {};
     this.webVersionCacheUrl = options.webVersionCacheUrl || '';
     this.webVersion = options.webVersion || '';
-    this.maxInitRetries = options.maxInitRetries || 3;
-    this.initRetryDelay = options.initRetryDelay || 10000; // 10 seconds
-    this.qrTimeout = options.qrTimeout || 120000; // 2 minutes for QR scan
+    // Parse as integers to handle environment variables passed as strings
+    this.maxInitRetries = parseInt(options.maxInitRetries, 10) || 3;
+    this.initRetryDelay = parseInt(options.initRetryDelay, 10) || 10000; // 10 seconds
+    this.qrTimeout = parseInt(options.qrTimeout, 10) || 120000; // 2 minutes for QR scan
   }
 }
 
@@ -93,6 +94,12 @@ export class WAClient extends EventEmitter {
             '--no-first-run',
             '--no-zygote',
             '--disable-gpu',
+            // NOTE: The following flags reduce security isolation but are required
+            // for WhatsApp Web.js to function properly in containerized environments.
+            // These flags allow the WhatsApp Web client to bypass CORS and process
+            // isolation restrictions that would otherwise prevent proper operation.
+            // Risk: Reduced browser security sandboxing
+            // Mitigation: Client runs in isolated process, only accesses WhatsApp Web
             '--disable-web-security',
             '--disable-features=IsolateOrigins,site-per-process'
           ],
@@ -146,10 +153,14 @@ export class WAClient extends EventEmitter {
             await this.initialize();
           } catch (retryError) {
             console.error(`[${this.config.clientId}] Retry failed:`, retryError);
+            // Emit error event to notify listeners of final retry failure
+            this.emit('init_retry_failed', retryError);
           }
         }, delay);
       } else {
         console.error(`[${this.config.clientId}] Maximum initialization retries (${this.config.maxInitRetries}) exceeded`);
+        // Emit error event for max retries exceeded
+        this.emit('init_failed', error);
         throw error;
       }
     }
@@ -171,6 +182,7 @@ export class WAClient extends EventEmitter {
     this.client.on('authenticated', () => {
       console.log(`[${this.config.clientId}] Authentication successful`);
       this.authenticated = true;
+      this.qrScanned = true; // Set to true when authentication succeeds (typically after QR scan or using saved session)
       this.reconnectAttempts = 0; // Reset reconnect attempts on successful auth
       this.initRetries = 0; // Reset init retries on successful auth
       this.emit('authenticated');
@@ -307,8 +319,16 @@ export class WAClient extends EventEmitter {
           await this.initialize();
         } catch (error) {
           console.error(`[${this.config.clientId}] Retry after timeout failed:`, error);
+          // Emit error event to notify listeners of timeout retry failure
+          this.emit('timeout_retry_failed', error);
         }
       }, delay);
+    } else {
+      // Max retries exceeded after timeout
+      console.error(`[${this.config.clientId}] Maximum retries exceeded after ${reason}`);
+      const timeoutError = new Error(`[${this.config.clientId}] ${reason}: Maximum retries (${this.config.maxInitRetries}) exceeded`);
+      this.lastError = timeoutError;
+      this.emit('init_failed', timeoutError);
     }
   }
 
