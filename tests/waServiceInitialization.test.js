@@ -102,7 +102,7 @@ describe('waService initialization timing', () => {
     // Try to access waClient method before initialization
     expect(() => {
       waClient.sendMessage('test', 'test message');
-    }).toThrow('[waService] waClient not initialized yet');
+    }).toThrow('[waService] waClient not initialized');
   });
 
   test('waClient proxy should work after initialization', async () => {
@@ -131,14 +131,34 @@ describe('waService initialization timing', () => {
 
   test('initialization sequence should be correct', async () => {
     const { waService } = await import('../src/wa/compatibility.js');
+    const { env } = await import('../src/config/env.js');
     
     // Initialize
     await initializeWAService();
     
     // Verify the correct sequence of calls
     expect(waService.createClient).toHaveBeenCalledTimes(2);
-    expect(waService.createClient).toHaveBeenNthCalledWith(1, 'wa-client', expect.any(Object));
-    expect(waService.createClient).toHaveBeenNthCalledWith(2, 'wa-gateway', expect.any(Object));
+    
+    // Verify wa-client configuration
+    expect(waService.createClient).toHaveBeenNthCalledWith(1, 'wa-client', 
+      expect.objectContaining({
+        clientId: env.APP_SESSION_NAME || 'wa-admin',
+        authPath: env.WA_AUTH_DATA_PATH,
+        webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
+        webVersion: env.WA_WEB_VERSION
+      })
+    );
+    
+    // Verify wa-gateway configuration
+    expect(waService.createClient).toHaveBeenNthCalledWith(2, 'wa-gateway',
+      expect.objectContaining({
+        clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod',
+        authPath: env.WA_AUTH_DATA_PATH,
+        webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
+        webVersion: env.WA_WEB_VERSION
+      })
+    );
+    
     expect(waService.initializeClient).toHaveBeenCalledTimes(2);
   });
 });

@@ -122,7 +122,7 @@ export function getWAGatewayClient() {
 const waClientHandler = {
   get(target, prop) {
     if (!_waClient) {
-      throw new Error('[waService] waClient not initialized yet. Ensure initializeWAService() is called first.');
+      throw new Error('[waService] waClient not initialized. Ensure initializeWAService() is called first.');
     }
     const value = _waClient[prop];
     return typeof value === 'function' ? value.bind(_waClient) : value;
@@ -132,7 +132,7 @@ const waClientHandler = {
 const waGatewayClientHandler = {
   get(target, prop) {
     if (!_waGatewayClient) {
-      throw new Error('[waService] waGatewayClient not initialized yet. Ensure initializeWAService() is called first.');
+      throw new Error('[waService] waGatewayClient not initialized. Ensure initializeWAService() is called first.');
     }
     const value = _waGatewayClient[prop];
     return typeof value === 'function' ? value.bind(_waGatewayClient) : value;
