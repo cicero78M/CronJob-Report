@@ -23,6 +23,9 @@ class WAClientConfig {
     this.puppeteerOptions = options.puppeteerOptions || {};
     this.webVersionCacheUrl = options.webVersionCacheUrl || '';
     this.webVersion = options.webVersion || '';
+    this.maxInitRetries = options.maxInitRetries || 3;
+    this.initRetryDelay = options.initRetryDelay || 10000; // 10 seconds
+    this.qrTimeout = options.qrTimeout || 120000; // 2 minutes for QR scan
   }
 }
 
@@ -39,6 +42,10 @@ export class WAClient extends EventEmitter {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 5000; // 5 seconds
+    this.initRetries = 0;
+    this.qrScanned = false;
+    this.authenticated = false;
+    this.lastError = null;
   }
 
   /**
@@ -56,9 +63,20 @@ export class WAClient extends EventEmitter {
     }
 
     this.isInitializing = true;
-    console.log(`[${this.config.clientId}] Initializing WhatsApp client...`);
+    console.log(`[${this.config.clientId}] Initializing WhatsApp client (attempt ${this.initRetries + 1}/${this.config.maxInitRetries + 1})...`);
 
     try {
+      // Destroy existing client if present
+      if (this.client) {
+        console.log(`[${this.config.clientId}] Cleaning up existing client...`);
+        try {
+          await this.client.destroy();
+        } catch (err) {
+          console.warn(`[${this.config.clientId}] Error destroying old client:`, err.message);
+        }
+        this.client = null;
+      }
+
       // Create client with LocalAuth strategy
       const clientOptions = {
         authStrategy: new LocalAuth({
@@ -74,7 +92,9 @@ export class WAClient extends EventEmitter {
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process'
           ],
           ...this.config.puppeteerOptions
         }
@@ -95,14 +115,43 @@ export class WAClient extends EventEmitter {
       // Set up event handlers
       this._setupEventHandlers();
 
+      // Set up QR timeout if no authentication session exists
+      const qrTimeoutTimer = setTimeout(() => {
+        if (!this.authenticated && !this.isReady) {
+          console.warn(`[${this.config.clientId}] QR code scan timeout after ${this.config.qrTimeout}ms`);
+          this._handleInitializationTimeout('QR_SCAN_TIMEOUT');
+        }
+      }, this.config.qrTimeout);
+
       // Initialize the client
       await this.client.initialize();
       
+      clearTimeout(qrTimeoutTimer);
       console.log(`[${this.config.clientId}] Client initialized successfully`);
+      this.initRetries = 0; // Reset retry counter on success
+      this.lastError = null;
     } catch (error) {
       console.error(`[${this.config.clientId}] Initialization error:`, error);
+      this.lastError = error;
       this.isInitializing = false;
-      throw error;
+      
+      // Retry logic
+      if (this.initRetries < this.config.maxInitRetries) {
+        this.initRetries++;
+        const delay = this.config.initRetryDelay * Math.pow(2, this.initRetries - 1); // Exponential backoff
+        console.log(`[${this.config.clientId}] Retrying initialization in ${delay}ms...`);
+        
+        setTimeout(async () => {
+          try {
+            await this.initialize();
+          } catch (retryError) {
+            console.error(`[${this.config.clientId}] Retry failed:`, retryError);
+          }
+        }, delay);
+      } else {
+        console.error(`[${this.config.clientId}] Maximum initialization retries (${this.config.maxInitRetries}) exceeded`);
+        throw error;
+      }
     }
   }
 
@@ -112,23 +161,31 @@ export class WAClient extends EventEmitter {
   _setupEventHandlers() {
     // QR Code event
     this.client.on('qr', (qr) => {
-      console.log(`[${this.config.clientId}] QR Code received`);
+      console.log(`[${this.config.clientId}] QR Code received - Please scan within ${this.config.qrTimeout / 1000}s`);
       qrcode.generate(qr, { small: true });
+      this.qrScanned = false;
       this.emit('qr', qr);
     });
 
     // Authenticated event
     this.client.on('authenticated', () => {
       console.log(`[${this.config.clientId}] Authentication successful`);
+      this.authenticated = true;
       this.reconnectAttempts = 0; // Reset reconnect attempts on successful auth
+      this.initRetries = 0; // Reset init retries on successful auth
       this.emit('authenticated');
     });
 
     // Authentication failure event
     this.client.on('auth_failure', (error) => {
       console.error(`[${this.config.clientId}] Authentication failed:`, error);
+      this.authenticated = false;
       this.isInitializing = false;
+      this.lastError = error;
       this.emit('auth_failure', error);
+      
+      // Clear authentication data on auth failure
+      this._handleAuthenticationFailure();
     });
 
     // Ready event
@@ -137,6 +194,7 @@ export class WAClient extends EventEmitter {
       this.isReady = true;
       this.isInitializing = false;
       this.reconnectAttempts = 0;
+      this.initRetries = 0;
       this.emit('ready');
     });
 
@@ -155,6 +213,7 @@ export class WAClient extends EventEmitter {
       console.log(`[${this.config.clientId}] Client disconnected:`, reason);
       this.isReady = false;
       this.isInitializing = false;
+      this.authenticated = false;
       this.emit('disconnected', reason);
       
       // Attempt to reconnect
@@ -197,6 +256,60 @@ export class WAClient extends EventEmitter {
         console.error(`[${this.config.clientId}] Reconnection failed:`, error);
       }
     }, delay);
+  }
+
+  /**
+   * Handle authentication failure by cleaning up session
+   */
+  async _handleAuthenticationFailure() {
+    console.warn(`[${this.config.clientId}] Handling authentication failure...`);
+    
+    // If we've failed multiple times, clear the authentication session
+    if (this.initRetries >= 1) {
+      console.log(`[${this.config.clientId}] Clearing authentication session due to repeated failures...`);
+      try {
+        if (this.client) {
+          await this.client.destroy();
+          this.client = null;
+        }
+        // Note: The LocalAuth strategy will handle session cleanup
+        // We just need to destroy the client and let it reinitialize
+      } catch (err) {
+        console.error(`[${this.config.clientId}] Error clearing session:`, err);
+      }
+    }
+  }
+
+  /**
+   * Handle initialization timeout
+   */
+  async _handleInitializationTimeout(reason) {
+    console.warn(`[${this.config.clientId}] Initialization timeout: ${reason}`);
+    this.isInitializing = false;
+    
+    try {
+      if (this.client) {
+        await this.client.destroy();
+        this.client = null;
+      }
+    } catch (err) {
+      console.error(`[${this.config.clientId}] Error cleaning up on timeout:`, err);
+    }
+
+    // Trigger a retry if we haven't exceeded max retries
+    if (this.initRetries < this.config.maxInitRetries) {
+      this.initRetries++;
+      const delay = this.config.initRetryDelay * Math.pow(2, this.initRetries - 1);
+      console.log(`[${this.config.clientId}] Retrying after timeout in ${delay}ms...`);
+      
+      setTimeout(async () => {
+        try {
+          await this.initialize();
+        } catch (error) {
+          console.error(`[${this.config.clientId}] Retry after timeout failed:`, error);
+        }
+      }, delay);
+    }
   }
 
   /**
@@ -298,18 +411,38 @@ export class WAClient extends EventEmitter {
       const timer = setTimeout(() => {
         const elapsed = Date.now() - startTime;
         const state = this.isInitializing ? 'initializing' : 'unknown';
+        
         // Clean up listeners on timeout
         this.removeAllListeners('ready');
         this.removeAllListeners('auth_failure');
         this.removeAllListeners('disconnected');
-        reject(new Error(
-          `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. ` +
-          `Current state: ${state}. This may indicate: ` +
-          `1) WhatsApp Web QR code needs to be scanned, ` +
-          `2) Network connectivity issues, or ` +
-          `3) WhatsApp Web service is down. ` +
-          `Consider increasing the timeout or checking authentication status.`
-        ));
+        
+        // Build detailed error message
+        let errorMsg = `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. `;
+        errorMsg += `Current state: ${state}. `;
+        
+        if (!this.authenticated && !this.qrScanned) {
+          errorMsg += `Authentication status: Not authenticated (QR code may need to be scanned). `;
+        } else if (this.authenticated && !this.isReady) {
+          errorMsg += `Authentication status: Authenticated but not ready (loading). `;
+        }
+        
+        if (this.lastError) {
+          errorMsg += `Last error: ${this.lastError.message || this.lastError}. `;
+        }
+        
+        errorMsg += `Possible causes: `;
+        errorMsg += `1) WhatsApp Web QR code needs to be scanned (check console for QR code), `;
+        errorMsg += `2) Network connectivity issues or firewall blocking WhatsApp Web, `;
+        errorMsg += `3) WhatsApp Web service is temporarily down, `;
+        errorMsg += `4) Corrupted authentication session (try clearing ${this.config.authPath}). `;
+        errorMsg += `Suggestions: `;
+        errorMsg += `1) Increase timeout value, `;
+        errorMsg += `2) Check network connectivity and firewall rules, `;
+        errorMsg += `3) Ensure no other WhatsApp Web sessions are active with the same phone, `;
+        errorMsg += `4) Clear authentication data and scan QR code again.`;
+        
+        reject(new Error(errorMsg));
       }, timeout);
 
       const cleanup = () => {
