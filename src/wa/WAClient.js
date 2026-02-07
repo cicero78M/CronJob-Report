@@ -344,7 +344,7 @@ export class WAClient extends EventEmitter {
       // Normalize options to prevent "Cannot read properties of undefined (reading 'markedUnread')" error
       // Ensure options is always an object, never null or undefined
       const normalizedOptions = options || {};
-      
+
       const result = await this.client.sendMessage(to, content, normalizedOptions);
       return result;
     } catch (error) {
