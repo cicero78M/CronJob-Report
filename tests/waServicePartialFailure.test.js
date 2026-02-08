@@ -66,7 +66,7 @@ describe('waService partial failure handling', () => {
           this.isReady = this._client?.isReady || false;
           this.sendMessage = jest.fn().mockImplementation(() => {
             if (!this.isReady) {
-              throw new Error(`[WAClientCompat] Client ${this.clientId} is not ready. Please ensure the client is authenticated and connected.`);
+              return Promise.reject(new Error(`[WAClientCompat] Client ${this.clientId} is not ready. Please ensure the client is authenticated and connected.`));
             }
             return Promise.resolve(true);
           });
@@ -114,9 +114,7 @@ describe('waService partial failure handling', () => {
     
     // wa-client is ready and should work
     expect(waClient.isReady).toBe(true);
-    expect(() => {
-      waClient.sendMessage('test', 'test message');
-    }).not.toThrow();
+    await expect(waClient.sendMessage('test', 'test message')).resolves.not.toThrow();
   });
 
   test('waGatewayClient should throw error when not ready', async () => {
@@ -124,9 +122,7 @@ describe('waService partial failure handling', () => {
     
     // wa-gateway is not ready and should throw error
     expect(waGatewayClient.isReady).toBe(false);
-    expect(() => {
-      waGatewayClient.sendMessage('test', 'test message');
-    }).toThrow('[WAClientCompat] Client wa-gateway is not ready');
+    await expect(waGatewayClient.sendMessage('test', 'test message')).rejects.toThrow('Client wa-gateway is not ready');
   });
 
   test('service should fail only if NO clients are ready', async () => {
@@ -137,13 +133,15 @@ describe('waService partial failure handling', () => {
       { clientId: 'wa-gateway', status: 'failed', ready: false, error: 'LOGGED_OUT' }
     ]);
     
-    // Reset the initialization
+    // Reset the initialization using jest.isolateModules for proper isolation
     jest.resetModules();
-    const waServiceModule2 = await import('../src/service/waService.js?t=' + Date.now());
-    
-    // Should throw because no clients are ready
-    await expect(waServiceModule2.initializeWAService()).rejects.toThrow(
-      '[waService] No clients are ready. At least one client must be ready to proceed.'
-    );
+    await jest.isolateModules(async () => {
+      const waServiceModule2 = await import('../src/service/waService.js');
+      
+      // Should throw because no clients are ready
+      await expect(waServiceModule2.initializeWAService()).rejects.toThrow(
+        '[waService] No clients are ready. At least one client must be ready to proceed.'
+      );
+    });
   });
 });
