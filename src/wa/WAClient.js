@@ -195,24 +195,54 @@ export class WAClient extends EventEmitter {
         this.isInitializing = false;
         this.authenticated = false;
 
-        // Determine disconnect reason
+        // Determine disconnect reason with comprehensive mapping
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const errorMessage = lastDisconnect?.error?.message || '';
         
+        // Map all Baileys disconnect reasons for better diagnostics
         let reason = 'UNKNOWN';
+        let shouldReconnect = true;
+        
         if (statusCode === DisconnectReason.loggedOut) {
           reason = 'LOGGED_OUT';
+          shouldReconnect = false;
+        } else if (statusCode === DisconnectReason.forbidden) {
+          reason = 'FORBIDDEN';
+          shouldReconnect = false;
+        } else if (statusCode === DisconnectReason.multideviceMismatch) {
+          reason = 'MULTIDEVICE_MISMATCH';
+          shouldReconnect = false;
         } else if (statusCode === DisconnectReason.connectionClosed) {
           reason = 'CONNECTION_CLOSED';
         } else if (statusCode === DisconnectReason.connectionLost) {
           reason = 'CONNECTION_LOST';
+        } else if (statusCode === DisconnectReason.timedOut) {
+          reason = 'TIMED_OUT';
+        } else if (statusCode === DisconnectReason.connectionReplaced) {
+          reason = 'CONNECTION_REPLACED';
+          shouldReconnect = false;
+        } else if (statusCode === DisconnectReason.badSession) {
+          reason = 'BAD_SESSION';
+          shouldReconnect = false;
+        } else if (statusCode === DisconnectReason.restartRequired) {
+          reason = 'RESTART_REQUIRED';
+        } else if (statusCode === DisconnectReason.unavailableService) {
+          reason = 'UNAVAILABLE_SERVICE';
+        } else if (statusCode !== undefined) {
+          // Unknown status code - log separately for debugging but keep reason as UNKNOWN
+          console.warn(`[${this.config.clientId}] Unrecognized disconnect status code: ${statusCode}`);
         }
+        
+        // Log disconnect with details for troubleshooting
+        console.log(`[${this.config.clientId}] Disconnect reason: ${reason}${statusCode ? ` (code: ${statusCode})` : ''}${errorMessage ? `, error: ${errorMessage}` : ''}`);
 
         this.emit('disconnected', reason);
         
-        // Attempt to reconnect if not logged out
+        // Attempt to reconnect based on disconnect reason
         if (shouldReconnect) {
           this._handleReconnection(reason);
+        } else {
+          console.log(`[${this.config.clientId}] Not attempting reconnection due to: ${reason}`);
         }
       }
 
@@ -316,8 +346,16 @@ export class WAClient extends EventEmitter {
    * Handle reconnection logic
    */
   async _handleReconnection(reason) {
-    // Don't reconnect if logged out or max attempts reached
-    const noReconnectReasons = ['LOGGED_OUT', 'UNPAIRED'];
+    // Don't reconnect for terminal disconnect reasons or if max attempts reached
+    const noReconnectReasons = [
+      'LOGGED_OUT',
+      'UNPAIRED', 
+      'FORBIDDEN',
+      'MULTIDEVICE_MISMATCH',
+      'CONNECTION_REPLACED',
+      'BAD_SESSION'
+    ];
+    
     if (noReconnectReasons.includes(reason) || this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log(`[${this.config.clientId}] Not attempting reconnection. Reason: ${reason}, Attempts: ${this.reconnectAttempts}`);
       return;
