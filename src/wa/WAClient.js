@@ -105,7 +105,7 @@ export class WAClient extends EventEmitter {
         shouldSyncHistoryMessage: false,
         syncFullHistory: false,
         version: version,
-        getMessage: async (key) => {
+        getMessage: async () => {
           // Return undefined to indicate message not found in cache
           return undefined;
         }
@@ -511,68 +511,6 @@ export class WAClient extends EventEmitter {
       }
     }
   }
-
-  /**
-   * Wait for client to be ready
-   */
-  async waitForReady(timeout = 60000) {
-    if (this.isReady) {
-      return true;
-    }
-
-    // Check if client is even initialized
-    if (!this.client) {
-      throw new Error(`[${this.config.clientId}] Client not initialized. Call initialize() first.`);
-    }
-
-    return new Promise((resolve, reject) => {
-      const startTime = Date.now();
-      let stateCheckInterval = null;
-      
-      const timer = setTimeout(() => {
-        const elapsed = Date.now() - startTime;
-        const state = this.isInitializing ? 'initializing' : 'unknown';
-        
-        // Clean up listeners and interval on timeout
-        cleanup();
-        
-        // Build detailed error message
-        let errorMsg = `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. `;
-        errorMsg += `Current state: ${state}. `;
-        
-        if (!this.authenticated && !this.qrScanned) {
-          errorMsg += `Authentication status: Not authenticated (QR code may need to be scanned). `;
-        } else if (this.authenticated && !this.isReady) {
-          errorMsg += `Authentication status: Authenticated but not ready (loading). `;
-        }
-        
-        if (this.lastError) {
-          errorMsg += `Last error: ${this.lastError.message || this.lastError}. `;
-        }
-        
-        errorMsg += `Possible causes: `;
-        errorMsg += `1) WhatsApp Web QR code needs to be scanned (check console for QR code), `;
-        errorMsg += `2) Network connectivity issues or firewall blocking WhatsApp Web, `;
-        errorMsg += `3) WhatsApp Web service is temporarily down, `;
-        errorMsg += `4) Corrupted authentication session (try clearing ${this.config.authPath}). `;
-        errorMsg += `Suggestions: `;
-        errorMsg += `1) Increase timeout value, `;
-        errorMsg += `2) Check network connectivity and firewall rules, `;
-        errorMsg += `3) Ensure no other WhatsApp Web sessions are active with the same phone, `;
-        errorMsg += `4) Clear authentication data and scan QR code again.`;
-        
-        reject(new Error(errorMsg));
-      }, timeout);
-
-      const cleanup = () => {
-        clearTimeout(timer);
-        if (stateCheckInterval) {
-          clearInterval(stateCheckInterval);
-        }
-        this.removeAllListeners('ready');
-        this.removeAllListeners('auth_failure');
-        this.removeAllListeners('disconnected');
-      };
 
   /**
    * Wait for client to be ready
