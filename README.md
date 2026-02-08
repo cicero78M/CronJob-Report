@@ -66,9 +66,15 @@ This service runs automated scheduled tasks for social media monitoring and repo
 
 ### WhatsApp Integration
 
-The service maintains two WhatsApp clients:
+The service maintains two WhatsApp clients using **Baileys** (migrated from whatsapp-web.js for better performance and lower resource usage):
 - **Operator Client**: For user interactions and menu-driven commands
 - **Gateway Client**: For directorate broadcasts and official communications
+
+**Key Benefits of Baileys:**
+- **No browser dependency**: Pure Node.js implementation (no Puppeteer/Chrome required)
+- **Lower memory footprint**: ~50MB per client vs ~500MB with wwebjs
+- **Faster connection**: Direct WebSocket protocol implementation
+- **Better stability**: More reliable reconnection handling
 
 WhatsApp menus provide interactive access to:
 - Client information and statistics

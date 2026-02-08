@@ -27,6 +27,7 @@ export class WAService {
 
   /**
    * Create and register a new WhatsApp client
+   * Updated for Baileys compatibility
    */
   createClient(clientId, options = {}) {
     if (this.clients.has(clientId)) {
@@ -36,10 +37,12 @@ export class WAService {
 
     const config = {
       clientId,
-      authPath: options.authPath || env.WA_AUTH_DATA_PATH || path.join(os.homedir(), '.cicero', 'wwebjs_auth'),
-      webVersionCacheUrl: options.webVersionCacheUrl || env.WA_WEB_VERSION_CACHE_URL || '',
-      webVersion: options.webVersion || env.WA_WEB_VERSION || '',
-      puppeteerOptions: options.puppeteerOptions || {}
+      authPath: options.authPath || env.WA_AUTH_DATA_PATH || path.join(os.homedir(), '.cicero', 'baileys_auth'),
+      // Baileys-specific options
+      logLevel: options.logLevel || 'error',
+      maxInitRetries: options.maxInitRetries || env.WA_INIT_MAX_RETRIES,
+      initRetryDelay: options.initRetryDelay || env.WA_INIT_RETRY_DELAY_MS,
+      qrTimeout: options.qrTimeout || env.WA_QR_TIMEOUT_MS
     };
 
     const client = new WAClient(config);
@@ -54,7 +57,7 @@ export class WAService {
     this.clients.set(clientId, client);
     this.queues.set(clientId, queue);
 
-    console.log(`[WAService] Client ${clientId} created`);
+    console.log(`[WAService] Client ${clientId} created with Baileys`);
     return client;
   }
 
