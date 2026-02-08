@@ -574,32 +574,28 @@ export class WAClient extends EventEmitter {
         // Clean up listeners and interval on timeout
         cleanup();
         
-        // Build detailed error message
-        let errorMsg = `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. `;
-        errorMsg += `Current state: ${state}. `;
-        
+        // Build concise error message
+        let reason = 'timeout';
         if (!this.authenticated && !this.qrScanned) {
-          errorMsg += `Authentication status: Not authenticated (QR code may need to be scanned). `;
+          reason = 'QR code not scanned';
         } else if (this.authenticated && !this.isReady) {
-          errorMsg += `Authentication status: Authenticated but not ready (loading). `;
+          reason = 'authenticated but not ready';
+        } else if (this.lastError) {
+          reason = this.lastError.message || 'initialization error';
         }
         
-        if (this.lastError) {
-          errorMsg += `Last error: ${this.lastError.message || this.lastError}. `;
-        }
+        const errorMsg = `[${this.config.clientId}] Timeout after ${elapsed}ms (state: ${state}, reason: ${reason})`;
         
-        errorMsg += `Possible causes: `;
-        errorMsg += `1) WhatsApp QR code needs to be scanned (check console for QR code), `;
-        errorMsg += `2) Network connectivity issues or firewall blocking WhatsApp, `;
-        errorMsg += `3) WhatsApp service is temporarily down, `;
-        errorMsg += `4) Corrupted authentication session (try clearing ${this.config.authPath}). `;
-        errorMsg += `Suggestions: `;
-        errorMsg += `1) Increase timeout value, `;
-        errorMsg += `2) Check network connectivity and firewall rules, `;
-        errorMsg += `3) Ensure no other WhatsApp sessions are active with the same phone, `;
-        errorMsg += `4) Clear authentication data and scan QR code again.`;
+        // Create error with detailed diagnostics as properties (not in message)
+        const error = new Error(errorMsg);
+        error.timeout = elapsed;
+        error.state = state;
+        error.authenticated = this.authenticated;
+        error.qrScanned = this.qrScanned;
+        error.lastError = this.lastError;
+        error.authPath = this.config.authPath;
         
-        reject(new Error(errorMsg));
+        reject(error);
       }, timeout);
 
       // Handler for ready event
