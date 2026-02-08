@@ -2,12 +2,14 @@
  * WAHelpers - Utility functions for WhatsApp operations
  * 
  * Provides helper functions for formatting, validation, and common operations
+ * Updated to support both wwebjs (@c.us) and Baileys (@s.whatsapp.net) formats
  */
 
 import { env } from '../config/env.js';
 
 /**
  * Format phone number to WhatsApp ID
+ * Returns Baileys format (@s.whatsapp.net) by default for consistency
  */
 export function formatToWhatsAppId(phoneNumber) {
   if (!phoneNumber) {
@@ -17,9 +19,13 @@ export function formatToWhatsAppId(phoneNumber) {
   // Remove all non-numeric characters
   let cleanNumber = phoneNumber.toString().replace(/\D/g, '');
 
-  // If already has @c.us or @s.whatsapp.net or @g.us, return as is
-  if (phoneNumber.includes('@c.us') || phoneNumber.includes('@s.whatsapp.net') || phoneNumber.includes('@g.us')) {
-    return phoneNumber;
+  // If already has WhatsApp suffix, normalize to Baileys format
+  if (phoneNumber.includes('@c.us')) {
+    cleanNumber = phoneNumber.replace('@c.us', '').replace(/\D/g, '');
+  } else if (phoneNumber.includes('@s.whatsapp.net')) {
+    return phoneNumber; // Already in Baileys format
+  } else if (phoneNumber.includes('@g.us')) {
+    return phoneNumber; // Group ID, keep as-is
   }
 
   // Convert 0 prefix to 62 (Indonesia)
@@ -32,11 +38,13 @@ export function formatToWhatsAppId(phoneNumber) {
     cleanNumber = '62' + cleanNumber;
   }
 
-  return `${cleanNumber}@c.us`;
+  // Return in Baileys format for consistency
+  return `${cleanNumber}@s.whatsapp.net`;
 }
 
 /**
  * Check if WhatsApp ID is valid
+ * Supports both wwebjs and Baileys formats
  */
 export function isValidWid(wid) {
   if (!wid) {
@@ -101,13 +109,14 @@ export function formatMessage(text, options = {}) {
 
 /**
  * Extract phone number from WhatsApp ID
+ * Works with both wwebjs and Baileys formats
  */
 export function extractPhoneNumber(wid) {
   if (!wid) {
     return null;
   }
 
-  // Remove suffix
+  // Remove all WhatsApp suffixes
   return wid.replace(/@c\.us|@s\.whatsapp\.net|@g\.us/g, '');
 }
 

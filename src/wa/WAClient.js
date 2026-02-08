@@ -1,43 +1,50 @@
 /**
- * WAClient - Simplified WhatsApp Web.js Client Wrapper
+ * WAClient - WhatsApp Client Wrapper using Baileys
  * 
- * This module provides a clean, maintainable wrapper around whatsapp-web.js
- * following best practices and SOLID principles.
+ * This module provides a clean, maintainable wrapper around Baileys
+ * following best practices, SOLID principles, and naming conventions.
+ * Migrated from whatsapp-web.js to Baileys for better performance and lower resource usage.
  */
 
-import pkg from 'whatsapp-web.js';
+import makeWASocket, { 
+  useMultiFileAuthState, 
+  DisconnectReason,
+  Browsers,
+  fetchLatestBaileysVersion
+} from '@whiskeysockets/baileys';
+import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import { EventEmitter } from 'events';
 import path from 'path';
 import os from 'os';
 
-const { Client, LocalAuth } = pkg;
-
 /**
  * Configuration class for WhatsApp client
+ * Following camelCase naming convention for class properties
  */
 class WAClientConfig {
   constructor(options = {}) {
     this.clientId = options.clientId || 'wa-client';
-    this.authPath = options.authPath || path.join(os.homedir(), '.cicero', 'wwebjs_auth');
-    this.puppeteerOptions = options.puppeteerOptions || {};
-    this.webVersionCacheUrl = options.webVersionCacheUrl || '';
-    this.webVersion = options.webVersion || '';
+    this.authPath = options.authPath || path.join(os.homedir(), '.cicero', 'baileys_auth');
     // Parse as integers to handle environment variables passed as strings
     this.maxInitRetries = parseInt(options.maxInitRetries, 10) || 3;
     this.initRetryDelay = parseInt(options.initRetryDelay, 10) || 10000; // 10 seconds
     this.qrTimeout = parseInt(options.qrTimeout, 10) || 120000; // 2 minutes for QR scan
+    this.logLevel = options.logLevel || 'error'; // Baileys logging level
   }
 }
 
 /**
- * WhatsApp Client Wrapper
+ * WhatsApp Client Wrapper using Baileys
+ * Maintains compatibility with existing interface while using Baileys backend
  */
 export class WAClient extends EventEmitter {
   constructor(config = {}) {
     super();
     this.config = new WAClientConfig(config);
-    this.client = null;
+    this.socket = null; // Baileys socket connection
+    this.authState = null; // Authentication state
+    this.saveCreds = null; // Credentials save function
     this.isReady = false;
     this.isInitializing = false;
     this.reconnectAttempts = 0;
@@ -47,10 +54,12 @@ export class WAClient extends EventEmitter {
     this.qrScanned = false;
     this.authenticated = false;
     this.lastError = null;
+    this.qrTimeoutTimer = null;
+    this.reconnectTimer = null;
   }
 
   /**
-   * Initialize the WhatsApp client
+   * Initialize the WhatsApp client with Baileys
    */
   async initialize() {
     if (this.isInitializing) {
@@ -64,77 +73,56 @@ export class WAClient extends EventEmitter {
     }
 
     this.isInitializing = true;
-    console.log(`[${this.config.clientId}] Initializing WhatsApp client (attempt ${this.initRetries + 1}/${this.config.maxInitRetries + 1})...`);
+    console.log(`[${this.config.clientId}] Initializing WhatsApp client with Baileys (attempt ${this.initRetries + 1}/${this.config.maxInitRetries + 1})...`);
 
     try {
-      // Destroy existing client if present
-      if (this.client) {
-        console.log(`[${this.config.clientId}] Cleaning up existing client...`);
+      // Destroy existing socket if present
+      if (this.socket) {
+        console.log(`[${this.config.clientId}] Cleaning up existing socket...`);
         try {
-          await this.client.destroy();
+          this.socket.end(undefined);
         } catch (err) {
-          console.warn(`[${this.config.clientId}] Error destroying old client:`, err.message);
+          console.warn(`[${this.config.clientId}] Error destroying old socket:`, err.message);
         }
-        this.client = null;
+        this.socket = null;
       }
 
-      // Create client with LocalAuth strategy
-      const clientOptions = {
-        authStrategy: new LocalAuth({
-          clientId: this.config.clientId,
-          dataPath: this.config.authPath
-        }),
-        puppeteer: {
-          headless: true,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu',
-            // NOTE: The following flags reduce security isolation but are required
-            // for WhatsApp Web.js to function properly in containerized environments.
-            // These flags allow the WhatsApp Web client to bypass CORS and process
-            // isolation restrictions that would otherwise prevent proper operation.
-            // Risk: Reduced browser security sandboxing
-            // Mitigation: Client runs in isolated process, only accesses WhatsApp Web
-            '--disable-web-security',
-            '--disable-features=IsolateOrigins,site-per-process'
-          ],
-          ...this.config.puppeteerOptions
+      // Set up authentication state using Baileys multi-file auth
+      const authPath = path.join(this.config.authPath, this.config.clientId);
+      const { state, saveCreds } = await useMultiFileAuthState(authPath);
+      this.authState = state;
+      this.saveCreds = saveCreds;
+
+      // Fetch latest Baileys version for compatibility
+      const { version } = await fetchLatestBaileysVersion();
+
+      // Create Baileys socket with configuration
+      this.socket = makeWASocket({
+        auth: this.authState,
+        browser: Browsers.ubuntu('Chrome'),
+        logger: pino({ level: this.config.logLevel }),
+        printQRInTerminal: false, // We handle QR display manually
+        shouldSyncHistoryMessage: false,
+        syncFullHistory: false,
+        version: version,
+        getMessage: async (key) => {
+          // Return undefined to indicate message not found in cache
+          return undefined;
         }
-      };
-
-      // Add web version cache if provided
-      if (this.config.webVersionCacheUrl) {
-        clientOptions.webVersionCache = {
-          type: 'remote',
-          remotePath: this.config.webVersionCacheUrl
-        };
-      } else if (this.config.webVersion) {
-        clientOptions.webVersion = this.config.webVersion;
-      }
-
-      this.client = new Client(clientOptions);
+      });
 
       // Set up event handlers
       this._setupEventHandlers();
 
       // Set up QR timeout if no authentication session exists
-      const qrTimeoutTimer = setTimeout(() => {
+      this.qrTimeoutTimer = setTimeout(() => {
         if (!this.authenticated && !this.isReady) {
           console.warn(`[${this.config.clientId}] QR code scan timeout after ${this.config.qrTimeout}ms`);
           this._handleInitializationTimeout('QR_SCAN_TIMEOUT');
         }
       }, this.config.qrTimeout);
 
-      // Initialize the client
-      await this.client.initialize();
-      
-      clearTimeout(qrTimeoutTimer);
-      console.log(`[${this.config.clientId}] Client initialized successfully`);
+      console.log(`[${this.config.clientId}] Client socket created successfully`);
       this.initRetries = 0; // Reset retry counter on success
       this.lastError = null;
     } catch (error) {
@@ -148,18 +136,16 @@ export class WAClient extends EventEmitter {
         const delay = this.config.initRetryDelay * Math.pow(2, this.initRetries - 1); // Exponential backoff
         console.log(`[${this.config.clientId}] Retrying initialization in ${delay}ms...`);
         
-        setTimeout(async () => {
+        this.reconnectTimer = setTimeout(async () => {
           try {
             await this.initialize();
           } catch (retryError) {
             console.error(`[${this.config.clientId}] Retry failed:`, retryError);
-            // Emit error event to notify listeners of final retry failure
             this.emit('init_retry_failed', retryError);
           }
         }, delay);
       } else {
         console.error(`[${this.config.clientId}] Maximum initialization retries (${this.config.maxInitRetries}) exceeded`);
-        // Emit error event for max retries exceeded
         this.emit('init_failed', error);
         throw error;
       }
@@ -167,82 +153,164 @@ export class WAClient extends EventEmitter {
   }
 
   /**
-   * Set up event handlers for the WhatsApp client
+   * Set up event handlers for the Baileys socket
+   * Maps Baileys events to maintain compatibility with previous interface
    */
   _setupEventHandlers() {
-    // QR Code event
-    this.client.on('qr', (qr) => {
-      console.log(`[${this.config.clientId}] QR Code received - Please scan within ${this.config.qrTimeout / 1000}s`);
-      qrcode.generate(qr, { small: true });
-      this.qrScanned = false;
-      this.emit('qr', qr);
+    // Connection state updates - handles QR, authentication, ready state
+    this.socket.ev.on('connection.update', (update) => {
+      const { connection, qr, lastDisconnect } = update;
+
+      // Handle QR code display
+      if (qr) {
+        console.log(`[${this.config.clientId}] QR Code received - Please scan within ${this.config.qrTimeout / 1000}s`);
+        qrcode.generate(qr, { small: true });
+        this.qrScanned = false;
+        this.emit('qr', qr);
+      }
+
+      // Handle connection opened (ready state)
+      if (connection === 'open') {
+        console.log(`[${this.config.clientId}] Client is ready!`);
+        this.isReady = true;
+        this.isInitializing = false;
+        this.authenticated = true;
+        this.qrScanned = true;
+        this.reconnectAttempts = 0;
+        this.initRetries = 0;
+        
+        // Clear QR timeout
+        if (this.qrTimeoutTimer) {
+          clearTimeout(this.qrTimeoutTimer);
+          this.qrTimeoutTimer = null;
+        }
+        
+        this.emit('authenticated');
+        this.emit('ready');
+      }
+
+      // Handle connection closed (disconnection)
+      if (connection === 'close') {
+        console.log(`[${this.config.clientId}] Client disconnected`);
+        this.isReady = false;
+        this.isInitializing = false;
+        this.authenticated = false;
+
+        // Determine disconnect reason
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        
+        let reason = 'UNKNOWN';
+        if (statusCode === DisconnectReason.loggedOut) {
+          reason = 'LOGGED_OUT';
+        } else if (statusCode === DisconnectReason.connectionClosed) {
+          reason = 'CONNECTION_CLOSED';
+        } else if (statusCode === DisconnectReason.connectionLost) {
+          reason = 'CONNECTION_LOST';
+        }
+
+        this.emit('disconnected', reason);
+        
+        // Attempt to reconnect if not logged out
+        if (shouldReconnect) {
+          this._handleReconnection(reason);
+        }
+      }
+
+      // Handle connecting state (loading)
+      if (connection === 'connecting') {
+        console.log(`[${this.config.clientId}] Connecting...`);
+        this.emit('change_state', 'CONNECTING');
+      }
     });
 
-    // Authenticated event
-    this.client.on('authenticated', () => {
-      console.log(`[${this.config.clientId}] Authentication successful`);
-      this.authenticated = true;
-      this.qrScanned = true; // Set to true when authentication succeeds (typically after QR scan or using saved session)
-      this.reconnectAttempts = 0; // Reset reconnect attempts on successful auth
-      this.initRetries = 0; // Reset init retries on successful auth
-      this.emit('authenticated');
+    // Credentials update - must save to persist authentication
+    this.socket.ev.on('creds.update', () => {
+      if (this.saveCreds) {
+        this.saveCreds();
+      }
     });
 
-    // Authentication failure event
-    this.client.on('auth_failure', (error) => {
-      console.error(`[${this.config.clientId}] Authentication failed:`, error);
-      this.authenticated = false;
-      this.isInitializing = false;
-      this.lastError = error;
-      this.emit('auth_failure', error);
-      
-      // Clear authentication data on auth failure
-      this._handleAuthenticationFailure();
+    // Incoming messages
+    this.socket.ev.on('messages.upsert', ({ messages, type }) => {
+      for (const msg of messages) {
+        // Skip if message is from us
+        if (msg.key.fromMe) {
+          // Emit message_create for sent messages
+          const convertedMsg = this._convertBaileysMessage(msg);
+          this.emit('message_create', convertedMsg);
+          continue;
+        }
+
+        // Only process notify type messages (new messages)
+        if (type === 'notify' && msg.message) {
+          const convertedMsg = this._convertBaileysMessage(msg);
+          this.emit('message', convertedMsg);
+        }
+      }
     });
 
-    // Ready event
-    this.client.on('ready', () => {
-      console.log(`[${this.config.clientId}] Client is ready!`);
-      this.isReady = true;
-      this.isInitializing = false;
-      this.reconnectAttempts = 0;
-      this.initRetries = 0;
-      this.emit('ready');
+    // Message updates (status changes, reactions, etc.)
+    this.socket.ev.on('messages.update', (updates) => {
+      // Handle message status updates if needed
+      // This can be used for message delivery/read receipts
+      for (const update of updates) {
+        if (update.update?.status) {
+          // Emit message status change events if needed
+        }
+      }
     });
+  }
 
-    // Message event
-    this.client.on('message', (message) => {
-      this.emit('message', message);
-    });
+  /**
+   * Convert Baileys message format to whatsapp-web.js compatible format
+   * for backward compatibility with existing code
+   */
+  _convertBaileysMessage(baileyMsg) {
+    // Extract text content from various message types
+    let body = '';
+    const msg = baileyMsg.message;
+    
+    if (msg?.conversation) {
+      body = msg.conversation;
+    } else if (msg?.extendedTextMessage?.text) {
+      body = msg.extendedTextMessage.text;
+    } else if (msg?.imageMessage?.caption) {
+      body = msg.imageMessage.caption;
+    } else if (msg?.videoMessage?.caption) {
+      body = msg.videoMessage.caption;
+    } else if (msg?.documentMessage?.caption) {
+      body = msg.documentMessage.caption;
+    }
 
-    // Message create event (includes sent messages)
-    this.client.on('message_create', (message) => {
-      this.emit('message_create', message);
-    });
+    // Check for media types
+    const hasMedia = !!(
+      msg?.imageMessage ||
+      msg?.videoMessage ||
+      msg?.audioMessage ||
+      msg?.documentMessage ||
+      msg?.stickerMessage
+    );
 
-    // Disconnected event
-    this.client.on('disconnected', (reason) => {
-      console.log(`[${this.config.clientId}] Client disconnected:`, reason);
-      this.isReady = false;
-      this.isInitializing = false;
-      this.authenticated = false;
-      this.emit('disconnected', reason);
-      
-      // Attempt to reconnect
-      this._handleReconnection(reason);
-    });
-
-    // State change event
-    this.client.on('change_state', (state) => {
-      console.log(`[${this.config.clientId}] State changed:`, state);
-      this.emit('change_state', state);
-    });
-
-    // Loading screen event
-    this.client.on('loading_screen', (percent, message) => {
-      console.log(`[${this.config.clientId}] Loading: ${percent}% - ${message}`);
-      this.emit('loading_screen', percent, message);
-    });
+    // Build compatible message object
+    return {
+      id: {
+        id: baileyMsg.key.id,
+        _serialized: baileyMsg.key.id,
+        fromMe: baileyMsg.key.fromMe || false
+      },
+      body: body,
+      from: baileyMsg.key.remoteJid,
+      to: this.socket?.user?.id || '',
+      hasMedia: hasMedia,
+      timestamp: baileyMsg.messageTimestamp,
+      // Add raw Baileys message for advanced use
+      _raw: baileyMsg,
+      // Mentioned IDs (for group messages with mentions)
+      mentionedIds: msg?.extendedTextMessage?.contextInfo?.mentionedJid || [],
+      // Check if from group
+      isGroup: baileyMsg.key.remoteJid?.endsWith('@g.us') || false
+    };
   }
 
   /**
@@ -261,35 +329,13 @@ export class WAClient extends EventEmitter {
     
     console.log(`[${this.config.clientId}] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
     
-    setTimeout(async () => {
+    this.reconnectTimer = setTimeout(async () => {
       try {
         await this.initialize();
       } catch (error) {
         console.error(`[${this.config.clientId}] Reconnection failed:`, error);
       }
     }, delay);
-  }
-
-  /**
-   * Handle authentication failure by cleaning up session
-   */
-  async _handleAuthenticationFailure() {
-    console.warn(`[${this.config.clientId}] Handling authentication failure...`);
-    
-    // If we've failed multiple times, clear the authentication session
-    if (this.initRetries >= 1) {
-      console.log(`[${this.config.clientId}] Clearing authentication session due to repeated failures...`);
-      try {
-        if (this.client) {
-          await this.client.destroy();
-          this.client = null;
-        }
-        // Note: The LocalAuth strategy will handle session cleanup
-        // We just need to destroy the client and let it reinitialize
-      } catch (err) {
-        console.error(`[${this.config.clientId}] Error clearing session:`, err);
-      }
-    }
   }
 
   /**
@@ -300,9 +346,9 @@ export class WAClient extends EventEmitter {
     this.isInitializing = false;
     
     try {
-      if (this.client) {
-        await this.client.destroy();
-        this.client = null;
+      if (this.socket) {
+        this.socket.end(undefined);
+        this.socket = null;
       }
     } catch (err) {
       console.error(`[${this.config.clientId}] Error cleaning up on timeout:`, err);
@@ -314,17 +360,15 @@ export class WAClient extends EventEmitter {
       const delay = this.config.initRetryDelay * Math.pow(2, this.initRetries - 1);
       console.log(`[${this.config.clientId}] Retrying after timeout in ${delay}ms...`);
       
-      setTimeout(async () => {
+      this.reconnectTimer = setTimeout(async () => {
         try {
           await this.initialize();
         } catch (error) {
           console.error(`[${this.config.clientId}] Retry after timeout failed:`, error);
-          // Emit error event to notify listeners of timeout retry failure
           this.emit('timeout_retry_failed', error);
         }
       }, delay);
     } else {
-      // Max retries exceeded after timeout
       console.error(`[${this.config.clientId}] Maximum retries exceeded after ${reason}`);
       const timeoutError = new Error(`[${this.config.clientId}] ${reason}: Maximum retries (${this.config.maxInitRetries}) exceeded`);
       this.lastError = timeoutError;
@@ -333,7 +377,8 @@ export class WAClient extends EventEmitter {
   }
 
   /**
-   * Send a message
+   * Send a message using Baileys
+   * Maintains compatibility with whatsapp-web.js interface
    */
   async sendMessage(to, content, options = {}) {
     if (!this.isReady) {
@@ -341,11 +386,30 @@ export class WAClient extends EventEmitter {
     }
 
     try {
-      // Normalize options to prevent "Cannot read properties of undefined (reading 'markedUnread')" error
-      // Ensure options is always an object, never null or undefined
+      // Normalize options to prevent undefined errors
       const normalizedOptions = options || {};
 
-      const result = await this.client.sendMessage(to, content, normalizedOptions);
+      // Format message for Baileys
+      let message;
+      if (typeof content === 'string') {
+        // Simple text message
+        message = { text: content };
+      } else if (content && typeof content === 'object') {
+        // Already formatted message object
+        message = content;
+      } else {
+        throw new Error(`[${this.config.clientId}] Invalid message content type`);
+      }
+
+      // Normalize JID format - Baileys uses @s.whatsapp.net, convert @c.us if needed
+      const normalizedJid = to.replace('@c.us', '@s.whatsapp.net');
+
+      // Send message using Baileys socket
+      const result = await this.socket.sendMessage(normalizedJid, message, {
+        quoted: normalizedOptions.quoted,
+        ...normalizedOptions
+      });
+      
       return result;
     } catch (error) {
       console.error(`[${this.config.clientId}] Error sending message:`, error);
@@ -361,19 +425,36 @@ export class WAClient extends EventEmitter {
       throw new Error(`[${this.config.clientId}] Client is not ready`);
     }
 
-    return this.client.info;
+    // Return user info in compatible format
+    return {
+      wid: this.socket.user?.id || '',
+      pushname: this.socket.user?.name || '',
+      ...this.socket.user
+    };
   }
 
   /**
    * Get client state
+   * Maps Baileys socket state to whatsapp-web.js state names
    */
   async getState() {
     try {
-      if (!this.client) {
+      if (!this.socket) {
         return 'NOT_INITIALIZED';
       }
-      const state = await this.client.getState();
-      return state;
+      
+      // Check socket ready state
+      const wsState = this.socket.ws?.readyState;
+      
+      if (wsState === 1) { // WebSocket.OPEN
+        return 'CONNECTED';
+      } else if (wsState === 0) { // WebSocket.CONNECTING
+        return 'CONNECTING';
+      } else if (wsState === 2 || wsState === 3) { // WebSocket.CLOSING or CLOSED
+        return 'DISCONNECTED';
+      }
+      
+      return 'UNKNOWN';
     } catch (error) {
       console.error(`[${this.config.clientId}] Error getting state:`, error);
       return 'ERROR';
@@ -389,8 +470,13 @@ export class WAClient extends EventEmitter {
     }
 
     try {
-      const numberId = await this.client.getNumberId(number);
-      return numberId !== null;
+      // Normalize number format
+      const normalizedNumber = number.replace('@c.us', '').replace('@s.whatsapp.net', '');
+      const jid = `${normalizedNumber}@s.whatsapp.net`;
+      
+      // Use Baileys onWhatsApp function
+      const [result] = await this.socket.onWhatsApp(jid);
+      return result?.exists || false;
     } catch (error) {
       console.error(`[${this.config.clientId}] Error checking number:`, error);
       return false;
@@ -403,10 +489,20 @@ export class WAClient extends EventEmitter {
   async destroy() {
     console.log(`[${this.config.clientId}] Destroying client...`);
     
-    if (this.client) {
+    // Clear any pending timers
+    if (this.qrTimeoutTimer) {
+      clearTimeout(this.qrTimeoutTimer);
+      this.qrTimeoutTimer = null;
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    
+    if (this.socket) {
       try {
-        await this.client.destroy();
-        this.client = null;
+        this.socket.end(undefined); // Graceful close
+        this.socket = null;
         this.isReady = false;
         this.isInitializing = false;
         console.log(`[${this.config.clientId}] Client destroyed successfully`);
@@ -478,9 +574,70 @@ export class WAClient extends EventEmitter {
         this.removeAllListeners('disconnected');
       };
 
+  /**
+   * Wait for client to be ready
+   * Compatible with both legacy code and new Baileys implementation
+   */
+  async waitForReady(timeout = 60000) {
+    if (this.isReady) {
+      return true;
+    }
+
+    // Check if socket is even initialized
+    if (!this.socket) {
+      throw new Error(`[${this.config.clientId}] Client not initialized. Call initialize() first.`);
+    }
+
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      let stateCheckInterval = null;
+      
+      const timer = setTimeout(() => {
+        const elapsed = Date.now() - startTime;
+        const state = this.isInitializing ? 'initializing' : 'unknown';
+        
+        // Clean up listeners and interval on timeout
+        cleanup();
+        
+        // Build detailed error message
+        let errorMsg = `[${this.config.clientId}] Timeout waiting for ready event after ${elapsed}ms. `;
+        errorMsg += `Current state: ${state}. `;
+        
+        if (!this.authenticated && !this.qrScanned) {
+          errorMsg += `Authentication status: Not authenticated (QR code may need to be scanned). `;
+        } else if (this.authenticated && !this.isReady) {
+          errorMsg += `Authentication status: Authenticated but not ready (loading). `;
+        }
+        
+        if (this.lastError) {
+          errorMsg += `Last error: ${this.lastError.message || this.lastError}. `;
+        }
+        
+        errorMsg += `Possible causes: `;
+        errorMsg += `1) WhatsApp QR code needs to be scanned (check console for QR code), `;
+        errorMsg += `2) Network connectivity issues or firewall blocking WhatsApp, `;
+        errorMsg += `3) WhatsApp service is temporarily down, `;
+        errorMsg += `4) Corrupted authentication session (try clearing ${this.config.authPath}). `;
+        errorMsg += `Suggestions: `;
+        errorMsg += `1) Increase timeout value, `;
+        errorMsg += `2) Check network connectivity and firewall rules, `;
+        errorMsg += `3) Ensure no other WhatsApp sessions are active with the same phone, `;
+        errorMsg += `4) Clear authentication data and scan QR code again.`;
+        
+        reject(new Error(errorMsg));
+      }, timeout);
+
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (stateCheckInterval) {
+          clearInterval(stateCheckInterval);
+        }
+        this.removeAllListeners('ready');
+        this.removeAllListeners('disconnected');
+      };
+
       // Set up state polling fallback mechanism
-      // This checks if the client is actually ready even if the ready event doesn't fire
-      // which can happen when WhatsApp Web gets stuck in loading state after authentication
+      // Baileys doesn't get stuck like wwebjs, but keep for compatibility
       stateCheckInterval = setInterval(async () => {
         try {
           // Only check state if authenticated but not ready yet
@@ -488,22 +645,19 @@ export class WAClient extends EventEmitter {
             const state = await this.getState();
             console.log(`[${this.config.clientId}] State check: ${state}`);
             
-            // If state is CONNECTED, mark as ready even if event didn't fire
-            if (state === 'CONNECTED' || state === 'open') {
+            // If state is CONNECTED, mark as ready
+            if (state === 'CONNECTED') {
               console.log(`[${this.config.clientId}] Client is ready via state check (fallback mechanism)`);
               this.isReady = true;
               this.isInitializing = false;
               cleanup();
-              // Emit the ready event manually since it wasn't emitted by the underlying client
               this.emit('ready');
               resolve(true);
             }
           }
         } catch (error) {
-          // Silently ignore state check errors to avoid noise during normal operation
-          // The timeout will handle the error case if state checks keep failing
-          // However, log unexpected errors for debugging
-          if (error && error.message && !error.message.includes('not initialized') && !error.message.includes('ERR_')) {
+          // Silently ignore state check errors
+          if (error && error.message && !error.message.includes('not initialized')) {
             console.warn(`[${this.config.clientId}] Unexpected error during state check:`, error.message);
           }
         }
@@ -512,11 +666,6 @@ export class WAClient extends EventEmitter {
       this.once('ready', () => {
         cleanup();
         resolve(true);
-      });
-
-      this.once('auth_failure', (error) => {
-        cleanup();
-        reject(new Error(`[${this.config.clientId}] Authentication failed: ${error.message || error}`));
       });
 
       // Also listen for disconnection during wait
