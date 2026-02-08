@@ -2,7 +2,7 @@
  * WA Service - Compatibility Export
  * 
  * This file provides backward compatibility with the old waService interface
- * while using the new simplified architecture under the hood.
+ * while using the new Baileys-based architecture under the hood.
  */
 
 import { waService, WAClientCompat } from '../wa/compatibility.js';
@@ -22,23 +22,21 @@ export async function initializeWAService() {
 
   initPromise = (async () => {
     try {
-      // Create admin client
+      // Create admin client with Baileys
       waService.createClient('wa-client', {
         clientId: env.APP_SESSION_NAME || 'wa-admin',
         authPath: env.WA_AUTH_DATA_PATH,
-        webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
-        webVersion: env.WA_WEB_VERSION,
+        logLevel: 'error', // Baileys logging level
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
         qrTimeout: env.WA_QR_TIMEOUT_MS
       });
 
-      // Create gateway client
+      // Create gateway client with Baileys
       waService.createClient('wa-gateway', {
         clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod',
         authPath: env.WA_AUTH_DATA_PATH,
-        webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
-        webVersion: env.WA_WEB_VERSION,
+        logLevel: 'error', // Baileys logging level
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
         qrTimeout: env.WA_QR_TIMEOUT_MS

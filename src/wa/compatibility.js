@@ -38,6 +38,7 @@ export async function initializeClients() {
 
 /**
  * Compatibility wrapper for waClient
+ * Updated to work with Baileys-based WAClient
  */
 export class WAClientCompat {
   constructor(clientId) {
@@ -47,7 +48,8 @@ export class WAClientCompat {
   }
 
   get client() {
-    return this._client?.client;
+    // In Baileys, the socket is the equivalent of the wwebjs client
+    return this._client?.socket;
   }
 
   get isReady() {
