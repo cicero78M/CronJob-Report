@@ -622,9 +622,9 @@ export class WAClient extends EventEmitter {
         ];
         
         if (terminalReasons.includes(reason)) {
-          console.error(`[${this.config.clientId}] Terminal disconnect during waitForReady: ${reason}`);
+          console.error(`[${this.config.clientId}] Terminal disconnect: ${reason}`);
           cleanup();
-          reject(new Error(`[${this.config.clientId}] Disconnected while waiting for ready: ${reason}`));
+          reject(new Error(`[${this.config.clientId}] Disconnected while waiting for ready (terminal): ${reason}`));
         } else {
           // Reconnectable disconnect - log but continue waiting for ready event
           console.warn(`[${this.config.clientId}] Reconnectable disconnect during waitForReady: ${reason}, waiting for reconnection...`);
