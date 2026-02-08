@@ -581,7 +581,10 @@ export class WAClient extends EventEmitter {
         } else if (this.authenticated && !this.isReady) {
           reason = 'authenticated but not ready';
         } else if (this.lastError) {
-          reason = this.lastError.message?.trim() || 'initialization error';
+          const errorMsg = typeof this.lastError === 'string' 
+            ? this.lastError 
+            : this.lastError.message;
+          reason = errorMsg?.trim() || 'initialization error';
         }
         
         const errorMsg = `[${this.config.clientId}] Timeout after ${elapsed}ms (state: ${state}, reason: ${reason})`;
