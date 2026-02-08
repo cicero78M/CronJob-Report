@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
 import waClient from '../service/waService.js';
-import { sendDebug } from '../middleware/debugHandler.js';
+import { sendDebug, sendConsoleDebug } from '../middleware/debugHandler.js';
 import { saveLinkReportExcel } from '../service/linkReportExcelService.js';
 import { formatToWhatsAppId, sendWAFile } from '../utils/waHelper.js';
 import { getReportsThisMonthByClient } from '../model/linkReportModel.js';
@@ -39,7 +39,7 @@ scheduleCronJob(
   '0 23 28-31 * *',
   async () => {
     if (!isLastDayOfMonth()) return;
-    sendDebug({ tag: 'CRON AMPLIFY', msg: 'Mulai rekap link bulanan' });
+    sendConsoleDebug({ tag: 'CRON AMPLIFY', msg: 'Mulai rekap link bulanan' });
     try {
       const clients = await getActiveClients();
       for (const client of clients) {

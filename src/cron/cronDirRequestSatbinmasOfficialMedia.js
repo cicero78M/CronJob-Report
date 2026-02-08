@@ -1,4 +1,4 @@
-import { sendDebug } from "../middleware/debugHandler.js";
+import { sendDebug, sendConsoleDebug } from "../middleware/debugHandler.js";
 import waClient, { waGatewayClient } from "../service/waService.js";
 import { getAdminWAIds, sendWithClientFallback } from "../utils/waHelper.js";
 import {
@@ -32,7 +32,7 @@ async function sendRecapToRecipients(message, recipients) {
 
 export async function runCron() {
   const recipients = getRecipients();
-  sendDebug({ tag: CRON_TAG, msg: "Mulai cron dirrequest Satbinmas Official (IG & TikTok)" });
+  sendConsoleDebug({ tag: CRON_TAG, msg: "Mulai cron dirrequest Satbinmas Official (IG & TikTok)" });
 
   if (!recipients.size) {
     sendDebug({

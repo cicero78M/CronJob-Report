@@ -1,4 +1,4 @@
-import { sendDebug } from '../middleware/debugHandler.js';
+import { sendDebug, sendConsoleDebug } from '../middleware/debugHandler.js';
 import { runDirRequestAction } from '../service/dirRequestService.js';
 import {
   minPhoneDigitLength,
@@ -28,7 +28,7 @@ async function executeDitbinmasMenus(chatId) {
   for (let actionIndex = 0; actionIndex < ACTIONS.length; actionIndex += 1) {
     const action = ACTIONS[actionIndex];
     try {
-      sendDebug({ tag: CRON_LABEL, msg: `Mulai menu ${action} untuk ${chatId}` });
+      sendConsoleDebug({ tag: CRON_LABEL, msg: `Mulai menu ${action} untuk ${chatId}` });
       await runDirRequestAction({
         action,
         clientId: DITBINMAS_CLIENT_ID,
@@ -44,7 +44,7 @@ async function executeDitbinmasMenus(chatId) {
           jobKey: JOB_KEY,
         },
       });
-      sendDebug({ tag: CRON_LABEL, msg: `Menu ${action} selesai untuk ${chatId}` });
+      sendConsoleDebug({ tag: CRON_LABEL, msg: `Menu ${action} selesai untuk ${chatId}` });
     } catch (err) {
       const errorMsg = `Gagal menu ${action} untuk ${chatId}: ${err.message || err}`;
       failures.push(errorMsg);

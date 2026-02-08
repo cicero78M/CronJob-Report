@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import waClient from "../service/waService.js";
-import { sendDebug } from "../middleware/debugHandler.js";
+import { sendDebug, sendConsoleDebug } from "../middleware/debugHandler.js";
 import { normalizeUserWhatsAppId, minPhoneDigitLength } from "../utils/waHelper.js";
 
 import { absensiLink } from "../handler/fetchabsensi/link/absensiLinkAmplifikasi.js";
@@ -61,7 +61,7 @@ function getRecipients(client) {
 }
 
 export async function runCron() {
-  sendDebug({ tag: "CRON LINK", msg: "Mulai rekap link harian" });
+  sendConsoleDebug({ tag: "CRON LINK", msg: "Mulai rekap link harian" });
   try {
     const clients = await getActiveClients();
     for (const client of clients) {

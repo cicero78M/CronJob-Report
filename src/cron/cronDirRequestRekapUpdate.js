@@ -4,7 +4,7 @@ dotenv.config();
 import waClient from "../service/waService.js";
 import { formatRekapUserData, formatExecutiveSummary } from "../service/dirRequestService.js";
 import { safeSendMessage, normalizeUserWhatsAppId, minPhoneDigitLength } from "../utils/waHelper.js";
-import { sendDebug } from "../middleware/debugHandler.js";
+import { sendDebug, sendConsoleDebug } from "../middleware/debugHandler.js";
 import { scheduleCronJob } from "../utils/cronScheduler.js";
 
 const DIRREQUEST_GROUP = "120363419830216549@g.us";
@@ -40,7 +40,7 @@ function getAdminWAIds() {
 }
 
 export async function runCron() {
-  sendDebug({ tag: "CRON DIRREQ REKAP", msg: "Mulai cron dirrequest rekap update" });
+  sendConsoleDebug({ tag: "CRON DIRREQ REKAP", msg: "Mulai cron dirrequest rekap update" });
   try {
     const executive = await formatExecutiveSummary("DITBINMAS", "ditbinmas");
     const rekap = await formatRekapUserData("DITBINMAS", "ditbinmas");

@@ -1,4 +1,4 @@
-import { sendDebug } from '../middleware/debugHandler.js';
+import { sendDebug, sendConsoleDebug } from '../middleware/debugHandler.js';
 import { runDirRequestAction } from '../service/dirRequestService.js';
 import { findClientById } from '../service/clientService.js';
 import { splitRecipientField } from '../repository/clientContactRepository.js';
@@ -340,7 +340,7 @@ export async function runCron({
   includeBidhumas = true,
   summaryTitle = '[CRON DIRREQ CUSTOM] Ringkasan',
 } = {}) {
-  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai urutan cron custom dirrequest' });
+  sendConsoleDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai urutan cron custom dirrequest' });
 
   const summary = {
     fetch: includeFetch ? 'pending' : 'dilewati (tidak dijadwalkan)',
@@ -394,7 +394,7 @@ export async function runCron({
 }
 
 export async function runDitbinmasRecapAndCustomSequence(referenceDate = new Date()) {
-  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai gabungan fetch, recap Ditbinmas, dan cron custom' });
+  sendConsoleDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai gabungan fetch, recap Ditbinmas, dan cron custom' });
   await logToAdmins('Mulai gabungan fetch konten/engagement, recap Ditbinmas, lalu cron custom dirrequest');
 
   const summary = {
