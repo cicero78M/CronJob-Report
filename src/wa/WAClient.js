@@ -102,7 +102,7 @@ export class WAClient extends EventEmitter {
         browser: Browsers.ubuntu('Chrome'),
         logger: pino({ level: this.config.logLevel }),
         printQRInTerminal: false, // We handle QR display manually
-        shouldSyncHistoryMessage: false, // Don't sync message history
+        shouldSyncHistoryMessage: () => false, // Don't sync message history
         version: version,
         getMessage: async () => {
           // Return undefined to indicate message not found in cache
