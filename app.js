@@ -79,9 +79,18 @@ async function initializeApp() {
       .then(activated => logBucketStatus('Always', activated))
       .catch(err => console.error('[CRON] Failed to activate always cron bucket', err));
 
-    // Schedule cron buckets
-    scheduleCronBucket(waClient, 'waClient', 'WA client');
-    registerDirRequestCrons(waGatewayClient);
+    // Schedule cron buckets only if clients are ready
+    if (waClient.isReady) {
+      scheduleCronBucket(waClient, 'waClient', 'WA client');
+    } else {
+      console.warn('[APP] wa-client is not ready, skipping cron bucket scheduling');
+    }
+    
+    if (waGatewayClient.isReady) {
+      registerDirRequestCrons(waGatewayClient);
+    } else {
+      console.warn('[APP] wa-gateway client is not ready, skipping directory request cron registration');
+    }
 
     // Start OTP worker
     await startOtpWorker().catch(err => console.error('[OTP] worker error', err));

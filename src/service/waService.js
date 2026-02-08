@@ -53,13 +53,28 @@ export async function initializeWAService() {
       // This ensures WhatsApp Web authentication completes before proceeding
       console.log('[waService] Waiting for clients to be ready...');
       const readyTimeout = 300000; // 5 minutes for QR code scanning and authentication
-      await waService.waitForAllReady(readyTimeout);
+      const results = await waService.waitForAllReady(readyTimeout);
+      
+      // Check if at least one client is ready
+      const hasReadyClient = results.some(r => r.status === 'success');
+      if (!hasReadyClient) {
+        throw new Error('[waService] No clients are ready. At least one client must be ready to proceed.');
+      }
 
       // Create client instances after initialization completes
       _waClient = new WAClientCompat('wa-client');
       _waGatewayClient = new WAClientCompat('wa-gateway');
-
-      console.log('[waService] Clients initialized and ready successfully');
+      
+      // Log which clients are ready
+      const readyClients = results.filter(r => r.status === 'success').map(r => r.clientId);
+      const failedClients = results.filter(r => r.status === 'failed').map(r => r.clientId);
+      
+      if (failedClients.length > 0) {
+        console.warn(`[waService] Warning: Some clients failed to initialize: ${failedClients.join(', ')}`);
+        console.warn('[waService] The application will continue with available clients');
+      }
+      
+      console.log(`[waService] Clients ready: ${readyClients.join(', ')}`);
     } catch (error) {
       console.error('[waService] Failed to initialize clients:', error);
       throw error;

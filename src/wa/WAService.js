@@ -146,18 +146,42 @@ export class WAService {
 
   /**
    * Wait for all clients to be ready
+   * Returns an object with success/failure status for each client
    */
   async waitForAllReady(timeout = 60000) {
     const promises = [];
+    const clientIds = [];
+    
     for (const [clientId, client] of this.clients.entries()) {
+      clientIds.push(clientId);
       promises.push(
-        client.waitForReady(timeout).catch(error => {
-          console.error(`[WAService] Client ${clientId} failed to ready:`, error);
-          throw error;
-        })
+        client.waitForReady(timeout)
+          .then(() => ({ clientId, status: 'success', ready: true }))
+          .catch(error => {
+            console.error(`[WAService] Client ${clientId} failed to ready:`, error);
+            return { clientId, status: 'failed', ready: false, error: error.message };
+          })
       );
     }
-    return Promise.all(promises);
+    
+    const results = await Promise.all(promises);
+    
+    // Log summary of client initialization
+    const successCount = results.filter(r => r.status === 'success').length;
+    const failedCount = results.filter(r => r.status === 'failed').length;
+    
+    console.log(`[WAService] Client initialization complete: ${successCount} succeeded, ${failedCount} failed`);
+    
+    results.forEach(result => {
+      if (result.status === 'success') {
+        console.log(`[WAService] ✓ Client ${result.clientId} is ready`);
+      } else {
+        console.warn(`[WAService] ✗ Client ${result.clientId} failed: ${result.error}`);
+      }
+    });
+    
+    // Return results for caller to decide how to handle
+    return results;
   }
 
   /**
