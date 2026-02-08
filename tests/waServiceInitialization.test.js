@@ -31,7 +31,10 @@ describe('waService initialization timing', () => {
       createClient: jest.fn().mockReturnValue(mockWAClient),
       initializeClient: jest.fn().mockResolvedValue(undefined),
       getClient: jest.fn().mockReturnValue(mockWAClient),
-      waitForAllReady: jest.fn().mockResolvedValue(undefined),
+      waitForAllReady: jest.fn().mockResolvedValue([
+        { clientId: 'wa-client', status: 'success', ready: true },
+        { clientId: 'wa-gateway', status: 'success', ready: true }
+      ]),
     };
     
     // Mock the WAService and WAClient classes

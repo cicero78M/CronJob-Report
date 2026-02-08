@@ -57,6 +57,12 @@ export class WAClientCompat {
   }
 
   async sendMessage(to, content, options = {}) {
+    if (!this._client) {
+      throw new Error(`[WAClientCompat] Client ${this.clientId} not found`);
+    }
+    if (!this._client.isReady) {
+      throw new Error(`[WAClientCompat] Client ${this.clientId} is not ready. Please ensure the client is authenticated and connected.`);
+    }
     return waService.sendMessage(this.clientId, to, content, options);
   }
 
