@@ -638,16 +638,41 @@ export class WAClient extends EventEmitter {
         }
       }, 5000); // Check every 5 seconds
 
-      this.once('ready', () => {
+      // Handler for ready event
+      const onReady = () => {
         cleanup();
         resolve(true);
-      });
+      };
+      
+      this.once('ready', onReady);
 
-      // Also listen for disconnection during wait
-      this.once('disconnected', (reason) => {
-        cleanup();
-        reject(new Error(`[${this.config.clientId}] Disconnected while waiting for ready: ${reason}`));
-      });
+      // Handler for disconnection during wait
+      // Only reject for terminal disconnects - allow reconnectable disconnects to retry
+      const onDisconnected = (reason) => {
+        // Terminal disconnect reasons that should not be retried
+        const terminalReasons = [
+          'LOGGED_OUT',
+          'UNPAIRED',
+          'FORBIDDEN',
+          'MULTIDEVICE_MISMATCH',
+          'CONNECTION_REPLACED',
+          'BAD_SESSION'
+        ];
+        
+        if (terminalReasons.includes(reason)) {
+          console.error(`[${this.config.clientId}] Terminal disconnect during waitForReady: ${reason}`);
+          cleanup();
+          reject(new Error(`[${this.config.clientId}] Disconnected while waiting for ready: ${reason}`));
+        } else {
+          // Reconnectable disconnect - log but continue waiting for ready event
+          console.warn(`[${this.config.clientId}] Reconnectable disconnect during waitForReady: ${reason}, waiting for reconnection...`);
+          // Don't cleanup or reject - the client will attempt reconnection
+          // and emit 'ready' event when successful
+        }
+      };
+      
+      // Use on() instead of once() for disconnect to handle multiple reconnectable disconnects
+      this.on('disconnected', onDisconnected);
     });
   }
 }
