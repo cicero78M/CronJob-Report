@@ -140,26 +140,24 @@ describe('waService initialization timing', () => {
     // Verify the correct sequence of calls
     expect(waService.createClient).toHaveBeenCalledTimes(2);
     
-    // Verify wa-client configuration
+    // Verify wa-client configuration (updated for Baileys)
     expect(waService.createClient).toHaveBeenNthCalledWith(1, 'wa-client', 
       expect.objectContaining({
         clientId: env.APP_SESSION_NAME || 'wa-admin',
         authPath: env.WA_AUTH_DATA_PATH,
-        webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
-        webVersion: env.WA_WEB_VERSION,
+        logLevel: 'error', // Baileys option
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
         qrTimeout: env.WA_QR_TIMEOUT_MS
       })
     );
     
-    // Verify wa-gateway configuration
+    // Verify wa-gateway configuration (updated for Baileys)
     expect(waService.createClient).toHaveBeenNthCalledWith(2, 'wa-gateway',
       expect.objectContaining({
         clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod',
         authPath: env.WA_AUTH_DATA_PATH,
-        webVersionCacheUrl: env.WA_WEB_VERSION_CACHE_URL,
-        webVersion: env.WA_WEB_VERSION,
+        logLevel: 'error', // Baileys option
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
         qrTimeout: env.WA_QR_TIMEOUT_MS
