@@ -1,5 +1,5 @@
 import { scheduleCronJob } from '../utils/cronScheduler.js';
-import { sendDebug } from '../middleware/debugHandler.js';
+import { sendDebug, sendConsoleDebug } from '../middleware/debugHandler.js';
 import { fetchAndStoreInstaContent } from '../handler/fetchpost/instaFetchPost.js';
 import { findAllActiveOrgAmplifyClients } from '../model/clientModel.js';
 
@@ -19,14 +19,14 @@ async function runUpdateForClient(client) {
 
   await fetchAndStoreInstaContent(null, null, null, client.client_id);
 
-  sendDebug({
+  sendConsoleDebug({
     tag: CRON_TAG,
     msg: `[${client.client_id}] Update tugas rutin selesai.`,
   });
 }
 
 export async function runCron() {
-  sendDebug({
+  sendConsoleDebug({
     tag: CRON_TAG,
     msg: 'Mulai cron update tugas rutin amplifikasi (oprrequest).',
   });

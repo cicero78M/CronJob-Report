@@ -2,7 +2,7 @@
 
 import pLimit from "p-limit";
 import { query } from "../../db/index.js";
-import { sendDebug } from "../../middleware/debugHandler.js";
+import { sendDebug, sendConsoleDebug } from "../../middleware/debugHandler.js";
 import { fetchInstagramPosts, fetchInstagramPostInfo } from "../../service/instagramApi.js";
 import { savePostWithMedia } from "../../model/instaPostExtendedModel.js";
 import { upsertInstaPost as upsertInstaPostKhusus } from "../../model/instaPostKhususModel.js";
@@ -344,12 +344,12 @@ export async function fetchAndStoreInstaContent(
       }
     }
   } else {
-    sendDebug({
+    sendConsoleDebug({
       tag: "IG FETCH",
       msg: msg
     });
     if (kontenLinksToday.length) {
-      sendDebug({
+      sendConsoleDebug({
         tag: "IG FETCH",
         msg: kontenLinksToday.join("\n")
       });
