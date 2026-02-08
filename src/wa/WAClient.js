@@ -214,8 +214,10 @@ export class WAClient extends EventEmitter {
           shouldReconnect = false;
         } else if (statusCode === DisconnectReason.connectionClosed) {
           reason = 'CONNECTION_CLOSED';
-        } else if (statusCode === DisconnectReason.connectionLost || statusCode === DisconnectReason.timedOut) {
+        } else if (statusCode === DisconnectReason.connectionLost) {
           reason = 'CONNECTION_LOST';
+        } else if (statusCode === DisconnectReason.timedOut) {
+          reason = 'TIMED_OUT';
         } else if (statusCode === DisconnectReason.connectionReplaced) {
           reason = 'CONNECTION_REPLACED';
           shouldReconnect = false;
@@ -227,8 +229,7 @@ export class WAClient extends EventEmitter {
         } else if (statusCode === DisconnectReason.unavailableService) {
           reason = 'UNAVAILABLE_SERVICE';
         } else if (statusCode !== undefined) {
-          // Unknown status code - include it for debugging
-          reason = `UNKNOWN_CODE_${statusCode}`;
+          // Unknown status code - log separately for debugging but keep reason as UNKNOWN
           console.warn(`[${this.config.clientId}] Unrecognized disconnect status code: ${statusCode}`);
         }
         
