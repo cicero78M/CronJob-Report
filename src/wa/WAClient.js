@@ -56,6 +56,9 @@ export class WAClient extends EventEmitter {
     this.lastError = null;
     this.qrTimeoutTimer = null;
     this.reconnectTimer = null;
+    // Message store for decryption - keeps last 100 messages per chat
+    this.messageStore = new Map();
+    this.maxMessagesPerChat = 100;
   }
 
   /**
@@ -104,9 +107,21 @@ export class WAClient extends EventEmitter {
         printQRInTerminal: false, // We handle QR display manually
         shouldSyncHistoryMessage: () => false, // Don't sync message history
         version: version,
-        getMessage: async () => {
-          // Return undefined to indicate message not found in cache
-          return undefined;
+        getMessage: async (key) => {
+          // Retrieve message from store for decryption purposes
+          // This is needed for message references (replies, reactions, etc.)
+          if (!key || !key.remoteJid || !key.id) {
+            return undefined;
+          }
+          
+          const chatMessages = this.messageStore.get(key.remoteJid);
+          if (!chatMessages) {
+            return undefined;
+          }
+          
+          // Find message by ID
+          const message = chatMessages.get(key.id);
+          return message;
         }
       });
 
@@ -263,6 +278,9 @@ export class WAClient extends EventEmitter {
     // Incoming messages
     this.socket.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
+        // Store message for future decryption needs
+        this._storeMessage(msg);
+        
         // Skip if message is from us
         if (msg.key.fromMe) {
           // Emit message_create for sent messages
@@ -340,6 +358,36 @@ export class WAClient extends EventEmitter {
       // Check if from group
       isGroup: baileyMsg.key.remoteJid?.endsWith('@g.us') || false
     };
+  }
+
+  /**
+   * Store message in memory for decryption purposes
+   * Keeps a limited cache of recent messages per chat
+   */
+  _storeMessage(baileyMsg) {
+    if (!baileyMsg || !baileyMsg.key || !baileyMsg.key.remoteJid || !baileyMsg.key.id) {
+      return;
+    }
+
+    const chatJid = baileyMsg.key.remoteJid;
+    const messageId = baileyMsg.key.id;
+
+    // Get or create chat message store
+    let chatMessages = this.messageStore.get(chatJid);
+    if (!chatMessages) {
+      chatMessages = new Map();
+      this.messageStore.set(chatJid, chatMessages);
+    }
+
+    // Store the message (just the message content, not the whole object)
+    chatMessages.set(messageId, baileyMsg.message);
+
+    // Limit cache size per chat to prevent memory growth
+    if (chatMessages.size > this.maxMessagesPerChat) {
+      // Remove oldest message (first inserted)
+      const firstKey = chatMessages.keys().next().value;
+      chatMessages.delete(firstKey);
+    }
   }
 
   /**
@@ -534,6 +582,11 @@ export class WAClient extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    
+    // Clear message store to free memory
+    if (this.messageStore) {
+      this.messageStore.clear();
     }
     
     if (this.socket) {
