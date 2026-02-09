@@ -380,10 +380,13 @@ export class WAClient extends EventEmitter {
     }
 
     // Store the message (just the message content, not the whole object)
+    // baileyMsg.message contains the actual message payload (text, media, etc.)
+    // while baileyMsg also includes metadata like key, timestamp, etc.
     chatMessages.set(messageId, baileyMsg.message);
 
     // Limit cache size per chat to prevent memory growth
-    if (chatMessages.size > this.maxMessagesPerChat) {
+    // Note: Map maintains insertion order, so first key is oldest
+    if (chatMessages.size >= this.maxMessagesPerChat) {
       // Remove oldest message (first inserted)
       const firstKey = chatMessages.keys().next().value;
       chatMessages.delete(firstKey);
