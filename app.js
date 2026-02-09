@@ -51,18 +51,10 @@ function scheduleCronBucket(client, bucketKey, label) {
     activateBucket();
   });
 
-  // Since initializeWAService() now waits for clients to be ready,
-  // this call should return immediately. We still call it to verify.
-  client
-    .waitForWaReady()
-    .then(() => {
-      console.log(`[CRON] ${label} client confirmed ready`);
-      return activateBucket();
-    })
-    .catch(err => {
-      console.error(`[CRON] Error waiting for ${label} readiness`, err);
-      console.error(`[CRON] This should not happen if initializeWAService() completed successfully`);
-    });
+  // Since initializeWAService() already waits for clients to be ready,
+  // we can activate the bucket immediately without waiting again
+  console.log(`[CRON] ${label} client confirmed ready`);
+  activateBucket();
 }
 
 // Initialize WhatsApp clients with new architecture

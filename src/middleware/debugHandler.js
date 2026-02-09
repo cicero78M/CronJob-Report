@@ -1,6 +1,6 @@
 // src/middleware/debugHandler.js
 
-import waClient, { waitForWaReady } from "../service/waService.js";
+import waClient from "../service/waService.js";
 
 // Helper: stringifier aman untuk circular object
 function safeStringify(obj) {
@@ -52,8 +52,12 @@ export function sendDebug({ tag = "DEBUG", msg, client_id = "", clientName = "" 
   const isError = /error/i.test(safeMsg);
 
   if (isStartOrEnd || isError) {
-    waitForWaReady()
-      .then(() => {
+    // Check if waClient is ready before attempting to send
+    // This prevents unnecessary waitForWaReady() calls when client is already initialized
+    try {
+      // Try to access waClient.isReady through the proxy
+      // If proxy throws because _waClient is null, we catch it and skip sending
+      if (waClient.isReady) {
         let waMsg = fullMsg;
         if (isError) {
           // kirim hanya potongan pendek agar tidak mengandung raw data
@@ -62,12 +66,11 @@ export function sendDebug({ tag = "DEBUG", msg, client_id = "", clientName = "" 
         for (const wa of adminWA) {
           waClient.sendMessage(wa, waMsg).catch(() => {});
         }
-      })
-      .catch(() => {
-        console.warn(
-          '[WA] Skipping debug WhatsApp send: WhatsApp client not ready'
-        );
-      });
+      }
+    } catch {
+      // waClient proxy throws if not initialized - this is expected during startup
+      // Silently skip sending, no need to log warning for every cron start message
+    }
   }
 
   console.log(fullMsg);
