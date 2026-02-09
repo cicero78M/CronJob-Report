@@ -53,7 +53,9 @@ export function sendDebug({ tag = "DEBUG", msg, client_id = "", clientName = "" 
 
   if (isStartOrEnd || isError) {
     // Check if waClient is ready before attempting to send
-    // This prevents unnecessary waitForWaReady() calls when client is already initialized
+    // Note: initializeWAService() in app.js waits for clients to be ready before loading cron modules,
+    // so by the time cron jobs execute, the client should be ready. The try-catch handles edge cases
+    // during startup or reconnection.
     try {
       // Try to access waClient.isReady through the proxy
       // If proxy throws because _waClient is null, we catch it and skip sending
@@ -68,8 +70,9 @@ export function sendDebug({ tag = "DEBUG", msg, client_id = "", clientName = "" 
         }
       }
     } catch {
-      // waClient proxy throws if not initialized - this is expected during startup
-      // Silently skip sending, no need to log warning for every cron start message
+      // Proxy throws if _waClient is not initialized - this only happens during startup
+      // before initializeWAService() completes, or during testing with incomplete mocks.
+      // Silent skip is intentional - prevents log spam during normal startup sequence.
     }
   }
 
