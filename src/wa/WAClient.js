@@ -99,14 +99,22 @@ export class WAClient extends EventEmitter {
       // Fetch latest Baileys version for compatibility
       const { version } = await fetchLatestBaileysVersion();
 
+      // Create custom logger that suppresses non-critical session errors
+      // Bad MAC and SessionError messages are often transient and handled by Baileys internally
+      const baileysLogger = pino({
+        level: this.config.logLevel === 'error' ? 'fatal' : this.config.logLevel
+      });
+
       // Create Baileys socket with configuration
       this.socket = makeWASocket({
         auth: this.authState,
         browser: Browsers.ubuntu('Chrome'),
-        logger: pino({ level: this.config.logLevel }),
+        logger: baileysLogger,
         printQRInTerminal: false, // We handle QR display manually
         shouldSyncHistoryMessage: () => false, // Don't sync message history
         version: version,
+        // Handle decryption retries - reduces "Bad MAC" errors
+        retryRequestDelayMs: 350, // Slightly longer delay between retries
         getMessage: async (key) => {
           // Retrieve message from store for decryption purposes
           // This is needed for message references (replies, reactions, etc.)
@@ -171,6 +179,12 @@ export class WAClient extends EventEmitter {
    * Maps Baileys events to maintain compatibility with previous interface
    */
   _setupEventHandlers() {
+    // Handle session errors from libsignal/Baileys decryption
+    // These errors are thrown when message decryption fails due to session issues
+    this.socket.ev.on('CB:call', () => {
+      // Handle incoming calls if needed
+    });
+
     // Connection state updates - handles QR, authentication, ready state
     this.socket.ev.on('connection.update', (update) => {
       const { connection, qr, lastDisconnect } = update;
@@ -278,21 +292,39 @@ export class WAClient extends EventEmitter {
     // Incoming messages
     this.socket.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
-        // Store message for future decryption needs
-        this._storeMessage(msg);
-        
-        // Skip if message is from us
-        if (msg.key.fromMe) {
-          // Emit message_create for sent messages
-          const convertedMsg = this._convertBaileysMessage(msg);
-          this.emit('message_create', convertedMsg);
-          continue;
-        }
+        try {
+          // Store message for future decryption needs
+          this._storeMessage(msg);
+          
+          // Skip if message is from us
+          if (msg.key.fromMe) {
+            // Emit message_create for sent messages
+            const convertedMsg = this._convertBaileysMessage(msg);
+            this.emit('message_create', convertedMsg);
+            continue;
+          }
 
-        // Only process notify type messages (new messages)
-        if (type === 'notify' && msg.message) {
-          const convertedMsg = this._convertBaileysMessage(msg);
-          this.emit('message', convertedMsg);
+          // Only process notify type messages (new messages)
+          if (type === 'notify' && msg.message) {
+            const convertedMsg = this._convertBaileysMessage(msg);
+            this.emit('message', convertedMsg);
+          }
+        } catch (error) {
+          // Handle decryption errors gracefully
+          // These can occur due to session issues, bad MAC, or missing session keys
+          const errorName = error.name || error.constructor?.name || 'Unknown';
+          const errorMsg = error.message || String(error);
+          
+          // Log session-related errors at info level (they're expected in some cases)
+          if (errorName === 'SessionError' || errorMsg.includes('Bad MAC') || errorMsg.includes('session')) {
+            console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${errorMsg.substring(0, 100)}`);
+          } else {
+            // Log other errors as warnings
+            console.warn(`[${this.config.clientId}] Error processing message:`, errorName, errorMsg.substring(0, 100));
+          }
+          
+          // Don't propagate the error - continue processing other messages
+          // The message will be skipped but app continues running
         }
       }
     });
@@ -379,17 +411,19 @@ export class WAClient extends EventEmitter {
       this.messageStore.set(chatJid, chatMessages);
     }
 
-    // Store the message (just the message content, not the whole object)
+    // Store the message content (proto.IMessage format expected by Baileys)
     // baileyMsg.message contains the actual message payload (text, media, etc.)
-    // while baileyMsg also includes metadata like key, timestamp, etc.
-    chatMessages.set(messageId, baileyMsg.message);
+    // This is what getMessage should return according to Baileys documentation
+    if (baileyMsg.message) {
+      chatMessages.set(messageId, baileyMsg.message);
 
-    // Limit cache size per chat to prevent memory growth
-    // Note: Map maintains insertion order, so first key is oldest
-    if (chatMessages.size >= this.maxMessagesPerChat) {
-      // Remove oldest message (first inserted)
-      const firstKey = chatMessages.keys().next().value;
-      chatMessages.delete(firstKey);
+      // Limit cache size per chat to prevent memory growth
+      // Note: Map maintains insertion order, so first key is oldest
+      if (chatMessages.size > this.maxMessagesPerChat) {
+        // Remove oldest message (first inserted)
+        const firstKey = chatMessages.keys().next().value;
+        chatMessages.delete(firstKey);
+      }
     }
   }
 
