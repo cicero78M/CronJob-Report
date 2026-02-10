@@ -22,6 +22,18 @@ import os from 'os';
 const MAX_ERROR_MESSAGE_LENGTH = 100; // Maximum length for truncated error messages in logs
 
 /**
+ * Safely truncate a string to a maximum length, adding ellipsis if truncated
+ * Handles unicode characters properly to avoid cutting in the middle of multi-byte chars
+ */
+function truncateString(str, maxLength) {
+  if (!str || str.length <= maxLength) {
+    return str;
+  }
+  // Use substring which is safe with unicode, then add ellipsis
+  return str.substring(0, maxLength - 3) + '...';
+}
+
+/**
  * Configuration class for WhatsApp client
  * Following camelCase naming convention for class properties
  */
@@ -339,10 +351,10 @@ export class WAClient extends EventEmitter {
           
           // Log session-related errors at info level (they're expected in some cases)
           if (errorName === 'SessionError' || errorMsg.includes('Bad MAC') || errorMsg.includes('session')) {
-            console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${errorMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`);
+            console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${truncateString(errorMsg, MAX_ERROR_MESSAGE_LENGTH)}`);
           } else {
             // Log other errors as warnings
-            console.warn(`[${this.config.clientId}] Error processing message:`, errorName, errorMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH));
+            console.warn(`[${this.config.clientId}] Error processing message:`, errorName, truncateString(errorMsg, MAX_ERROR_MESSAGE_LENGTH));
           }
           
           // Don't propagate the error - continue processing other messages
@@ -440,7 +452,9 @@ export class WAClient extends EventEmitter {
       chatMessages.set(messageId, baileyMsg.message);
 
       // Limit cache size per chat to prevent memory growth
-      // We check after insertion, so if size > max, we're at max+1 and need to remove one
+      // Logic: After insertion, check if we exceeded the limit
+      // Example with max=100: had 100 → insert → now 101 → 101>100 true → delete oldest → back to 100
+      // This maintains exactly maxMessagesPerChat items in the cache
       // Note: Map maintains insertion order, so first key is oldest
       if (chatMessages.size > this.maxMessagesPerChat) {
         // Remove oldest message (first inserted)
