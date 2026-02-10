@@ -179,12 +179,6 @@ export class WAClient extends EventEmitter {
    * Maps Baileys events to maintain compatibility with previous interface
    */
   _setupEventHandlers() {
-    // Handle session errors from libsignal/Baileys decryption
-    // These errors are thrown when message decryption fails due to session issues
-    this.socket.ev.on('CB:call', () => {
-      // Handle incoming calls if needed
-    });
-
     // Connection state updates - handles QR, authentication, ready state
     this.socket.ev.on('connection.update', (update) => {
       const { connection, qr, lastDisconnect } = update;
@@ -419,7 +413,7 @@ export class WAClient extends EventEmitter {
 
       // Limit cache size per chat to prevent memory growth
       // Note: Map maintains insertion order, so first key is oldest
-      if (chatMessages.size > this.maxMessagesPerChat) {
+      if (chatMessages.size >= this.maxMessagesPerChat) {
         // Remove oldest message (first inserted)
         const firstKey = chatMessages.keys().next().value;
         chatMessages.delete(firstKey);
