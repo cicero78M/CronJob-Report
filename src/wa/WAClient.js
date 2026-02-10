@@ -18,6 +18,9 @@ import { EventEmitter } from 'events';
 import path from 'path';
 import os from 'os';
 
+// Constants
+const MAX_ERROR_MESSAGE_LENGTH = 100; // Maximum length for truncated error messages in logs
+
 /**
  * Configuration class for WhatsApp client
  * Following camelCase naming convention for class properties
@@ -31,6 +34,8 @@ class WAClientConfig {
     this.initRetryDelay = parseInt(options.initRetryDelay, 10) || 10000; // 10 seconds
     this.qrTimeout = parseInt(options.qrTimeout, 10) || 120000; // 2 minutes for QR scan
     this.logLevel = options.logLevel || 'error'; // Baileys logging level
+    // Option to suppress non-critical Baileys session errors (Bad MAC, SessionError)
+    this.suppressSessionErrors = options.suppressSessionErrors !== false; // default true
   }
 }
 
@@ -99,11 +104,14 @@ export class WAClient extends EventEmitter {
       // Fetch latest Baileys version for compatibility
       const { version } = await fetchLatestBaileysVersion();
 
-      // Create custom logger that suppresses non-critical session errors
+      // Create logger for Baileys
+      // If suppressSessionErrors is enabled, use 'fatal' level to suppress non-critical errors
       // Bad MAC and SessionError messages are often transient and handled by Baileys internally
-      const baileysLogger = pino({
-        level: this.config.logLevel === 'error' ? 'fatal' : this.config.logLevel
-      });
+      const baileysLogLevel = this.config.suppressSessionErrors && this.config.logLevel === 'error' 
+        ? 'fatal' 
+        : this.config.logLevel;
+      
+      const baileysLogger = pino({ level: baileysLogLevel });
 
       // Create Baileys socket with configuration
       this.socket = makeWASocket({
@@ -311,10 +319,10 @@ export class WAClient extends EventEmitter {
           
           // Log session-related errors at info level (they're expected in some cases)
           if (errorName === 'SessionError' || errorMsg.includes('Bad MAC') || errorMsg.includes('session')) {
-            console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${errorMsg.substring(0, 100)}`);
+            console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${errorMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH)}`);
           } else {
             // Log other errors as warnings
-            console.warn(`[${this.config.clientId}] Error processing message:`, errorName, errorMsg.substring(0, 100));
+            console.warn(`[${this.config.clientId}] Error processing message:`, errorName, errorMsg.substring(0, MAX_ERROR_MESSAGE_LENGTH));
           }
           
           // Don't propagate the error - continue processing other messages
@@ -412,8 +420,9 @@ export class WAClient extends EventEmitter {
       chatMessages.set(messageId, baileyMsg.message);
 
       // Limit cache size per chat to prevent memory growth
+      // We check after insertion, so if size > max, we're at max+1 and need to remove one
       // Note: Map maintains insertion order, so first key is oldest
-      if (chatMessages.size >= this.maxMessagesPerChat) {
+      if (chatMessages.size > this.maxMessagesPerChat) {
         // Remove oldest message (first inserted)
         const firstKey = chatMessages.keys().next().value;
         chatMessages.delete(firstKey);
