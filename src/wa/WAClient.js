@@ -105,11 +105,17 @@ export class WAClient extends EventEmitter {
       const { version } = await fetchLatestBaileysVersion();
 
       // Create logger for Baileys
-      // If suppressSessionErrors is enabled, use 'fatal' level to suppress non-critical errors
+      // If suppressSessionErrors is enabled, elevate log level to suppress non-critical errors
       // Bad MAC and SessionError messages are often transient and handled by Baileys internally
-      const baileysLogLevel = this.config.suppressSessionErrors && this.config.logLevel === 'error' 
-        ? 'fatal' 
-        : this.config.logLevel;
+      // Only applies when logLevel would show errors (error, warn, info, debug, trace)
+      let baileysLogLevel = this.config.logLevel;
+      if (this.config.suppressSessionErrors) {
+        // Map levels that would show errors to 'fatal' to suppress them
+        const errorShowingLevels = ['error', 'warn', 'info', 'debug', 'trace'];
+        if (errorShowingLevels.includes(this.config.logLevel)) {
+          baileysLogLevel = 'fatal';
+        }
+      }
       
       const baileysLogger = pino({ level: baileysLogLevel });
 
@@ -314,8 +320,22 @@ export class WAClient extends EventEmitter {
         } catch (error) {
           // Handle decryption errors gracefully
           // These can occur due to session issues, bad MAC, or missing session keys
-          const errorName = error.name || error.constructor?.name || 'Unknown';
-          const errorMsg = error.message || String(error);
+          
+          // Safely extract error information
+          let errorName = 'Unknown';
+          let errorMsg = 'Unknown error';
+          
+          if (error instanceof Error) {
+            errorName = error.name;
+            errorMsg = error.message;
+          } else if (error && typeof error === 'object') {
+            // Handle non-Error objects (e.g., thrown strings or objects)
+            errorName = error.constructor?.name || 'Object';
+            errorMsg = error.message || error.toString?.() || String(error);
+          } else {
+            // Handle primitives
+            errorMsg = String(error);
+          }
           
           // Log session-related errors at info level (they're expected in some cases)
           if (errorName === 'SessionError' || errorMsg.includes('Bad MAC') || errorMsg.includes('session')) {
