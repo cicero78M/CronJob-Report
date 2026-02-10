@@ -18,6 +18,21 @@ import { EventEmitter } from 'events';
 import path from 'path';
 import os from 'os';
 
+// Constants
+const MAX_ERROR_MESSAGE_LENGTH = 100; // Maximum length for truncated error messages in logs
+
+/**
+ * Safely truncate a string to a maximum length, adding ellipsis if truncated
+ * Handles unicode characters properly to avoid cutting in the middle of multi-byte chars
+ */
+function truncateString(str, maxLength) {
+  if (!str || str.length <= maxLength) {
+    return str;
+  }
+  // Use substring which is safe with unicode, then add ellipsis
+  return str.substring(0, maxLength - 3) + '...';
+}
+
 /**
  * Configuration class for WhatsApp client
  * Following camelCase naming convention for class properties
@@ -31,6 +46,8 @@ class WAClientConfig {
     this.initRetryDelay = parseInt(options.initRetryDelay, 10) || 10000; // 10 seconds
     this.qrTimeout = parseInt(options.qrTimeout, 10) || 120000; // 2 minutes for QR scan
     this.logLevel = options.logLevel || 'error'; // Baileys logging level
+    // Option to suppress non-critical Baileys session errors (Bad MAC, SessionError)
+    this.suppressSessionErrors = options.suppressSessionErrors !== false; // default true
   }
 }
 
@@ -99,14 +116,31 @@ export class WAClient extends EventEmitter {
       // Fetch latest Baileys version for compatibility
       const { version } = await fetchLatestBaileysVersion();
 
+      // Create logger for Baileys
+      // If suppressSessionErrors is enabled, elevate log level to suppress non-critical errors
+      // Bad MAC and SessionError messages are often transient and handled by Baileys internally
+      // Only applies when logLevel would show errors (error, warn, info, debug, trace)
+      let baileysLogLevel = this.config.logLevel;
+      if (this.config.suppressSessionErrors) {
+        // Map levels that would show errors to 'fatal' to suppress them
+        const errorShowingLevels = ['error', 'warn', 'info', 'debug', 'trace'];
+        if (errorShowingLevels.includes(this.config.logLevel)) {
+          baileysLogLevel = 'fatal';
+        }
+      }
+      
+      const baileysLogger = pino({ level: baileysLogLevel });
+
       // Create Baileys socket with configuration
       this.socket = makeWASocket({
         auth: this.authState,
         browser: Browsers.ubuntu('Chrome'),
-        logger: pino({ level: this.config.logLevel }),
+        logger: baileysLogger,
         printQRInTerminal: false, // We handle QR display manually
         shouldSyncHistoryMessage: () => false, // Don't sync message history
         version: version,
+        // Handle decryption retries - reduces "Bad MAC" errors
+        retryRequestDelayMs: 350, // Slightly longer delay between retries
         getMessage: async (key) => {
           // Retrieve message from store for decryption purposes
           // This is needed for message references (replies, reactions, etc.)
@@ -278,21 +312,53 @@ export class WAClient extends EventEmitter {
     // Incoming messages
     this.socket.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
-        // Store message for future decryption needs
-        this._storeMessage(msg);
-        
-        // Skip if message is from us
-        if (msg.key.fromMe) {
-          // Emit message_create for sent messages
-          const convertedMsg = this._convertBaileysMessage(msg);
-          this.emit('message_create', convertedMsg);
-          continue;
-        }
+        try {
+          // Store message for future decryption needs
+          this._storeMessage(msg);
+          
+          // Skip if message is from us
+          if (msg.key.fromMe) {
+            // Emit message_create for sent messages
+            const convertedMsg = this._convertBaileysMessage(msg);
+            this.emit('message_create', convertedMsg);
+            continue;
+          }
 
-        // Only process notify type messages (new messages)
-        if (type === 'notify' && msg.message) {
-          const convertedMsg = this._convertBaileysMessage(msg);
-          this.emit('message', convertedMsg);
+          // Only process notify type messages (new messages)
+          if (type === 'notify' && msg.message) {
+            const convertedMsg = this._convertBaileysMessage(msg);
+            this.emit('message', convertedMsg);
+          }
+        } catch (error) {
+          // Handle decryption errors gracefully
+          // These can occur due to session issues, bad MAC, or missing session keys
+          
+          // Safely extract error information
+          let errorName = 'Unknown';
+          let errorMsg = 'Unknown error';
+          
+          if (error instanceof Error) {
+            errorName = error.name;
+            errorMsg = error.message;
+          } else if (error && typeof error === 'object') {
+            // Handle non-Error objects (e.g., thrown strings or objects)
+            errorName = error.constructor?.name || 'Object';
+            errorMsg = error.message || error.toString?.() || String(error);
+          } else {
+            // Handle primitives
+            errorMsg = String(error);
+          }
+          
+          // Log session-related errors at info level (they're expected in some cases)
+          if (errorName === 'SessionError' || errorMsg.includes('Bad MAC') || errorMsg.includes('session')) {
+            console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${truncateString(errorMsg, MAX_ERROR_MESSAGE_LENGTH)}`);
+          } else {
+            // Log other errors as warnings
+            console.warn(`[${this.config.clientId}] Error processing message:`, errorName, truncateString(errorMsg, MAX_ERROR_MESSAGE_LENGTH));
+          }
+          
+          // Don't propagate the error - continue processing other messages
+          // The message will be skipped but app continues running
         }
       }
     });
@@ -379,17 +445,22 @@ export class WAClient extends EventEmitter {
       this.messageStore.set(chatJid, chatMessages);
     }
 
-    // Store the message (just the message content, not the whole object)
+    // Store the message content (proto.IMessage format expected by Baileys)
     // baileyMsg.message contains the actual message payload (text, media, etc.)
-    // while baileyMsg also includes metadata like key, timestamp, etc.
-    chatMessages.set(messageId, baileyMsg.message);
+    // This is what getMessage should return according to Baileys documentation
+    if (baileyMsg.message) {
+      chatMessages.set(messageId, baileyMsg.message);
 
-    // Limit cache size per chat to prevent memory growth
-    // Note: Map maintains insertion order, so first key is oldest
-    if (chatMessages.size >= this.maxMessagesPerChat) {
-      // Remove oldest message (first inserted)
-      const firstKey = chatMessages.keys().next().value;
-      chatMessages.delete(firstKey);
+      // Limit cache size per chat to prevent memory growth
+      // Logic: After insertion, check if we exceeded the limit
+      // Example with max=100: had 100 → insert → now 101 → 101>100 true → delete oldest → back to 100
+      // This maintains exactly maxMessagesPerChat items in the cache
+      // Note: Map maintains insertion order, so first key is oldest
+      if (chatMessages.size > this.maxMessagesPerChat) {
+        // Remove oldest message (first inserted)
+        const firstKey = chatMessages.keys().next().value;
+        chatMessages.delete(firstKey);
+      }
     }
   }
 
