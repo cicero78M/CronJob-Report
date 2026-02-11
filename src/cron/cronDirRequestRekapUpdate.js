@@ -1,11 +1,13 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import waClient from "../service/waService.js";
+import { getOperatorWaRoute } from "./waClientRouting.js";
 import { formatRekapUserData, formatExecutiveSummary } from "../service/dirRequestService.js";
 import { safeSendMessage, normalizeUserWhatsAppId, minPhoneDigitLength } from "../utils/waHelper.js";
 import { sendDebug } from "../middleware/debugHandler.js";
 import { scheduleCronJob } from "../utils/cronScheduler.js";
+
+const { primaryClient } = getOperatorWaRoute();
 
 const DIRREQUEST_GROUP = "120363419830216549@g.us";
 
@@ -47,8 +49,8 @@ export async function runCron() {
 
     const recipients = new Set([...getAdminWAIds(), DIRREQUEST_GROUP]);
     for (const wa of recipients) {
-      await safeSendMessage(waClient, wa, executive.trim());
-      await safeSendMessage(waClient, wa, rekap.trim());
+      await safeSendMessage(primaryClient, wa, executive.trim());
+      await safeSendMessage(primaryClient, wa, rekap.trim());
     }
 
     sendDebug({

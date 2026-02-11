@@ -1,7 +1,9 @@
 import { absensiRegistrasiDashboardDirektorat } from '../handler/fetchabsensi/dashboard/absensiRegistrasiDashboardDirektorat.js';
 import { sendWAReport, getAdminWAIds } from '../utils/waHelper.js';
-import waService from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 import { findAllActiveDirektorat } from '../model/clientModel.js';
+
+const { primaryClient } = getOperatorWaRoute();
 
 function formatDirectorateIds(clients = []) {
   return clients
@@ -16,7 +18,7 @@ export async function runCron() {
 
   for (const dirId of directorateIds) {
     const msg = await absensiRegistrasiDashboardDirektorat(dirId);
-    await sendWAReport(waService, msg, targets);
+    await sendWAReport(primaryClient, msg, targets);
   }
 }
 

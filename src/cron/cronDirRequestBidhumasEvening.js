@@ -9,7 +9,7 @@ import {
   minPhoneDigitLength,
   normalizeGroupId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const BIDHUMAS_CLIENT_ID = 'BIDHUMAS';
@@ -32,10 +32,7 @@ const adminRecipients = new Set(
   getAdminWAIds().map((wid) => normalizeUserRecipient(wid)).filter(Boolean)
 );
 const CRON_LABEL = 'CRON DIRREQ BIDHUMAS 22:00';
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function toWAid(value) {
   if (!value || typeof value !== 'string') return null;
@@ -71,7 +68,7 @@ async function logToAdmins(message) {
       chatId: admin,
       message: `${prefix}${message}`,
       clients: waFallbackClients,
-      reportClient: waClient,
+      reportClient,
       reportContext: { jobKey: JOB_KEY, admin },
     });
   }
@@ -99,7 +96,7 @@ async function executeBidhumasMenus(recipients) {
           chatId,
           roleFlag: BIDHUMAS_CLIENT_ID,
           userClientId: BIDHUMAS_CLIENT_ID,
-          waClient: waGatewayClient,
+          waClient: primaryClient,
           fallbackClients: waFallbackClients,
           fallbackContext: {
             action,

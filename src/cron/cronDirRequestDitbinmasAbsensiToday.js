@@ -4,7 +4,7 @@ import {
   minPhoneDigitLength,
   normalizeUserWhatsAppId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
@@ -12,10 +12,7 @@ const TARGET_RECIPIENT = '081331780006';
 export const JOB_KEY = './src/cron/cronDirRequestDitbinmasAbsensiToday.js';
 const CRON_LABEL = 'CRON DIRREQ DITBINMAS 18:27';
 const ACTIONS = ['5', '10'];
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { primaryClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function normalizeRecipient(value) {
   if (!value) return null;
@@ -35,7 +32,7 @@ async function executeDitbinmasMenus(chatId) {
         chatId,
         roleFlag: DITBINMAS_CLIENT_ID,
         userClientId: DITBINMAS_CLIENT_ID,
-        waClient: waGatewayClient,
+        waClient: primaryClient,
         fallbackClients: waFallbackClients,
         fallbackContext: {
           action,

@@ -1,4 +1,4 @@
-import waClient, { waGatewayClient } from "../service/waService.js";
+import { getDirectorateWaRoute } from "./waClientRouting.js";
 import { sendWithClientFallback, formatToWhatsAppId } from "../utils/waHelper.js";
 import { getActiveUsersWithWhatsapp } from "../model/userModel.js";
 import { getShortcodesTodayByClient } from "../model/instaPostModel.js";
@@ -21,10 +21,7 @@ const THANK_YOU_MESSAGE =
 const DEFAULT_SEND_DELAY_MS = 2000;
 const WHATSAPP_SEND_DELAY_MS =
   process.env.NODE_ENV === "test" ? 0 : DEFAULT_SEND_DELAY_MS;
-const waFallbackClients = [
-  { client: waGatewayClient, label: "WA-GATEWAY" },
-  { client: waClient, label: "WA" },
-];
+const { reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -348,7 +345,7 @@ export async function runCron() {
       chatId,
       message,
       clients: waFallbackClients,
-      reportClient: waClient,
+      reportClient,
       reportContext: {
         jobKey: JOB_KEY,
         clientId,

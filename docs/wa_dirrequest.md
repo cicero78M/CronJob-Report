@@ -7,6 +7,22 @@ grup seperti Rekap Data, Absensi, Pengambilan Data, hingga Monitoring
 Kasatker. Setiap opsi dipilih dengan membalas angka menu sesuai label yang
 ditampilkan bot.
 
+
+## Routing WA untuk Cron (update 2026-02-11)
+
+Standar routing terbaru agar konsisten dan mudah di-maintain:
+
+- Cron **dirRequest terjadwal** menggunakan rute **WA Direktorat** sebagai primary (`waClient`) dengan fallback ke **WA Operator**.
+  - `cronWaNotificationReminder`
+  - `cronDirRequestBidhumasEvening`
+  - `cronDirRequestSatbinmasOfficialMedia`
+  - `cronDirRequestDitbinmasGroupRecap`
+  - `cronDirRequestDitbinmasSuperAdminDaily` (via `cronDirRequestCustomSequence`)
+  - `cronDirRequestDitbinmasOperatorDaily` (via `cronDirRequestCustomSequence`)
+  - `cronDirRequestDitbinmasAbsensiToday`
+- Cron lain di `src/cron` menggunakan rute **WA Operator** sebagai primary (`waGatewayClient`) dengan fallback ke **WA Direktorat** bila diperlukan.
+- Pemilihan rute WA dipusatkan di `src/cron/waClientRouting.js` agar konfigurasi client/fallback tidak duplikatif di setiap module cron.
+
 Output menu dari `performAction` kini memakai jalur pengiriman aman khusus chat
 grup (`@g.us`) agar bot melewati chat grup yang belum ter-hydrate tanpa
 mengubah perilaku pengiriman ke user personal. Pengiriman di grup menggunakan

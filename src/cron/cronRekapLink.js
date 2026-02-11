@@ -2,11 +2,13 @@ import { scheduleCronJob } from "../utils/cronScheduler.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-import waClient from "../service/waService.js";
+import { getOperatorWaRoute } from "./waClientRouting.js";
 import { sendDebug } from "../middleware/debugHandler.js";
 import { normalizeUserWhatsAppId, minPhoneDigitLength } from "../utils/waHelper.js";
 
 import { absensiLink } from "../handler/fetchabsensi/link/absensiLinkAmplifikasi.js";
+
+const { primaryClient } = getOperatorWaRoute();
 
 async function getActiveClients() {
   const { query } = await import("../db/index.js");
@@ -69,7 +71,7 @@ export async function runCron() {
         const msg = await absensiLink(client.client_id, { roleFlag: "operator" });
         const targets = getRecipients(client);
         for (const wa of targets) {
-          await waClient.sendMessage(wa, msg).catch(() => {});
+          await primaryClient.sendMessage(wa, msg).catch(() => {});
         }
         sendDebug({
           tag: "CRON LINK",

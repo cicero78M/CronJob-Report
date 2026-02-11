@@ -1,15 +1,12 @@
 import { scheduleCronJob } from '../utils/cronScheduler.js';
 import { expireDashboardPremiumRequests } from '../service/dashboardPremiumRequestService.js';
 import { formatToWhatsAppId, sendWithClientFallback, sendWAReport } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 
 export const JOB_KEY = './src/cron/cronDashboardPremiumRequestExpiry.js';
 const CRON_EXPRESSION = '20 * * * *';
 const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getOperatorWaRoute();
 
 function buildRequesterMessage(request) {
   return [
@@ -29,7 +26,7 @@ async function notifyRequesters(requests = []) {
         chatId: wid,
         message: buildRequesterMessage(request),
         clients: waFallbackClients,
-        reportClient: waClient,
+        reportClient,
         reportContext: { jobKey: JOB_KEY, requestId: request.request_id },
       });
     } catch (err) {
@@ -50,7 +47,7 @@ async function notifyAdmins(requests = []) {
     )
     .join('\n');
   const message = `${header}\n${details}`;
-  await sendWAReport(waClient, message);
+  await sendWAReport(primaryClient, message);
 }
 
 export async function runCron() {

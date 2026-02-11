@@ -2,7 +2,8 @@
 
 import { scheduleCronJob } from '../utils/cronScheduler.js';
 import { sendDebug } from '../middleware/debugHandler.js';
-import waClient, { waitForAllMessageQueues } from '../service/waService.js';
+import { waitForAllMessageQueues } from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 import { findAllActiveOrgAmplifyClients } from '../model/clientModel.js';
 import {
   generateDailyAmplificationReport,
@@ -14,6 +15,7 @@ export const JOB_KEY = './src/cron/cronOprRequestDailyReport.js';
 const CRON_EXPRESSION = '7 21 * * *'; // Every day at 22:30 PM Jakarta time
 const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const CRON_TAG = 'CRON OPRREQUEST DAILY REPORT';
+const { primaryClient } = getOperatorWaRoute();
 
 // Delay constants (in milliseconds)
 const MESSAGE_DELAY_MS = 2000; // Delay between messages to the same recipient
@@ -66,7 +68,7 @@ async function sendReportToOperator(client, reportMessage) {
   }
   
   try {
-    await waClient.sendMessage(operatorWA, reportMessage);
+    await primaryClient.sendMessage(operatorWA, reportMessage);
     sendDebug({
       tag: CRON_TAG,
       msg: `[${client.client_id}] Laporan berhasil dikirim ke operator ${operatorWA}`,

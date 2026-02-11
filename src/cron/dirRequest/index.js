@@ -112,10 +112,9 @@ const dirRequestCrons = [
   },
 ];
 // Function to register all dirRequest related cron jobs
-export function registerDirRequestCrons(waGatewayClient) {
-  void waGatewayClient;
-  if (!waGatewayClient) {
-    throw new Error('waGatewayClient is required to register dirRequest crons');
+export function registerDirRequestCrons(waDirectorateClient) {
+  if (!waDirectorateClient) {
+    throw new Error('waDirectorateClient is required to register dirRequest crons');
   }
 
   if (process.env.JEST_WORKER_ID !== undefined) {

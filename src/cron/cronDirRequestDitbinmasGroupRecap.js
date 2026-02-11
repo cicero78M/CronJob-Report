@@ -8,7 +8,7 @@ import {
   sendWithClientFallback,
   normalizeGroupId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
@@ -18,10 +18,7 @@ const ACTIONS = [
   { action: '21' },
   { action: '22', context: { period: 'today' } },
 ];
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function logInvalidRecipient(value) {
   console.warn('[SKIP WA] invalid recipient', value);
@@ -61,7 +58,7 @@ async function logToAdmins(message) {
       chatId: admin,
       message: `${prefix}${message}`,
       clients: waFallbackClients,
-      reportClient: waClient,
+      reportClient,
       reportContext: { jobKey: JOB_KEY, admin },
     });
   }
@@ -88,7 +85,7 @@ async function executeDitbinmasMenus(recipients) {
           chatId,
           roleFlag: DITBINMAS_CLIENT_ID,
           userClientId: DITBINMAS_CLIENT_ID,
-          waClient: waGatewayClient,
+          waClient: primaryClient,
           context,
           fallbackClients: waFallbackClients,
           fallbackContext: {
