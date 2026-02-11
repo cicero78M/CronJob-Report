@@ -2,11 +2,13 @@ import { scheduleCronJob } from '../utils/cronScheduler.js';
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
-import waClient from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 import { sendDebug } from '../middleware/debugHandler.js';
 import { saveLinkReportExcel } from '../service/linkReportExcelService.js';
 import { formatToWhatsAppId, sendWAFile } from '../utils/waHelper.js';
 import { getReportsThisMonthByClient } from '../model/linkReportModel.js';
+
+const { primaryClient } = getOperatorWaRoute();
 
 dotenv.config();
 
@@ -59,7 +61,7 @@ scheduleCronJob(
             ? formatToWhatsAppId(client.client_operator)
             : null;
           if (target) {
-            await sendWAFile(waClient, buffer, path.basename(filePath), target);
+            await sendWAFile(primaryClient, buffer, path.basename(filePath), target);
             sendDebug({
               tag: 'CRON AMPLIFY',
               msg: `[${client.client_id}] File dikirim ke operator`

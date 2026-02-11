@@ -80,7 +80,7 @@ async function initializeApp() {
 
     if (waGatewayClient.isReady) {
       scheduleCronBucket(waGatewayClient, 'operatorPolres', 'WA operator polres');
-      registerDirRequestCrons(waGatewayClient);
+      registerDirRequestCrons(waClient);
     } else {
       console.warn('[APP] wa-operator session is not ready, skipping operator cron registration');
     }

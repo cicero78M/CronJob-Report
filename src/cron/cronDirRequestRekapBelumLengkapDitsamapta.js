@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import waClient from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 import { formatRekapBelumLengkapDirektorat } from '../service/dirRequestService.js';
 import { scheduleCronJob } from '../utils/cronScheduler.js';
 import { safeSendMessage } from '../utils/waHelper.js';
@@ -12,6 +12,7 @@ const TARGET_CLIENT_ID = 'DITSAMAPTA';
 export const JOB_KEY = './src/cron/cronDirRequestRekapBelumLengkapDitsamapta.js';
 const CRON_EXPRESSION = '15 6 * * *';
 const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
+const { primaryClient } = getOperatorWaRoute();
 export async function runCron() {
   sendDebug({
     tag: 'CRON DIRREQ DITSAMAPTA',
@@ -45,7 +46,7 @@ export async function runCron() {
     }
 
     for (const wa of recipients) {
-      await safeSendMessage(waClient, wa, report);
+      await safeSendMessage(primaryClient, wa, report);
     }
 
     sendDebug({

@@ -14,6 +14,15 @@ dirRequest cron registration happens immediately at boot (subject to `ENABLE_DIR
 
 ### Cron affinity map (direktorat vs operator polres)
 
+
+### WA client routing standard
+
+- Routing WA untuk cron dipusatkan di `src/cron/waClientRouting.js`.
+- Job dirRequest terjadwal menggunakan route **direktorat-first** (`WA -> WA-GATEWAY`).
+- Job cron non-dirRequest menggunakan route **operator-first** (`WA-GATEWAY -> WA`).
+- Tujuannya agar konfigurasi pengiriman/fallback konsisten lintas module dan memudahkan maintenance saat ada perubahan session WhatsApp.
+
+
 Manifest cron menggunakan properti `affinity` untuk menandai afiliasi setiap job:
 
 - `affinity: direktorat` → dijalankan ketika session WA direktorat siap.

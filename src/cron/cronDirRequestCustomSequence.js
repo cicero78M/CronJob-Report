@@ -9,7 +9,7 @@ import {
   minPhoneDigitLength,
   normalizeGroupId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
@@ -17,10 +17,7 @@ const BIDHUMAS_CLIENT_ID = 'BIDHUMAS';
 export const JOB_KEY = './src/cron/cronDirRequestCustomSequence.js';
 export const BIDHUMAS_2030_JOB_KEY = `${JOB_KEY}#bidhumas-20-30`;
 export const DITBINMAS_RECAP_AND_CUSTOM_JOB_KEY = `${JOB_KEY}#ditbinmas-recap-and-custom`;
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function buildOrderedFallbackClients(primaryLabel) {
   if (!primaryLabel) return waFallbackClients;
@@ -144,7 +141,7 @@ async function logToAdmins(message) {
       chatId: admin,
       message: text,
       clients: waFallbackClients,
-      reportClient: waClient,
+      reportClient,
       reportContext: { jobKey: JOB_KEY, admin },
     });
   }

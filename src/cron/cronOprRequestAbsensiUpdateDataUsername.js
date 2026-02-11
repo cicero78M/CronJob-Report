@@ -3,7 +3,7 @@ import { sendDebug } from '../middleware/debugHandler.js';
 import { absensiUpdateDataUsername } from '../handler/fetchabsensi/wa/absensiUpdateDataUsername.js';
 import { findAllActiveOrgClientsWithSosmed } from '../model/clientModel.js';
 import { sendWithClientFallback, normalizeGroupId } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestAbsensiUpdateDataUsername.js';
 const CRON_EXPRESSION = '45 6 * * *';
@@ -11,10 +11,7 @@ const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const CRON_TAG = 'CRON OPRREQUEST ABSENSI UPDATE USERNAME';
 const ROLE_FLAG = 'operator';
 
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { reportClient, fallbackClients: waFallbackClients } = getOperatorWaRoute();
 
 function getGroupRecipient(client) {
   return normalizeGroupId(client?.client_group);
@@ -35,7 +32,7 @@ async function sendAbsensiReport(client) {
     chatId: groupId,
     message: message || 'Data tidak ditemukan.',
     clients: waFallbackClients,
-    reportClient: waClient,
+    reportClient,
     reportContext: {
       jobKey: JOB_KEY,
       clientId: client.client_id,

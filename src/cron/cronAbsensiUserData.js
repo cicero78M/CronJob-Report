@@ -1,7 +1,9 @@
 import { query } from '../db/index.js';
 import { getUsersMissingDataByClient, getClientsByRole } from '../model/userModel.js';
 import { sendWAReport, getAdminWAIds } from '../utils/waHelper.js';
-import waService from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
+
+const { primaryClient } = getOperatorWaRoute();
 
 export async function runCron() {
   await getClientsByRole('ditbinmas');
@@ -25,7 +27,7 @@ export async function runCron() {
   }
   const message = parts.join('\n');
   const targets = getAdminWAIds();
-  await sendWAReport(waService, message, targets);
+  await sendWAReport(primaryClient, message, targets);
 }
 
 export default { runCron };

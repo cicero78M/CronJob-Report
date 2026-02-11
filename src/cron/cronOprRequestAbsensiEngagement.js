@@ -8,7 +8,7 @@ import {
   sendWithClientFallback,
   normalizeGroupId,
 } from '../utils/waHelper.js';
-import waClient, { waGatewayClient } from '../service/waService.js';
+import { getOperatorWaRoute } from './waClientRouting.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestAbsensiEngagement.js';
 const CRON_EXPRESSION = '20 15,18,20 * * *';
@@ -17,10 +17,7 @@ const CRON_TAG = 'CRON OPRREQUEST ABSENSI ENGAGEMENT';
 const ROLE_FLAG = 'operator';
 const ABSENSI_MODE = 'all';
 
-const waFallbackClients = [
-  { client: waGatewayClient, label: 'WA-GATEWAY' },
-  { client: waClient, label: 'WA' },
-];
+const { reportClient, fallbackClients: waFallbackClients } = getOperatorWaRoute();
 
 async function getActiveClients() {
   const { query } = await import('../db/index.js');
@@ -79,7 +76,7 @@ async function sendReport({ client, recipients, label, message }) {
       chatId,
       message: content,
       clients: waFallbackClients,
-      reportClient: waClient,
+      reportClient,
       reportContext: {
         jobKey: JOB_KEY,
         clientId: client.client_id,
