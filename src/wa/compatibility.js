@@ -16,13 +16,19 @@ export async function initializeClients() {
   console.log('[Compatibility] Initializing WhatsApp clients...');
 
   // Create main admin client
-  const waClient = waService.createClient('wa-client', {
-    clientId: env.APP_SESSION_NAME || 'wa-admin'
+  const waClient = waService.createClient('wa-direktorat', {
+    clientId:
+      env.DIRECTORATE_WA_SESSION_NAME ||
+      env.APP_SESSION_NAME ||
+      'wa-direktorat'
   });
 
   // Create gateway client
-  const waGatewayClient = waService.createClient('wa-gateway', {
-    clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod'
+  const waGatewayClient = waService.createClient('wa-operator', {
+    clientId:
+      env.OPERATOR_WA_SESSION_NAME ||
+      env.GATEWAY_WA_CLIENT_ID ||
+      'wa-operator'
   });
 
   // Initialize clients in parallel

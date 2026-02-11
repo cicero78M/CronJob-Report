@@ -55,13 +55,16 @@ Sistem menjalankan *dua* nomor WhatsApp:
 Tambahkan variabel berikut pada `.env` untuk mengatur sesi WhatsApp:
 
 ```
-# ID sesi untuk nomor utama (opsional, default `wa-admin`)
+# ID sesi WA level direktorat (disarankan)
+DIRECTORATE_WA_SESSION_NAME=wa-direktorat
+
+# Backward compatibility (legacy, optional jika DIRECTORATE_WA_SESSION_NAME kosong)
 APP_SESSION_NAME=wa-admin
 
-# ID sesi untuk nomor kedua (`userrequest`)
-USER_WA_CLIENT_ID=wa-userrequest-prod
+# ID sesi WA level operator/polres (disarankan)
+OPERATOR_WA_SESSION_NAME=wa-operator
 
-# ID sesi untuk nomor gateway (harus beda dari USER_WA_CLIENT_ID)
+# Backward compatibility (legacy, optional jika OPERATOR_WA_SESSION_NAME kosong)
 GATEWAY_WA_CLIENT_ID=wa-gateway-prod
 
 # Lokasi folder sesi LocalAuth (opsional, harus writable oleh runtime user; jika tidak writable, adapter akan log error lalu fallback ke path default yang dibuat otomatis)
@@ -90,7 +93,7 @@ WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS=300000
 WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER=1.5
 ```
 Jika `WA_WEB_VERSION_CACHE_URL`, `WA_WEB_VERSION`, dan `WA_WEB_VERSION_RECOMMENDED` sama-sama kosong, adapter akan menonaktifkan local web cache untuk mencegah error `LocalWebCache.persist`. Biarkan salah satu dari variabel tersebut terisi untuk mengaktifkan kembali mekanisme cache versi, dan kosongkan semuanya hanya jika memang ingin menonaktifkan caching.
-`WA_WWEBJS_PROTOCOL_TIMEOUT_MS` memperbesar ambang `Runtime.callFunctionOn` pada Puppeteer; naikkan ke 180000ms jika koneksi ke WhatsApp Web sering lambat atau time out. Override per client bisa di-set lewat alias role berbasis prefix (client ID `wa-gateway*` → `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY`, `wa-user*` → `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_USER`) atau suffix client ID uppercase. Contoh untuk `wa-gateway-prod`: alias `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000` atau suffix eksplisit `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_WA_GATEWAY_PROD=180000`. Dengan begitu, admin tetap pakai default sementara client tertentu bisa diperpanjang.
+`WA_WWEBJS_PROTOCOL_TIMEOUT_MS` memperbesar ambang `Runtime.callFunctionOn` pada Puppeteer; naikkan ke 180000ms jika koneksi ke WhatsApp Web sering lambat atau time out. Override per client bisa di-set lewat alias role berbasis prefix (client ID `wa-operator*` → `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY`, `wa-direktorat*` → `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_USER`) atau suffix client ID uppercase. Contoh untuk `wa-operator`: alias `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_GATEWAY=180000` atau suffix eksplisit `WA_WWEBJS_PROTOCOL_TIMEOUT_MS_WA_OPERATOR=180000`. Dengan begitu, admin tetap pakai default sementara client tertentu bisa diperpanjang.
 Untuk penanganan otomatis saat init sering timeout, adapter dapat menaikkan nilai timeout secara bertahap. Atur batas maksimum lewat `WA_WWEBJS_PROTOCOL_TIMEOUT_MAX_MS` (default 300000ms) dan multiplier kenaikan lewat `WA_WWEBJS_PROTOCOL_TIMEOUT_BACKOFF_MULTIPLIER` (default 1.5). Pastikan batas maksimum lebih tinggi dari timeout dasar agar eskalasi berjalan.
 Fallback readiness akan melakukan reinit ketika `getState` tetap `unknown` setelah batas retry. Untuk client `WA-GATEWAY` dan `WA-USER`, **clear session hanya dilakukan** jika ada indikasi logout/auth failure (misalnya `LOGGED_OUT/UNPAIRED/CONFLICT/UNPAIRED_IDLE` atau event `auth_failure`) dan folder `session-<clientId>` masih ada. Jika tidak ada indikasi tersebut, sistem tetap reinit tanpa clear session agar sesi valid tidak terhapus, dan log PM2 tetap menandai alasan fallback. Simpan backup folder session sebelum pembersihan manual agar autentikasi bisa dipulihkan.
 

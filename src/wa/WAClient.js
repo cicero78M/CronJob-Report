@@ -39,7 +39,7 @@ function truncateString(str, maxLength) {
  */
 class WAClientConfig {
   constructor(options = {}) {
-    this.clientId = options.clientId || 'wa-client';
+    this.clientId = options.clientId || 'wa-direktorat';
     this.authPath = options.authPath || path.join(os.homedir(), '.cicero', 'baileys_auth');
     // Parse as integers to handle environment variables passed as strings
     this.maxInitRetries = parseInt(options.maxInitRetries, 10) || 3;

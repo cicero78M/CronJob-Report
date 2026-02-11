@@ -23,8 +23,11 @@ export async function initializeWAService() {
   initPromise = (async () => {
     try {
       // Create admin client with Baileys
-      waService.createClient('wa-client', {
-        clientId: env.APP_SESSION_NAME || 'wa-admin',
+      waService.createClient('wa-direktorat', {
+        clientId:
+          env.DIRECTORATE_WA_SESSION_NAME ||
+          env.APP_SESSION_NAME ||
+          'wa-direktorat',
         authPath: env.WA_AUTH_DATA_PATH,
         logLevel: 'error', // Baileys logging level
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
@@ -33,8 +36,11 @@ export async function initializeWAService() {
       });
 
       // Create gateway client with Baileys
-      waService.createClient('wa-gateway', {
-        clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod',
+      waService.createClient('wa-operator', {
+        clientId:
+          env.OPERATOR_WA_SESSION_NAME ||
+          env.GATEWAY_WA_CLIENT_ID ||
+          'wa-operator',
         authPath: env.WA_AUTH_DATA_PATH,
         logLevel: 'error', // Baileys logging level
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
@@ -45,8 +51,8 @@ export async function initializeWAService() {
       // Start initialization
       console.log('[waService] Starting client initialization...');
       await Promise.all([
-        waService.initializeClient('wa-client'),
-        waService.initializeClient('wa-gateway')
+        waService.initializeClient('wa-direktorat'),
+        waService.initializeClient('wa-operator')
       ]);
 
       // Wait for clients to be ready with extended timeout (5 minutes)
@@ -62,8 +68,8 @@ export async function initializeWAService() {
       }
 
       // Create client instances after initialization completes
-      _waClient = new WAClientCompat('wa-client');
-      _waGatewayClient = new WAClientCompat('wa-gateway');
+      _waClient = new WAClientCompat('wa-direktorat');
+      _waGatewayClient = new WAClientCompat('wa-operator');
       
       // Log which clients are ready
       const readyClients = results.filter(r => r.status === 'success').map(r => r.clientId);
@@ -111,7 +117,7 @@ export async function waitForAllMessageQueues() {
 /**
  * Wait for WA ready (compatibility function)
  */
-export async function waitForWaReady(clientId = 'wa-client', timeout = 60000) {
+export async function waitForWaReady(clientId = 'wa-direktorat', timeout = 60000) {
   // Wait for initialization to complete first
   if (!initPromise) {
     throw new Error('[waService] Service not initialized. Call initializeWAService() first.');

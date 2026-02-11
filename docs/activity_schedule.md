@@ -1,7 +1,7 @@
 # System Activity Schedule
-*Last updated: 2026-01-28*
+*Last updated: 2026-02-11*
 
-This document summarizes the automated jobs ("activity") that run inside Cicero_V2. All jobs use `node-cron`, are registered from `src/cron/*.js` during `app.js` boot, and execute in the **Asia/Jakarta** timezone unless stated otherwise. Base jobs still come from the manifest in `src/cron/cronManifest.js`, while Ditbinmas (dirRequest) jobs are grouped in `src/cron/dirRequest/index.js` so they can be toggled together when needed.【F:src/cron/dirRequest/index.js†L1-L108】
+This document summarizes the automated jobs ("activity") that run inside Cicero_V2. All jobs use `node-cron`, are registered from `src/cron/*.js` during `app.js` boot, and execute in the **Asia/Jakarta** timezone unless stated otherwise. Base jobs now dipetakan ke afiliasi cron **direktorat** dan **operator polres** melalui `src/cron/cronManifest.js`, sementara job Ditbinmas (dirRequest) tetap dikelola dalam `src/cron/dirRequest/index.js` untuk toggle grup saat diperlukan.
 
 ## Runtime safeguards & configuration sync
 
@@ -10,6 +10,21 @@ Every cron file calls `scheduleCronJob`, which delegates to `src/utils/cronSched
 The configuration data lives in the migration `sql/migrations/20251022_create_cron_job_config.sql` and is surfaced in the cron configuration menu, keeping this schedule synchronized with the controls that ops staff use to enable or pause jobs.【F:sql/migrations/20251022_create_cron_job_config.sql†L1-L34】
 
 dirRequest cron registration happens immediately at boot (subject to `ENABLE_DIRREQUEST_GROUP`). Every dirRequest job key is single-flight: if a previous run is still in-flight, the next scheduled run logs a skip message and exits early to prevent overlap.【F:src/cron/dirRequest/index.js†L1-L108】
+
+
+### Cron affinity map (direktorat vs operator polres)
+
+Manifest cron menggunakan properti `affinity` untuk menandai afiliasi setiap job:
+
+- `affinity: direktorat` → dijalankan ketika session WA direktorat siap.
+- `affinity: operatorPolres` → dijalankan ketika session WA operator polres siap.
+- `affinity: platform` → tidak bergantung pada salah satu afiliasi (bucket `always`).
+
+Bucket runtime yang aktif sekarang:
+
+- `always`
+- `direktorat`
+- `operatorPolres`
 
 ## Cron Jobs
 
@@ -21,7 +36,7 @@ node docs/scripts/renderCronSchedule.js > /tmp/cron-jobs.md
 
 Then paste the output into this section. The table is sourced from `src/cron/cronManifest.js` and each module's `scheduleCronJob` call.
 
-### Core cron jobs (manifest-driven)
+### Core cron jobs (manifest-driven, split by affinity)
 
 | File | Schedule (Asia/Jakarta) | Description |
 |------|-------------------------|-------------|
