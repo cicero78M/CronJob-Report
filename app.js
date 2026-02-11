@@ -14,7 +14,7 @@ const cronBuckets = cronManifest.reduce((buckets, { bucket, modulePath }) => {
   }
 
   return buckets;
-}, { always: [] });
+}, { always: [], direktorat: [], operatorPolres: [] });
 
 const loadedCronModules = new Set();
 
@@ -73,21 +73,22 @@ async function initializeApp() {
 
     // Schedule cron buckets only if clients are ready
     if (waClient.isReady) {
-      scheduleCronBucket(waClient, 'waClient', 'WA client');
+      scheduleCronBucket(waClient, 'direktorat', 'WA direktorat');
     } else {
-      console.warn('[APP] wa-client is not ready, skipping cron bucket scheduling');
+      console.warn('[APP] wa-direktorat session is not ready, skipping direktorat cron bucket scheduling');
     }
-    
+
     if (waGatewayClient.isReady) {
+      scheduleCronBucket(waGatewayClient, 'operatorPolres', 'WA operator polres');
       registerDirRequestCrons(waGatewayClient);
     } else {
-      console.warn('[APP] wa-gateway client is not ready, skipping directory request cron registration');
+      console.warn('[APP] wa-operator session is not ready, skipping operator cron registration');
     }
 
     // Start OTP worker
     await startOtpWorker().catch(err => console.error('[OTP] worker error', err));
 
-    console.log('[APP] Cicero CronJob service started with new WA bot architecture');
+    console.log('[APP] Cicero CronJob service started with WA sessions: direktorat & operator');
     console.log('[APP] Web endpoints and wabot menus removed');
     console.log('[APP] Only automated cron jobs and background workers are running');
   } catch (error) {

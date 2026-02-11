@@ -211,6 +211,9 @@ Environment variables:
 
 ```bash
 # Authentication
+DIRECTORATE_WA_SESSION_NAME=wa-direktorat
+OPERATOR_WA_SESSION_NAME=wa-operator
+# legacy fallback (optional)
 APP_SESSION_NAME=wa-admin
 GATEWAY_WA_CLIENT_ID=wa-gateway-prod
 WA_AUTH_DATA_PATH=/var/lib/cicero/wa-sessions
