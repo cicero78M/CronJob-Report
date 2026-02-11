@@ -26,14 +26,14 @@ describe('Error handling integration', () => {
     });
     mockClient.sendMessage.mockRejectedValueOnce(forbiddenError);
 
-    try {
-      await queue1.schedule(mockClient, '120363419830216549@g.us', 'Test');
-      fail('Should have thrown error');
-    } catch (error) {
-      expect(error.isRetriable).toBe(false);
-      expect(error.statusCode).toBe(403);
-      expect(mockClient.sendMessage).toHaveBeenCalledTimes(1);
-    }
+    await expect(
+      queue1.schedule(mockClient, '120363419830216549@g.us', 'Test')
+    ).rejects.toMatchObject({
+      isRetriable: false,
+      statusCode: 403
+    });
+    
+    expect(mockClient.sendMessage).toHaveBeenCalledTimes(1);
 
     await queue1.disconnect();
     mockClient.sendMessage.mockClear();

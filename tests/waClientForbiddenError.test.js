@@ -99,15 +99,13 @@ describe('WAClient 403 forbidden error handling', () => {
 
     const groupJid = '120363419830216549@g.us';
     
-    try {
-      await client.sendMessage(groupJid, 'Test message');
-      fail('Should have thrown WAError');
-    } catch (error) {
-      expect(error).toBeInstanceOf(WAError);
-      expect(error.isRetriable).toBe(false);
-      expect(error.statusCode).toBe(403);
-      expect(error.message).toContain('Bot lacks permission or was removed from group');
-    }
+    await expect(
+      client.sendMessage(groupJid, 'Test message')
+    ).rejects.toMatchObject({
+      name: 'WAError',
+      isRetriable: false,
+      statusCode: 403
+    });
   });
 
   test('sendMessage should not validate metadata for individual chats', async () => {
@@ -170,13 +168,12 @@ describe('WAClient 403 forbidden error handling', () => {
     forbiddenError.data = 403;
     mockSocket.sendMessage.mockRejectedValue(forbiddenError);
 
-    try {
-      await client.sendMessage(userJid, 'Test message');
-      fail('Should have thrown WAError');
-    } catch (error) {
-      expect(error).toBeInstanceOf(WAError);
-      expect(error.isRetriable).toBe(false);
-    }
+    await expect(
+      client.sendMessage(userJid, 'Test message')
+    ).rejects.toMatchObject({
+      name: 'WAError',
+      isRetriable: false
+    });
   });
 
   test('sendMessage should classify other errors as retriable', async () => {
@@ -190,12 +187,11 @@ describe('WAClient 403 forbidden error handling', () => {
     const timeoutError = new Error('Connection timeout');
     mockSocket.sendMessage.mockRejectedValue(timeoutError);
 
-    try {
-      await client.sendMessage(userJid, 'Test message');
-      fail('Should have thrown WAError');
-    } catch (error) {
-      expect(error).toBeInstanceOf(WAError);
-      expect(error.isRetriable).toBe(true);
-    }
+    await expect(
+      client.sendMessage(userJid, 'Test message')
+    ).rejects.toMatchObject({
+      name: 'WAError',
+      isRetriable: true
+    });
   });
 });

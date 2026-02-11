@@ -48,14 +48,12 @@ describe('WAMessageQueue non-retriable error handling', () => {
     
     mockClient.sendMessage.mockRejectedValue(forbiddenError);
 
-    try {
-      await queue.schedule(mockClient, '1234567890@s.whatsapp.net', 'Test message');
-      fail('Should have thrown error');
-    } catch (error) {
-      expect(error).toBe(forbiddenError);
-      // sendMessage should be called only once, no retries
-      expect(mockClient.sendMessage).toHaveBeenCalledTimes(1);
-    }
+    await expect(
+      queue.schedule(mockClient, '1234567890@s.whatsapp.net', 'Test message')
+    ).rejects.toBe(forbiddenError);
+    
+    // sendMessage should be called only once, no retries
+    expect(mockClient.sendMessage).toHaveBeenCalledTimes(1);
   }, 10000); // 10 second timeout
 
   test('should retry when error is retriable', async () => {
@@ -106,13 +104,11 @@ describe('WAMessageQueue non-retriable error handling', () => {
     
     mockClient.sendMessage.mockRejectedValue(networkError);
 
-    try {
-      await queue.schedule(mockClient, '1234567890@s.whatsapp.net', 'Test message');
-      fail('Should have thrown error');
-    } catch (error) {
-      expect(error).toBe(networkError);
-      // Should be called 4 times (initial + 3 retries)
-      expect(mockClient.sendMessage).toHaveBeenCalledTimes(4);
-    }
+    await expect(
+      queue.schedule(mockClient, '1234567890@s.whatsapp.net', 'Test message')
+    ).rejects.toBe(networkError);
+    
+    // Should be called 4 times (initial + 3 retries)
+    expect(mockClient.sendMessage).toHaveBeenCalledTimes(4);
   }, 15000); // 15 second timeout for retries
 });

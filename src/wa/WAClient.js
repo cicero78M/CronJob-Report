@@ -29,7 +29,15 @@ class WAError extends Error {
   constructor(message, options = {}) {
     super(message);
     this.name = 'WAError';
-    this.isRetriable = options.isRetriable !== false; // Default to retriable
+    // Require explicit specification for safety
+    // If not specified, default to retriable to maintain backward compatibility
+    // but log a warning for developers
+    if (options.isRetriable === undefined) {
+      console.warn(`[WAError] isRetriable not specified for error: ${message}. Defaulting to retriable.`);
+      this.isRetriable = true;
+    } else {
+      this.isRetriable = options.isRetriable;
+    }
     this.statusCode = options.statusCode;
     this.originalError = options.originalError;
   }
@@ -623,9 +631,9 @@ export class WAClient extends EventEmitter {
       const nonRetriableConditions = [
         statusCode === 403,
         statusCode === 401,
-        errorMessage.includes('forbidden'),
-        errorMessage.includes('not authorized'),
-        errorMessage.includes('participant')
+        errorMessage.toLowerCase().includes('forbidden'),
+        errorMessage.toLowerCase().includes('not authorized'),
+        errorMessage.toLowerCase().includes('participant')
       ];
       
       const isRetriable = !nonRetriableConditions.some(condition => condition);
