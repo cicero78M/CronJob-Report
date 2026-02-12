@@ -22,6 +22,28 @@ import os from 'os';
 const MAX_ERROR_MESSAGE_LENGTH = 100; // Maximum length for truncated error messages in logs
 
 /**
+ * Custom error class for WhatsApp operations
+ * Helps identify whether errors are retriable or permanent
+ */
+class WAError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'WAError';
+    // Require explicit specification for safety
+    // If not specified, default to retriable to maintain backward compatibility
+    // but log a warning for developers
+    if (options.isRetriable === undefined) {
+      console.warn(`[WAError] isRetriable not specified for error: ${message}. Defaulting to retriable.`);
+      this.isRetriable = true;
+    } else {
+      this.isRetriable = options.isRetriable;
+    }
+    this.statusCode = options.statusCode;
+    this.originalError = options.originalError;
+  }
+}
+
+/**
  * Safely truncate a string to a maximum length, adding ellipsis if truncated
  * Handles unicode characters properly to avoid cutting in the middle of multi-byte chars
  */
@@ -563,6 +585,30 @@ export class WAClient extends EventEmitter {
       // Normalize JID format - Baileys uses @s.whatsapp.net, convert @c.us if needed
       const normalizedJid = to.replace('@c.us', '@s.whatsapp.net');
 
+      // For group messages, validate access first to avoid 403 errors
+      const isGroupJid = normalizedJid.endsWith('@g.us');
+      if (isGroupJid) {
+        try {
+          // Attempt to fetch group metadata to verify we have access
+          await this.socket.groupMetadata(normalizedJid);
+        } catch (metadataError) {
+          // Handle group access errors
+          const statusCode = metadataError?.output?.statusCode || metadataError?.data;
+          if (statusCode === 403 || metadataError?.message?.includes('forbidden')) {
+            // 403 Forbidden - bot doesn't have access or was removed from group
+            const errorMsg = `Cannot send message to group ${normalizedJid}: Bot lacks permission or was removed from group`;
+            console.warn(`[${this.config.clientId}] ${errorMsg}`);
+            throw new WAError(errorMsg, {
+              isRetriable: false,
+              statusCode: 403,
+              originalError: metadataError
+            });
+          }
+          // For other metadata errors, log but continue attempt to send
+          console.warn(`[${this.config.clientId}] Warning: Could not verify group access for ${normalizedJid}:`, metadataError.message);
+        }
+      }
+
       // Send message using Baileys socket
       const result = await this.socket.sendMessage(normalizedJid, message, {
         quoted: normalizedOptions.quoted,
@@ -571,8 +617,39 @@ export class WAClient extends EventEmitter {
       
       return result;
     } catch (error) {
-      console.error(`[${this.config.clientId}] Error sending message:`, error);
-      throw error;
+      // Classify the error for retry handling
+      const statusCode = error?.output?.statusCode || error?.data;
+      const errorMessage = error?.message || String(error);
+      
+      // Check if this is already a WAError (from group validation above)
+      if (error instanceof WAError) {
+        console.error(`[${this.config.clientId}] Error sending message to ${to}:`, error.message);
+        throw error;
+      }
+      
+      // Classify non-retriable errors
+      const nonRetriableConditions = [
+        statusCode === 403,
+        statusCode === 401,
+        errorMessage.toLowerCase().includes('forbidden'),
+        errorMessage.toLowerCase().includes('not authorized'),
+        errorMessage.toLowerCase().includes('participant')
+      ];
+      
+      const isRetriable = !nonRetriableConditions.some(condition => condition);
+      
+      // Create classified error
+      const waError = new WAError(
+        `Failed to send message to ${to}: ${truncateString(errorMessage, MAX_ERROR_MESSAGE_LENGTH)}`,
+        {
+          isRetriable,
+          statusCode,
+          originalError: error
+        }
+      );
+      
+      console.error(`[${this.config.clientId}] Error sending message to ${to}:`, waError.message, `(retriable: ${isRetriable})`);
+      throw waError;
     }
   }
 
@@ -802,5 +879,8 @@ export class WAClient extends EventEmitter {
     });
   }
 }
+
+// Export WAError for use in other modules
+export { WAError };
 
 export default WAClient;

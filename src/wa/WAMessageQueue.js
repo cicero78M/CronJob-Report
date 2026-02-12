@@ -5,6 +5,7 @@
  */
 
 import Bottleneck from 'bottleneck';
+import { WAError } from './WAClient.js';
 
 export class WAMessageQueue {
   constructor(options = {}) {
@@ -26,12 +27,19 @@ export class WAMessageQueue {
 
     // Event handlers
     this.limiter.on('failed', (error, jobInfo) => {
+      // Check if error is non-retriable
+      if (error instanceof WAError && error.isRetriable === false) {
+        console.error(`[${this.clientId}] Job failed with non-retriable error:`, error.message);
+        return null; // Don't retry
+      }
+      
       console.error(`[${this.clientId}] Job failed:`, error);
       const retryCount = jobInfo.retryCount || 0;
       if (retryCount < 3) {
         console.log(`[${this.clientId}] Retrying in ${1000 * (retryCount + 1)}ms...`);
         return 1000 * (retryCount + 1); // Retry delay
       }
+      return null; // Max retries exceeded
     });
 
     this.limiter.on('retry', (error, jobInfo) => {
