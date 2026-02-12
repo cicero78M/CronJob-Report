@@ -613,6 +613,8 @@ async function performAction(
   const userType = userClient?.client_type?.toLowerCase();
   const attendanceClientId = String(userClientId || clientId || "").toUpperCase();
   const normalizedRoleFlag = (roleFlag || attendanceClientId).toLowerCase();
+  const normalizedPeriod = String(context?.period || "").toLowerCase();
+  const menuPeriod = normalizedPeriod === "today" ? "daily" : normalizedPeriod || "daily";
   switch (action) {
     case "1": {
       msg = await formatRekapUserData(clientId, roleFlag);
@@ -723,6 +725,87 @@ async function performAction(
         : targetId;
       await fetchAndStoreTiktokPostsFull(waClient, chatId, targetId);
       msg = `✅ Fetch & store TikTok posts (full mode) untuk ${targetLabel} selesai.`;
+      break;
+    }
+    case "21": {
+      const [igLaphar, ttLaphar] = await Promise.all([
+        lapharDitbinmas(clientId || DITBINMAS_CLIENT_ID),
+        lapharTiktokDitbinmas(clientId || DITBINMAS_CLIENT_ID),
+      ]);
+      const intro = `📋 *Laporan Harian Sosmed ${(clientId || DITBINMAS_CLIENT_ID).toUpperCase()}*`;
+      const igNarrative = igLaphar?.narrative || igLaphar?.text || "-";
+      const ttNarrative = ttLaphar?.narrative || ttLaphar?.text || "-";
+      msg = [intro, "", igNarrative, "", ttNarrative].join("\n");
+      break;
+    }
+    case "22": {
+      const { filePath } = await saveEngagementRankingExcel({
+        clientId: attendanceClientId,
+        roleFlag: normalizedRoleFlag,
+        period: normalizedPeriod || "today",
+        referenceDate: resolveBaseDate(context?.referenceDate),
+      });
+      const buffer = await readFile(filePath);
+      await sendWAFile(
+        waClient,
+        buffer,
+        basename(filePath),
+        chatId,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      await unlink(filePath);
+      msg = "✅ File rekap ranking engagement berhasil dikirim.";
+      break;
+    }
+    case "28": {
+      const rekapData = await collectLikesRecap(attendanceClientId);
+      const filePath = await saveLikesRecapPerContentExcel(rekapData, attendanceClientId);
+      const buffer = await readFile(filePath);
+      await sendWAFile(
+        waClient,
+        buffer,
+        basename(filePath),
+        chatId,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      await unlink(filePath);
+      msg = "✅ File rekap likes Instagram per konten berhasil dikirim.";
+      break;
+    }
+    case "29": {
+      const rekapData = await collectKomentarRecap(attendanceClientId);
+      const filePath = await saveCommentRecapPerContentExcel(rekapData, attendanceClientId);
+      const buffer = await readFile(filePath);
+      await sendWAFile(
+        waClient,
+        buffer,
+        basename(filePath),
+        chatId,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      await unlink(filePath);
+      msg = "✅ File rekap komentar TikTok per konten berhasil dikirim.";
+      break;
+    }
+    case "30": {
+      msg = await generateKasatkerAttendanceSummary({
+        clientId: attendanceClientId,
+        roleFlag: normalizedRoleFlag,
+      });
+      break;
+    }
+    case "34": {
+      msg = await generateKasatBinmasLikesRecap({
+        period: menuPeriod,
+        referenceDate: resolveBaseDate(context?.referenceDate),
+      });
+      break;
+    }
+    case "35": {
+      msg = await generateKasatBinmasTiktokCommentRecap({
+        period: menuPeriod,
+        referenceDate: resolveBaseDate(context?.referenceDate),
+      });
       break;
     }
     default:
