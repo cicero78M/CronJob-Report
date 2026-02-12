@@ -67,6 +67,19 @@ Input **4️⃣3️⃣** kini dikenali langsung oleh bot tanpa balasan *"Pilihan
 valid"*, sehingga operator dapat memicu rekap TikTok all data dari menu utama
 dirrequest tanpa langkah tambahan.
 
+
+## Sinkronisasi menu dirrequest untuk eksekusi cron
+- Eksekusi `runDirRequestAction` kini mengenali menu **2️⃣1️⃣**, **2️⃣2️⃣**, **2️⃣8️⃣**, **2️⃣9️⃣**, **3️⃣0️⃣**, **3️⃣4️⃣**, dan **3️⃣5️⃣** agar selaras dengan jadwal cron Ditbinmas/Bidhumas.
+- Mapping menu cron yang dipakai service:
+  - **2️⃣1️⃣**: ringkasan laporan harian gabungan Instagram + TikTok (`lapharDitbinmas` dan `lapharTiktokDitbinmas`).
+  - **2️⃣2️⃣**: kirim file Excel ranking engagement (`saveEngagementRankingExcel`) dengan konteks periode dari cron.
+  - **2️⃣8️⃣**: kirim file Excel rekap likes Instagram per konten (`saveLikesRecapPerContentExcel`).
+  - **2️⃣9️⃣**: kirim file Excel rekap komentar TikTok per konten (`saveCommentRecapPerContentExcel`).
+  - **3️⃣0️⃣**: kirim ringkasan absensi Kasatker (`generateKasatkerAttendanceSummary`).
+  - **3️⃣4️⃣**: kirim narasi absensi likes Kasat Binmas (`generateKasatBinmasLikesRecap`) dengan dukungan `context.period` dari cron (`today` dinormalisasi menjadi `daily`).
+  - **3️⃣5️⃣**: kirim narasi absensi komentar TikTok Kasat Binmas (`generateKasatBinmasTiktokCommentRecap`) dengan dukungan `context.period` dari cron (`today` dinormalisasi menjadi `daily`).
+- Dengan sinkronisasi ini, pesan fallback **"Menu tidak dikenal."** untuk menu cron di atas tidak lagi muncul.
+
 ## Rekaman Snapshot Engagement per 30 Menit
 - Setiap pengambilan likes Instagram dan komentar TikTok yang berjalan lewat
   jadwal 30 menit kini juga menyimpan salinan ke tabel arsip
