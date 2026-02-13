@@ -570,6 +570,40 @@ function stringifyContext(context) {
   }
 }
 
+const blockedClientChatMap = new Map();
+const blockedClientChatWarned = new Set();
+
+function toNumericCode(value) {
+  if (value === 403) return 403;
+  if (typeof value === 'string' && value.trim() === '403') return 403;
+  return null;
+}
+
+function isPermanentGroupSendError(err) {
+  if (!err) return false;
+
+  const candidates = [
+    err?.statusCode,
+    err?.status,
+    err?.code,
+    err?.data,
+    err?.response?.status,
+    err?.response?.data?.statusCode,
+    err?.response?.data?.code,
+    err?.response?.data,
+  ];
+
+  if (candidates.some((candidate) => toNumericCode(candidate) === 403)) {
+    return true;
+  }
+
+  const message = String(err?.message || '').toLowerCase();
+  return (
+    message.includes('lacks permission') ||
+    message.includes('removed from group')
+  );
+}
+
 export async function sendWithClientFallback({
   chatId,
   message,
@@ -593,6 +627,16 @@ export async function sendWithClientFallback({
   let previousError = null;
 
   for (const { client, label } of attempts) {
+    const blockKey = `${label}:${chatId}`;
+    if (blockedClientChatMap.get(blockKey) === true) {
+      if (!blockedClientChatWarned.has(blockKey)) {
+        console.warn(`[WA] Skip blocked route ${label} -> ${chatId}`);
+        blockedClientChatWarned.add(blockKey);
+      }
+      previousError = previousError || `blocked route ${label}:${chatId}`;
+      continue;
+    }
+
     if (previousError) {
       const contextSuffix = contextText ? `; context=${contextText}` : '';
       console.warn(
@@ -603,6 +647,14 @@ export async function sendWithClientFallback({
     let attemptError = null;
     const sent = await safeSendMessage(client, chatId, message, {
       ...sendOptions,
+      retry: {
+        shouldRetry: (err, attempt) => {
+          if (isPermanentGroupSendError(err)) return false;
+          return attempt < 2 && isMissingLidError(err)
+            ? true
+            : defaultShouldRetry(err, attempt);
+        },
+      },
       onError: (err) => {
         attemptError = err;
       },
@@ -613,6 +665,10 @@ export async function sendWithClientFallback({
     }
 
     const summary = summarizeSendError(attemptError);
+    if (isPermanentGroupSendError(attemptError)) {
+      blockedClientChatMap.set(blockKey, true);
+      blockedClientChatWarned.delete(blockKey);
+    }
     const contextSuffix = contextText ? `; context=${contextText}` : '';
     console.warn(`[WA] Send failed via ${label} for ${chatId}: ${summary}${contextSuffix}`);
     previousError = summary;
