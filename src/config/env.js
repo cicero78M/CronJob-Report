@@ -35,6 +35,7 @@ export const env = cleanEnv(process.env, {
   WA_INIT_MAX_RETRIES: num({ default: 3 }),
   WA_INIT_RETRY_DELAY_MS: num({ default: 10000 }),
   WA_QR_TIMEOUT_MS: num({ default: 120000 }),
+  WA_ENABLE_BAD_SESSION_RECOVERY: bool({ default: true }),
   ENABLE_DIRREQUEST_GROUP: bool({ default: true }),
   DEBUG_FETCH_INSTAGRAM: bool({ default: false }),
   AMQP_URL: str({ default: 'amqp://localhost' }),
