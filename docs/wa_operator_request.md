@@ -170,3 +170,8 @@ Menu operator ini membantu mengelola user dan memantau laporan secara cepat mela
 - Jika `isReady` bernilai `false` atau gagal, sistem tetap menjalankan
   fallback `client.getState()` dan menganggap siap ketika state
   `CONNECTED` atau `open` terdeteksi.
+- Pada `sendWithClientFallback`, pengiriman report WA kini hanya dilakukan
+  ke client yang lolos readiness check (`waitForWaReady` atau `isReady`).
+  Jika `reportClient` tidak siap, sistem memilih client fallback pertama yang
+  siap; bila semua client tidak siap, report WA dilewati dan hanya menulis
+  satu log ringkas.
