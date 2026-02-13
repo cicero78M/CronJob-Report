@@ -137,7 +137,7 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
     client.emit('disconnected', 'LOGGED_OUT');
     
     // The promise should reject immediately for terminal disconnects
-    await expect(readyPromise).rejects.toThrow('Disconnected while waiting for ready: LOGGED_OUT');
+    await expect(readyPromise).rejects.toThrow('Disconnected while waiting for ready (terminal): LOGGED_OUT');
   });
 
   test('waitForReady should handle multiple reconnectable disconnects', async () => {
@@ -208,7 +208,7 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
     client.emit('disconnected', 'BAD_SESSION');
     
     // The promise should reject on terminal disconnect
-    await expect(readyPromise).rejects.toThrow('Disconnected while waiting for ready: BAD_SESSION');
+    await expect(readyPromise).rejects.toThrow('Disconnected while waiting for ready (terminal): BAD_SESSION');
   });
 
   test('all terminal disconnect reasons should reject waitForReady', async () => {
@@ -241,7 +241,7 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
       client.emit('disconnected', reason);
       
       // The promise should reject
-      await expect(readyPromise).rejects.toThrow(`Disconnected while waiting for ready: ${reason}`);
+      await expect(readyPromise).rejects.toThrow(`Disconnected while waiting for ready (terminal): ${reason}`);
     }
   });
 

@@ -32,7 +32,8 @@ export async function initializeWAService() {
         logLevel: 'error', // Baileys logging level
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
-        qrTimeout: env.WA_QR_TIMEOUT_MS
+        qrTimeout: env.WA_QR_TIMEOUT_MS,
+        enableBadSessionRecovery: env.WA_ENABLE_BAD_SESSION_RECOVERY
       });
 
       // Create gateway client with Baileys
@@ -45,7 +46,8 @@ export async function initializeWAService() {
         logLevel: 'error', // Baileys logging level
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
-        qrTimeout: env.WA_QR_TIMEOUT_MS
+        qrTimeout: env.WA_QR_TIMEOUT_MS,
+        enableBadSessionRecovery: env.WA_ENABLE_BAD_SESSION_RECOVERY
       });
 
       // Start initialization

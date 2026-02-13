@@ -17,6 +17,7 @@ import qrcode from 'qrcode-terminal';
 import { EventEmitter } from 'events';
 import path from 'path';
 import os from 'os';
+import fs from 'fs/promises';
 
 // Constants
 const MAX_ERROR_MESSAGE_LENGTH = 100; // Maximum length for truncated error messages in logs
@@ -70,6 +71,9 @@ class WAClientConfig {
     this.logLevel = options.logLevel || 'error'; // Baileys logging level
     // Option to suppress non-critical Baileys session errors (Bad MAC, SessionError)
     this.suppressSessionErrors = options.suppressSessionErrors !== false; // default true
+    // Option to enable automatic recovery from BAD_SESSION errors
+    // When enabled, the client will clear the session and attempt to reinitialize
+    this.enableBadSessionRecovery = options.enableBadSessionRecovery !== false; // default true
   }
 }
 
@@ -122,7 +126,7 @@ export class WAClient extends EventEmitter {
       if (this.socket) {
         console.log(`[${this.config.clientId}] Cleaning up existing socket...`);
         try {
-          this.socket.end(undefined);
+          this.socket.end();
         } catch (err) {
           console.warn(`[${this.config.clientId}] Error destroying old socket:`, err.message);
         }
@@ -309,8 +313,12 @@ export class WAClient extends EventEmitter {
 
         this.emit('disconnected', reason);
         
-        // Attempt to reconnect based on disconnect reason
-        if (shouldReconnect) {
+        // Special handling for BAD_SESSION with recovery enabled
+        if (reason === 'BAD_SESSION' && this.config.enableBadSessionRecovery) {
+          console.log(`[${this.config.clientId}] BAD_SESSION detected - attempting automatic recovery`);
+          this._handleBadSessionRecovery();
+        } else if (shouldReconnect) {
+          // Attempt to reconnect for retriable disconnect reasons
           this._handleReconnection(reason);
         } else {
           console.log(`[${this.config.clientId}] Not attempting reconnection due to: ${reason}`);
@@ -520,6 +528,55 @@ export class WAClient extends EventEmitter {
   }
 
   /**
+   * Handle BAD_SESSION recovery
+   * Clears the corrupted session and attempts to reinitialize
+   */
+  async _handleBadSessionRecovery() {
+    try {
+      console.log(`[${this.config.clientId}] Starting BAD_SESSION recovery process`);
+      
+      // First, clean up the current connection
+      if (this.socket) {
+        try {
+          this.socket.end();
+          this.socket = null;
+        } catch (err) {
+          console.warn(`[${this.config.clientId}] Error closing socket during recovery:`, err);
+        }
+      }
+      
+      // Clear the corrupted auth session
+      await this._clearAuthSession();
+      
+      // Reset initialization state
+      this.isReady = false;
+      this.isInitializing = false;
+      this.authenticated = false;
+      this.qrScanned = false;
+      this.reconnectAttempts = 0;
+      this.initRetries = 0;
+      
+      // Wait a bit before reinitializing to avoid immediate reconnect
+      const delay = 5000; // 5 seconds
+      console.log(`[${this.config.clientId}] Will reinitialize with cleared session in ${delay}ms`);
+      
+      this.reconnectTimer = setTimeout(async () => {
+        try {
+          console.log(`[${this.config.clientId}] Reinitializing after BAD_SESSION recovery`);
+          await this.initialize();
+          console.log(`[${this.config.clientId}] BAD_SESSION recovery completed - please scan QR code if prompted`);
+        } catch (error) {
+          console.error(`[${this.config.clientId}] BAD_SESSION recovery failed:`, error);
+          this.emit('bad_session_recovery_failed', error);
+        }
+      }, delay);
+    } catch (error) {
+      console.error(`[${this.config.clientId}] Error during BAD_SESSION recovery:`, error);
+      this.emit('bad_session_recovery_failed', error);
+    }
+  }
+
+  /**
    * Handle initialization timeout
    */
   async _handleInitializationTimeout(reason) {
@@ -528,7 +585,7 @@ export class WAClient extends EventEmitter {
     
     try {
       if (this.socket) {
-        this.socket.end(undefined);
+        this.socket.end();
         this.socket = null;
       }
     } catch (err) {
@@ -742,7 +799,7 @@ export class WAClient extends EventEmitter {
     
     if (this.socket) {
       try {
-        this.socket.end(undefined); // Graceful close
+        this.socket.end(); // Graceful close
         this.socket = null;
         this.isReady = false;
         this.isInitializing = false;
@@ -750,6 +807,34 @@ export class WAClient extends EventEmitter {
       } catch (error) {
         console.error(`[${this.config.clientId}] Error destroying client:`, error);
       }
+    }
+  }
+
+  /**
+   * Clear authentication session folder
+   * Used for BAD_SESSION recovery - removes corrupted auth state
+   */
+  async _clearAuthSession() {
+    const sessionPath = path.join(this.config.authPath, `session-${this.config.clientId}`);
+    
+    try {
+      console.log(`[${this.config.clientId}] Clearing auth session at: ${sessionPath}`);
+      
+      // Check if session exists
+      try {
+        await fs.access(sessionPath);
+      } catch {
+        // Session folder doesn't exist
+        console.log(`[${this.config.clientId}] Session folder does not exist, nothing to clear`);
+        return;
+      }
+      
+      // Remove the session folder recursively
+      await fs.rm(sessionPath, { recursive: true, force: true });
+      console.log(`[${this.config.clientId}] Auth session cleared successfully`);
+    } catch (error) {
+      console.error(`[${this.config.clientId}] Failed to clear auth session:`, error);
+      throw error;
     }
   }
 
