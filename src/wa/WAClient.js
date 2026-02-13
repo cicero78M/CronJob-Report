@@ -126,7 +126,7 @@ export class WAClient extends EventEmitter {
       if (this.socket) {
         console.log(`[${this.config.clientId}] Cleaning up existing socket...`);
         try {
-          this.socket.end(undefined);
+          this.socket.end();
         } catch (err) {
           console.warn(`[${this.config.clientId}] Error destroying old socket:`, err.message);
         }
@@ -538,7 +538,7 @@ export class WAClient extends EventEmitter {
       // First, clean up the current connection
       if (this.socket) {
         try {
-          this.socket.end(undefined);
+          this.socket.end();
           this.socket = null;
         } catch (err) {
           console.warn(`[${this.config.clientId}] Error closing socket during recovery:`, err);
@@ -585,7 +585,7 @@ export class WAClient extends EventEmitter {
     
     try {
       if (this.socket) {
-        this.socket.end(undefined);
+        this.socket.end();
         this.socket = null;
       }
     } catch (err) {
@@ -799,7 +799,7 @@ export class WAClient extends EventEmitter {
     
     if (this.socket) {
       try {
-        this.socket.end(undefined); // Graceful close
+        this.socket.end(); // Graceful close
         this.socket = null;
         this.isReady = false;
         this.isInitializing = false;
