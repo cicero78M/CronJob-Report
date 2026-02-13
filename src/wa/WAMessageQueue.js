@@ -10,10 +10,16 @@ import { WAError } from './WAClient.js';
 export class WAMessageQueue {
   constructor(options = {}) {
     this.clientId = options.clientId || 'wa-queue';
-    this.minTime = options.minTime || 350; // Minimum time between messages (ms)
-    this.maxConcurrent = options.maxConcurrent || 1; // Max concurrent messages
-    this.reservoir = options.reservoir || 40; // Max messages per minute
-    this.reservoirRefreshAmount = options.reservoirRefreshAmount || 40;
+    
+    // Read from environment with fallback to options, then defaults
+    const envMinTime = Number(process.env.WA_QUEUE_MIN_TIME_MS);
+    const envMaxConcurrent = Number(process.env.WA_QUEUE_MAX_CONCURRENT);
+    const envReservoir = Number(process.env.WA_QUEUE_RESERVOIR);
+    
+    this.minTime = options.minTime || (envMinTime > 0 ? envMinTime : 150); // 150ms default (reduced from 350ms)
+    this.maxConcurrent = options.maxConcurrent || (envMaxConcurrent > 0 ? envMaxConcurrent : 3); // 3 concurrent (increased from 1)
+    this.reservoir = options.reservoir || (envReservoir > 0 ? envReservoir : 60); // 60 msgs/min (increased from 40)
+    this.reservoirRefreshAmount = options.reservoirRefreshAmount || this.reservoir;
     this.reservoirRefreshInterval = options.reservoirRefreshInterval || 60000; // 1 minute
     
     // Create Bottleneck limiter
@@ -46,7 +52,7 @@ export class WAMessageQueue {
       console.log(`[${this.clientId}] Retrying job (attempt ${jobInfo.retryCount + 1})...`);
     });
 
-    console.log(`[${this.clientId}] Message queue initialized`);
+    console.log(`[${this.clientId}] Message queue initialized with: minTime=${this.minTime}ms, maxConcurrent=${this.maxConcurrent}, reservoir=${this.reservoir}/min`);
   }
 
   /**

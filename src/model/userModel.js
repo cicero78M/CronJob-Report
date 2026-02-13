@@ -4,6 +4,7 @@ import { query } from '../repository/db.js';
 import { PRIORITY_USER_NAMES } from '../utils/constants.js';
 import { normalizeEmail, normalizeUserId } from '../utils/utilsHelper.js';
 import { minPhoneDigitLength, normalizeWhatsappNumber } from '../utils/waHelper.js';
+import { withUpdateLock } from '../service/userUpdateLockService.js';
 
 const NAME_PRIORITY_DEFAULT = PRIORITY_USER_NAMES.length + 1;
 export const STATIC_DIVISIONS = [
@@ -453,6 +454,7 @@ export async function updatePremiumStatus(userId, status, endDate) {
 
 /**
  * Update field user (termasuk insta/tiktok/whatsapp/exception/status/nama/title/divisi/jabatan)
+ * Now with distributed locking for critical fields to prevent race conditions
  */
 export async function updateUserField(user_id, field, value) {
   const uid = normalizeUserId(user_id);
@@ -475,6 +477,23 @@ export async function updateUserField(user_id, field, value) {
   ];
   const roleFields = ["ditbinmas", "ditlantas", "bidhumas", "ditsamapta", "operator"];
   if (!allowed.includes(field) && !roleFields.includes(field)) throw new Error("Field tidak diizinkan!");
+  
+  // Use distributed lock for critical fields to prevent race conditions
+  const criticalFields = ['insta', 'tiktok', 'whatsapp'];
+  if (criticalFields.includes(field)) {
+    return withUpdateLock(uid, field, async () => {
+      return await updateUserFieldInternal(uid, field, value, roleFields);
+    });
+  }
+  
+  // Non-critical fields don't need locking
+  return await updateUserFieldInternal(uid, field, value, roleFields);
+}
+
+/**
+ * Internal implementation of user field update (called with or without lock)
+ */
+async function updateUserFieldInternal(uid, field, value, roleFields) {
   if (["nama", "title", "divisi", "jabatan", "desa"].includes(field) && typeof value === 'string') {
     value = value.toUpperCase();
   }
@@ -503,6 +522,38 @@ export async function updateUserField(user_id, field, value) {
     );
     return findUserById(uid);
   }
+  
+  // Check for duplicates on Instagram and TikTok fields
+  if (field === 'insta' && value) {
+    const normalizedValue = value.trim();
+    if (normalizedValue) {
+      const existing = await findUserByInsta(normalizedValue);
+      if (existing && existing.user_id !== uid) {
+        throw new Error(`Akun Instagram ${normalizedValue} sudah terdaftar pada pengguna lain (${existing.nama || existing.user_id}).`);
+      }
+    }
+  }
+  
+  if (field === 'tiktok' && value) {
+    const normalizedValue = value.trim();
+    if (normalizedValue) {
+      const existing = await findUserByTiktok(normalizedValue);
+      if (existing && existing.user_id !== uid) {
+        throw new Error(`Akun TikTok ${normalizedValue} sudah terdaftar pada pengguna lain (${existing.nama || existing.user_id}).`);
+      }
+    }
+  }
+  
+  if (field === 'whatsapp' && value) {
+    const normalizedValue = normalizeWhatsappField(value);
+    if (normalizedValue) {
+      const existing = await findUserByWhatsApp(normalizedValue);
+      if (existing && existing.user_id !== uid) {
+        throw new Error(`Nomor WhatsApp ${normalizedValue} sudah terdaftar pada pengguna lain (${existing.nama || existing.user_id}).`);
+      }
+    }
+  }
+  
   await query(
     `UPDATE "user" SET ${field}=$1, updated_at=NOW() WHERE user_id=$2`,
     [value, uid]
