@@ -1,11 +1,70 @@
-# WhatsApp Web.js Connection Troubleshooting Guide
+# WhatsApp Connection Troubleshooting Guide
 
 ## Overview
-This guide helps troubleshoot common WhatsApp Web.js connection issues in the Cicero V2 system.
+This guide helps troubleshoot common WhatsApp connection issues in the Cicero V2 system using Baileys.
 
 ## Common Issues and Solutions
 
-### 1. Client Stuck in "close" State
+### 1. BAD_SESSION Error (Stream Errored)
+
+**Symptoms:**
+```
+[wa-direktorat] Client disconnected
+[wa-direktorat] Disconnect reason: BAD_SESSION (code: 500), error: Stream Errored (ack)
+[wa-direktorat] Not attempting reconnection due to: BAD_SESSION
+```
+
+**Root Causes:**
+- Corrupted authentication session data
+- Session encryption keys became invalid
+- WhatsApp server rejected the session
+- Connection was logged out from another device
+
+**Automatic Recovery (Enabled by Default):**
+
+The system now automatically recovers from BAD_SESSION errors by:
+1. Detecting the BAD_SESSION disconnect
+2. Clearing the corrupted session folder
+3. Reinitializing the client with fresh authentication
+4. Prompting for QR code scan to re-authenticate
+
+**Configuration:**
+```bash
+# Enable automatic recovery (default: true)
+WA_ENABLE_BAD_SESSION_RECOVERY=true
+
+# Disable automatic recovery (requires manual intervention)
+WA_ENABLE_BAD_SESSION_RECOVERY=false
+```
+
+**What Happens During Recovery:**
+```
+[wa-direktorat] BAD_SESSION detected - attempting automatic recovery
+[wa-direktorat] Starting BAD_SESSION recovery process
+[wa-direktorat] Clearing auth session at: /path/to/baileys_auth/session-wa-direktorat
+[wa-direktorat] Auth session cleared successfully
+[wa-direktorat] Will reinitialize with cleared session in 5000ms
+[wa-direktorat] Reinitializing after BAD_SESSION recovery
+[wa-direktorat] BAD_SESSION recovery completed - please scan QR code if prompted
+```
+
+**Manual Recovery (if automatic recovery is disabled):**
+1. Stop the application
+2. Remove the corrupted session:
+```bash
+cd ~/.cicero/baileys_auth
+rm -rf session-wa-direktorat  # or session-wa-operator for gateway
+```
+3. Restart the application
+4. Scan the QR code when prompted
+
+**Prevention:**
+- Avoid logging out from the WhatsApp mobile app while bot is connected
+- Don't connect the same phone number to multiple bot instances simultaneously
+- Ensure stable network connection
+- Keep the application running continuously (avoid frequent restarts)
+
+### 2. Client Stuck in "close" State
 
 **Symptoms:**
 ```
@@ -294,6 +353,8 @@ WA_HEALTH_CHECK_INTERVAL_MS=180000            # 3 minutes
 
 | Error | Cause | Solution |
 |-------|-------|----------|
+| `BAD_SESSION (code: 500)` | Corrupted session data | Automatic recovery enabled by default; set `WA_ENABLE_BAD_SESSION_RECOVERY=true` |
+| `Stream Errored (ack)` | Session encryption issue | Same as BAD_SESSION - automatic recovery will reinitialize |
 | `WhatsApp client not ready after Xms` | Timeout too short | Increase `WA_READY_TIMEOUT_MS` |
 | `connect timeout after Xms` | Connection slow | Increase `WA_CONNECT_TIMEOUT_MS` |
 | `Browser lock still active` | Multiple instances | Use unique `WA_AUTH_DATA_PATH` |
@@ -312,8 +373,7 @@ For persistent issues:
 ## Version Information
 
 This troubleshooting guide applies to:
-- whatsapp-web.js: ^1.23.0
+- @whiskeysockets/baileys: Latest
 - Node.js: v20+
-- Puppeteer: ^18.2.1
 
-Last updated: 2026-02-06
+Last updated: 2026-02-13
