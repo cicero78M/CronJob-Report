@@ -12,14 +12,15 @@ export class WAMessageQueue {
     this.clientId = options.clientId || 'wa-queue';
     
     // Read from environment with fallback to options, then defaults
+    // Use !== undefined to allow explicit 0 values in options
     const envMinTime = Number(process.env.WA_QUEUE_MIN_TIME_MS);
     const envMaxConcurrent = Number(process.env.WA_QUEUE_MAX_CONCURRENT);
     const envReservoir = Number(process.env.WA_QUEUE_RESERVOIR);
     
-    this.minTime = options.minTime || (envMinTime > 0 ? envMinTime : 150); // 150ms default (reduced from 350ms)
-    this.maxConcurrent = options.maxConcurrent || (envMaxConcurrent > 0 ? envMaxConcurrent : 3); // 3 concurrent (increased from 1)
-    this.reservoir = options.reservoir || (envReservoir > 0 ? envReservoir : 60); // 60 msgs/min (increased from 40)
-    this.reservoirRefreshAmount = options.reservoirRefreshAmount || this.reservoir;
+    this.minTime = options.minTime !== undefined ? options.minTime : (envMinTime > 0 ? envMinTime : 150); // 150ms default (reduced from 350ms)
+    this.maxConcurrent = options.maxConcurrent !== undefined ? options.maxConcurrent : (envMaxConcurrent > 0 ? envMaxConcurrent : 3); // 3 concurrent (increased from 1)
+    this.reservoir = options.reservoir !== undefined ? options.reservoir : (envReservoir > 0 ? envReservoir : 60); // 60 msgs/min (increased from 40)
+    this.reservoirRefreshAmount = options.reservoirRefreshAmount !== undefined ? options.reservoirRefreshAmount : this.reservoir;
     this.reservoirRefreshInterval = options.reservoirRefreshInterval || 60000; // 1 minute
     
     // Create Bottleneck limiter
