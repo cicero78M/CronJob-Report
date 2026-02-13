@@ -823,7 +823,8 @@ export class WAClient extends EventEmitter {
       // Check if session exists
       try {
         await fs.access(sessionPath);
-      } catch (err) {
+      } catch {
+        // Session folder doesn't exist
         console.log(`[${this.config.clientId}] Session folder does not exist, nothing to clear`);
         return;
       }
