@@ -381,6 +381,29 @@ async function waitUntilReady(waClient, timeout = 10000) {
   });
 }
 
+async function isClientReadyForReport(waClient) {
+  if (!waClient) return false;
+
+  if (typeof waClient.waitForWaReady === 'function') {
+    try {
+      await waClient.waitForWaReady();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  if (typeof waClient.isReady === 'function') {
+    try {
+      return (await waClient.isReady()) === true;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 function computeDelay(attemptIndex, baseDelayMs, maxDelayMs, jitterRatio) {
   const baseDelay = Math.max(0, Number(baseDelayMs) || 0);
   const maxDelay = Math.max(baseDelay, Number(maxDelayMs) || baseDelay);
@@ -679,8 +702,23 @@ export async function sendWithClientFallback({
     `clients=${labels.join(', ') || 'unknown'}; lastError=${previousError || 'unknown'}` +
     (contextText ? `; context=${contextText}` : '');
 
-  if (reportClient) {
-    await sendWAReport(reportClient, reportMessage);
+  let selectedReportClient = null;
+
+  if (await isClientReadyForReport(reportClient)) {
+    selectedReportClient = reportClient;
+  } else {
+    for (const { client } of attempts) {
+      if (await isClientReadyForReport(client)) {
+        selectedReportClient = client;
+        break;
+      }
+    }
+  }
+
+  if (selectedReportClient) {
+    await sendWAReport(selectedReportClient, reportMessage);
+  } else {
+    console.warn('[WA] Report WA dilewati: semua client not ready');
   }
 
   console.error('[WA] Fallback send failed', {
