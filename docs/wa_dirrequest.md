@@ -67,6 +67,34 @@ Input **4️⃣3️⃣** kini dikenali langsung oleh bot tanpa balasan *"Pilihan
 valid"*, sehingga operator dapat memicu rekap TikTok all data dari menu utama
 dirrequest tanpa langkah tambahan.
 
+## WA delivery failure matrix (incident response)
+
+Rujukan cron terkait: `src/cron/cronDirRequestDitbinmasGroupRecap.js`.
+
+| Kondisi | Indikasi di log | Verifikasi utama | Tindakan cepat |
+| --- | --- | --- | --- |
+| Timeout primary (`wa-direktorat`) | Pengiriman pertama timeout/gagal pada client primary, lalu muncul fallback ke client lain. | Cek status session/auth client `wa-direktorat` dan konektivitas ke WA Web. | Re-auth `wa-direktorat`, restart worker bila perlu, lalu kirim ulang ke grup target. |
+| 403 group permission (`wa-operator`) | Error `403` saat kirim ke grup pada jalur fallback `wa-operator`. | Verifikasi bot `wa-operator` masih menjadi anggota grup dan masih punya izin kirim pesan. | Re-join bot `wa-operator` ke grup, pastikan permission kirim aktif, lalu ulangi eksekusi. |
+
+### Verifikasi cepat saat incident
+
+1. Validasi ID grup menggunakan format `@g.us` (contoh: `1203xxxxxxxxxx@g.us`).
+2. Cek membership kedua bot (`wa-direktorat`, `wa-operator`) pada grup target.
+3. Jalankan prosedur re-join/re-auth:
+   - Re-join bot ke grup jika keluar/terkick.
+   - Re-auth session bot yang bermasalah (scan ulang bila session invalid).
+   - Uji kirim pesan manual singkat sebelum rerun cron.
+
+### Contoh log signature untuk pencarian incident
+
+Gunakan potongan signature berikut sebagai kata kunci pencarian log (sesuaikan timestamp):
+
+```text
+[cronDirRequestDitbinmasGroupRecap] primary send failed via wa-direktorat: timeout after 15000ms
+[cronDirRequestDitbinmasGroupRecap] fallback send failed via wa-operator: 403 Forbidden (group permission)
+[cronDirRequestDitbinmasGroupRecap] target=1203xxxxxxxxxx@g.us action=group-recap
+```
+
 
 ## Sinkronisasi menu dirrequest untuk eksekusi cron
 - Eksekusi `runDirRequestAction` kini mengenali menu **2️⃣1️⃣**, **2️⃣2️⃣**, **2️⃣8️⃣**, **2️⃣9️⃣**, **3️⃣0️⃣**, **3️⃣4️⃣**, dan **3️⃣5️⃣** agar selaras dengan jadwal cron Ditbinmas/Bidhumas.
