@@ -440,6 +440,16 @@ tetap berjalan ketika salah satu client WA bermasalah. Urutan fallback:
 Setiap percobaan memakai `safeSendMessage` agar readiness dan retry tetap terjaga.
 Jika satu client gagal, sistem akan log ringkas yang berisi `client label`, `chatId`,
 serta ringkasan error dari attempt sebelumnya sebelum melanjutkan ke client berikutnya.
+
+Mulai sekarang, helper menyimpan blokir in-memory per pasangan `label:chatId` untuk
+kasus error permanen group (kode/status/data `403`, atau pesan mengandung
+`lacks permission` / `removed from group`). Dampaknya:
+
+- Attempt pada pasangan `client+chatId` yang sudah diblokir akan langsung di-skip.
+- Log warning skip hanya ditulis sekali per pasangan agar log tidak noisy.
+- Retry internal `safeSendMessage` dihentikan lebih cepat untuk error permanen group,
+  namun error retriable (timeout/network) tetap mengikuti fallback normal.
+
 Jika semua attempt gagal, helper akan:
 
 - Mengirim ringkasan ke admin melalui `sendWAReport` (jika report client tersedia).
