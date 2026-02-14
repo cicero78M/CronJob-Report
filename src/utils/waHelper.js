@@ -648,8 +648,10 @@ export async function sendWithClientFallback({
     return false;
   }
 
-  // Check if this group chat is globally blocked due to permanent errors
+  // Determine if this is a group chat (used throughout the function)
   const isGroupChat = chatId && String(chatId).endsWith('@g.us');
+
+  // Check if this group chat is globally blocked due to permanent errors
   if (isGroupChat && blockedGroupChats.has(chatId)) {
     const contextSuffix = contextText ? `; context=${contextText}` : '';
     console.warn(`[WA] Skip globally blocked group ${chatId} (bot removed or lacks permission)${contextSuffix}`);

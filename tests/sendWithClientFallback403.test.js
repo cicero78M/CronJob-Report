@@ -2,17 +2,6 @@ import { jest } from '@jest/globals';
 
 let sendWithClientFallback;
 
-// Mock WAError class
-class WAError extends Error {
-  constructor(message, options = {}) {
-    super(message);
-    this.name = 'WAError';
-    this.isRetriable = options.isRetriable;
-    this.statusCode = options.statusCode;
-    this.originalError = options.originalError;
-  }
-}
-
 beforeAll(async () => {
   ({ sendWithClientFallback } = await import('../src/utils/waHelper.js'));
 });
