@@ -595,7 +595,91 @@ function stringifyContext(context) {
 
 const blockedClientChatMap = new Map();
 const blockedClientChatWarned = new Set();
-const blockedGroupChats = new Set();
+
+// Store blocked groups with timestamps for expiry management
+// Structure: Map<chatId, { blockedAt: timestamp, reason: string }>
+const blockedGroupChats = new Map();
+
+// Configuration for blocked group expiry
+const BLOCKED_GROUP_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const BLOCKED_GROUP_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Clean up every hour
+
+/**
+ * Clean up expired blocked groups
+ * Groups that have been blocked for more than BLOCKED_GROUP_EXPIRY_MS will be unblocked
+ * This allows retry attempts after the bot might have been re-added to the group
+ */
+function cleanupExpiredBlockedGroups() {
+  const now = Date.now();
+  let cleanedCount = 0;
+
+  for (const [chatId, blockInfo] of blockedGroupChats.entries()) {
+    const age = now - blockInfo.blockedAt;
+    if (age >= BLOCKED_GROUP_EXPIRY_MS) {
+      blockedGroupChats.delete(chatId);
+      cleanedCount++;
+      console.log(`[WA] Unblocked group ${chatId} after ${Math.floor(age / 1000 / 60)} minutes (block expired)`);
+    }
+  }
+
+  if (cleanedCount > 0) {
+    console.log(`[WA] Cleaned up ${cleanedCount} expired blocked group(s)`);
+  }
+}
+
+/**
+ * Check if a group is currently blocked
+ * Returns true if the group is blocked and not expired
+ */
+function isGroupBlocked(chatId) {
+  if (!blockedGroupChats.has(chatId)) {
+    return false;
+  }
+
+  const blockInfo = blockedGroupChats.get(chatId);
+  const age = Date.now() - blockInfo.blockedAt;
+
+  if (age >= BLOCKED_GROUP_EXPIRY_MS) {
+    // Block has expired, remove it
+    blockedGroupChats.delete(chatId);
+    console.log(`[WA] Unblocked group ${chatId} (block expired)`);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Block a group with timestamp and reason
+ */
+function blockGroup(chatId, reason) {
+  blockedGroupChats.set(chatId, {
+    blockedAt: Date.now(),
+    reason: reason || 'Bot lacks permission or was removed from group'
+  });
+  console.warn(`[WA] Globally blocking group ${chatId} due to: ${reason || 'permanent access error'}`);
+}
+
+// Start periodic cleanup of expired blocked groups
+let cleanupIntervalId = null;
+if (typeof setInterval !== 'undefined') {
+  cleanupIntervalId = setInterval(cleanupExpiredBlockedGroups, BLOCKED_GROUP_CLEANUP_INTERVAL_MS);
+  // Allow Node.js to exit even if this timer is active
+  if (cleanupIntervalId.unref) {
+    cleanupIntervalId.unref();
+  }
+}
+
+/**
+ * Stop the cleanup interval (for test cleanup)
+ * @internal
+ */
+export function stopCleanupInterval() {
+  if (cleanupIntervalId) {
+    clearInterval(cleanupIntervalId);
+    cleanupIntervalId = null;
+  }
+}
 
 function toNumericCode(value) {
   if (value === 403) return 403;
@@ -652,9 +736,12 @@ export async function sendWithClientFallback({
   const isGroupChat = chatId && String(chatId).endsWith('@g.us');
 
   // Check if this group chat is globally blocked due to permanent errors
-  if (isGroupChat && blockedGroupChats.has(chatId)) {
+  // The check automatically handles expiry - if block has expired, it will return false
+  if (isGroupChat && isGroupBlocked(chatId)) {
+    const blockInfo = blockedGroupChats.get(chatId);
+    const age = Math.floor((Date.now() - blockInfo.blockedAt) / 1000 / 60);
     const contextSuffix = contextText ? `; context=${contextText}` : '';
-    console.warn(`[WA] Skip globally blocked group ${chatId} (bot removed or lacks permission)${contextSuffix}`);
+    console.warn(`[WA] Skip blocked group ${chatId} (blocked ${age} min ago: ${blockInfo.reason})${contextSuffix}`);
     return false;
   }
 
@@ -705,9 +792,9 @@ export async function sendWithClientFallback({
       
       // If this is a group chat with a permanent error (403), block it globally
       // to prevent other clients from attempting to send to the same group
+      // The block will automatically expire after BLOCKED_GROUP_EXPIRY_MS
       if (isGroupChat) {
-        blockedGroupChats.add(chatId);
-        console.warn(`[WA] Globally blocking group ${chatId} due to permanent access error (403)`);
+        blockGroup(chatId, summary);
         // Stop trying other clients immediately for this group
         const contextSuffix = contextText ? `; context=${contextText}` : '';
         console.warn(`[WA] All clients will fail for ${chatId}: Bot removed or lacks permission${contextSuffix}`);
@@ -763,4 +850,55 @@ export function isUnsupportedVersionError(err) {
     msg.includes('unsupported version') ||
     msg.includes('versi whatsapp anda terlalu lama')
   );
+}
+
+/**
+ * Get list of currently blocked groups (for monitoring/debugging)
+ * Returns array of { chatId, blockedAt, reason, age }
+ */
+export function getBlockedGroups() {
+  const now = Date.now();
+  const result = [];
+  
+  for (const [chatId, blockInfo] of blockedGroupChats.entries()) {
+    result.push({
+      chatId,
+      blockedAt: blockInfo.blockedAt,
+      reason: blockInfo.reason,
+      ageMinutes: Math.floor((now - blockInfo.blockedAt) / 1000 / 60)
+    });
+  }
+  
+  return result;
+}
+
+/**
+ * Manually unblock a group (for admin/debugging purposes)
+ * Returns true if group was unblocked, false if it wasn't blocked
+ */
+export function unblockGroup(chatId) {
+  if (blockedGroupChats.has(chatId)) {
+    blockedGroupChats.delete(chatId);
+    
+    // Also clear client-specific blocks for this chat
+    for (const [key] of blockedClientChatMap.entries()) {
+      if (key.endsWith(`:${chatId}`)) {
+        blockedClientChatMap.delete(key);
+      }
+    }
+    
+    console.log(`[WA] Manually unblocked group ${chatId}`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Clear all blocked groups (for admin/debugging purposes)
+ */
+export function clearAllBlockedGroups() {
+  const count = blockedGroupChats.size;
+  blockedGroupChats.clear();
+  console.log(`[WA] Cleared all ${count} blocked group(s)`);
+  return count;
 }
