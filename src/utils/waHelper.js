@@ -670,6 +670,17 @@ if (typeof setInterval !== 'undefined') {
   }
 }
 
+/**
+ * Stop the cleanup interval (for test cleanup)
+ * @internal
+ */
+export function stopCleanupInterval() {
+  if (cleanupIntervalId) {
+    clearInterval(cleanupIntervalId);
+    cleanupIntervalId = null;
+  }
+}
+
 function toNumericCode(value) {
   if (value === 403) return 403;
   if (typeof value === 'string' && value.trim() === '403') return 403;
