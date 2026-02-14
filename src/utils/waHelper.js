@@ -595,6 +595,7 @@ function stringifyContext(context) {
 
 const blockedClientChatMap = new Map();
 const blockedClientChatWarned = new Set();
+const blockedGroupChats = new Set();
 
 function toNumericCode(value) {
   if (value === 403) return 403;
@@ -647,6 +648,14 @@ export async function sendWithClientFallback({
     return false;
   }
 
+  // Check if this group chat is globally blocked due to permanent errors
+  const isGroupChat = chatId && String(chatId).endsWith('@g.us');
+  if (isGroupChat && blockedGroupChats.has(chatId)) {
+    const contextSuffix = contextText ? `; context=${contextText}` : '';
+    console.warn(`[WA] Skip globally blocked group ${chatId} (bot removed or lacks permission)${contextSuffix}`);
+    return false;
+  }
+
   let previousError = null;
 
   for (const { client, label } of attempts) {
@@ -691,6 +700,18 @@ export async function sendWithClientFallback({
     if (isPermanentGroupSendError(attemptError)) {
       blockedClientChatMap.set(blockKey, true);
       blockedClientChatWarned.delete(blockKey);
+      
+      // If this is a group chat with a permanent error (403), block it globally
+      // to prevent other clients from attempting to send to the same group
+      if (isGroupChat) {
+        blockedGroupChats.add(chatId);
+        console.warn(`[WA] Globally blocking group ${chatId} due to permanent access error (403)`);
+        // Stop trying other clients immediately for this group
+        const contextSuffix = contextText ? `; context=${contextText}` : '';
+        console.warn(`[WA] All clients will fail for ${chatId}: Bot removed or lacks permission${contextSuffix}`);
+        previousError = summary;
+        break;
+      }
     }
     const contextSuffix = contextText ? `; context=${contextText}` : '';
     console.warn(`[WA] Send failed via ${label} for ${chatId}: ${summary}${contextSuffix}`);
