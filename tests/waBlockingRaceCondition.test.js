@@ -117,9 +117,9 @@ describe('WA Blocking Race Condition Fix', () => {
     // - Multiple redundant send attempts after blocking
     // With locks, the blocking mechanism is atomic and consistent
     expect(mockClient1.sendMessage).toHaveBeenCalled();
-    // All three calls might each try once before getting blocked,
-    // or they may be serialized such that later ones skip after the first blocks
-    // The key is that the block state is consistent (no race condition)
+    // Note: The exact number of calls depends on timing and lock acquisition order
+    // The important thing is that the blocking state is consistent and race-free
+    // Each concurrent operation is properly serialized per chatId by the lock
   });
 
   test('sequential sendWithClientFallback calls should properly block and skip', async () => {
