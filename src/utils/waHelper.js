@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import mime from 'mime-types';
 import path from 'path';
+import AsyncLock from 'async-lock';
 dotenv.config();
 
 const spreadsheetMimeTypes = {
@@ -604,60 +605,73 @@ const blockedGroupChats = new Map();
 const BLOCKED_GROUP_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 const BLOCKED_GROUP_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Clean up every hour
 
+// Create a lock for thread-safe access to blocking maps
+// This prevents race conditions when multiple cron jobs try to block/check the same group simultaneously
+const blockingLock = new AsyncLock();
+
 /**
  * Clean up expired blocked groups
  * Groups that have been blocked for more than BLOCKED_GROUP_EXPIRY_MS will be unblocked
  * This allows retry attempts after the bot might have been re-added to the group
+ * Uses lock to prevent race conditions during cleanup
  */
-function cleanupExpiredBlockedGroups() {
-  const now = Date.now();
-  let cleanedCount = 0;
+async function cleanupExpiredBlockedGroups() {
+  await blockingLock.acquire('cleanup', async () => {
+    const now = Date.now();
+    let cleanedCount = 0;
 
-  for (const [chatId, blockInfo] of blockedGroupChats.entries()) {
-    const age = now - blockInfo.blockedAt;
-    if (age >= BLOCKED_GROUP_EXPIRY_MS) {
-      blockedGroupChats.delete(chatId);
-      cleanedCount++;
-      console.log(`[WA] Unblocked group ${chatId} after ${Math.floor(age / 1000 / 60)} minutes (block expired)`);
+    for (const [chatId, blockInfo] of blockedGroupChats.entries()) {
+      const age = now - blockInfo.blockedAt;
+      if (age >= BLOCKED_GROUP_EXPIRY_MS) {
+        blockedGroupChats.delete(chatId);
+        cleanedCount++;
+        console.log(`[WA] Unblocked group ${chatId} after ${Math.floor(age / 1000 / 60)} minutes (block expired)`);
+      }
     }
-  }
 
-  if (cleanedCount > 0) {
-    console.log(`[WA] Cleaned up ${cleanedCount} expired blocked group(s)`);
-  }
+    if (cleanedCount > 0) {
+      console.log(`[WA] Cleaned up ${cleanedCount} expired blocked group(s)`);
+    }
+  });
 }
 
 /**
  * Check if a group is currently blocked
  * Returns true if the group is blocked and not expired
+ * Uses lock to prevent race conditions during check and auto-cleanup
  */
-function isGroupBlocked(chatId) {
-  if (!blockedGroupChats.has(chatId)) {
-    return false;
-  }
+async function isGroupBlocked(chatId) {
+  return await blockingLock.acquire(chatId, async () => {
+    if (!blockedGroupChats.has(chatId)) {
+      return false;
+    }
 
-  const blockInfo = blockedGroupChats.get(chatId);
-  const age = Date.now() - blockInfo.blockedAt;
+    const blockInfo = blockedGroupChats.get(chatId);
+    const age = Date.now() - blockInfo.blockedAt;
 
-  if (age >= BLOCKED_GROUP_EXPIRY_MS) {
-    // Block has expired, remove it
-    blockedGroupChats.delete(chatId);
-    console.log(`[WA] Unblocked group ${chatId} (block expired)`);
-    return false;
-  }
+    if (age >= BLOCKED_GROUP_EXPIRY_MS) {
+      // Block has expired, remove it
+      blockedGroupChats.delete(chatId);
+      console.log(`[WA] Unblocked group ${chatId} (block expired)`);
+      return false;
+    }
 
-  return true;
+    return true;
+  });
 }
 
 /**
  * Block a group with timestamp and reason
+ * Uses lock to prevent race conditions when multiple operations try to block the same group
  */
-function blockGroup(chatId, reason) {
-  blockedGroupChats.set(chatId, {
-    blockedAt: Date.now(),
-    reason: reason || 'Bot lacks permission or was removed from group'
+async function blockGroup(chatId, reason) {
+  await blockingLock.acquire(chatId, async () => {
+    blockedGroupChats.set(chatId, {
+      blockedAt: Date.now(),
+      reason: reason || 'Bot lacks permission or was removed from group'
+    });
+    console.warn(`[WA] Globally blocking group ${chatId} due to: ${reason || 'permanent access error'}`);
   });
-  console.warn(`[WA] Globally blocking group ${chatId} due to: ${reason || 'permanent access error'}`);
 }
 
 // Start periodic cleanup of expired blocked groups
@@ -737,7 +751,7 @@ export async function sendWithClientFallback({
 
   // Check if this group chat is globally blocked due to permanent errors
   // The check automatically handles expiry - if block has expired, it will return false
-  if (isGroupChat && isGroupBlocked(chatId)) {
+  if (isGroupChat && await isGroupBlocked(chatId)) {
     const blockInfo = blockedGroupChats.get(chatId);
     const age = Math.floor((Date.now() - blockInfo.blockedAt) / 1000 / 60);
     const contextSuffix = contextText ? `; context=${contextText}` : '';
@@ -794,7 +808,7 @@ export async function sendWithClientFallback({
       // to prevent other clients from attempting to send to the same group
       // The block will automatically expire after BLOCKED_GROUP_EXPIRY_MS
       if (isGroupChat) {
-        blockGroup(chatId, summary);
+        await blockGroup(chatId, summary);
         // Stop trying other clients immediately for this group
         const contextSuffix = contextText ? `; context=${contextText}` : '';
         console.warn(`[WA] All clients will fail for ${chatId}: Bot removed or lacks permission${contextSuffix}`);
