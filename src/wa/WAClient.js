@@ -108,6 +108,7 @@ export class WAClient extends EventEmitter {
     this.maxMsgRetryCount = 5; // Max retries before giving up on a message
     // Session error tracking to detect persistent issues
     this.sessionErrorCount = 0;
+    this.firstSessionErrorTime = null;
     this.lastSessionErrorTime = null;
     this.sessionErrorThreshold = 10; // Trigger cleanup after this many errors in a short time
     this.sessionErrorWindowMs = 60000; // 1 minute window for error tracking
@@ -176,7 +177,7 @@ export class WAClient extends EventEmitter {
         version: version,
         // Handle decryption retries - reduces "Bad MAC" errors
         retryRequestDelayMs: 350, // Slightly longer delay between retries
-        maxMsgRetryCount: 5, // Max retry count for failed messages
+        maxMsgRetryCount: this.maxMsgRetryCount, // Max retry count for failed messages
         // Provide retry counter cache to track message retry attempts
         msgRetryCounterCache: {
           get: async (key) => {
@@ -187,9 +188,13 @@ export class WAClient extends EventEmitter {
             const cacheKey = `${key.remoteJid}:${key.id}`;
             this.msgRetryCounterCache.set(cacheKey, value);
             // Clean up old entries to prevent memory leak (keep max 1000 entries)
+            // Remove oldest 10% when limit is reached to avoid frequent cleanup
             if (this.msgRetryCounterCache.size > 1000) {
-              const firstKey = this.msgRetryCounterCache.keys().next().value;
-              this.msgRetryCounterCache.delete(firstKey);
+              const entriesToRemove = Math.floor(this.msgRetryCounterCache.size * 0.1);
+              const keys = Array.from(this.msgRetryCounterCache.keys()).slice(0, entriesToRemove);
+              for (const k of keys) {
+                this.msgRetryCounterCache.delete(k);
+              }
             }
           }
         },
@@ -446,6 +451,7 @@ export class WAClient extends EventEmitter {
           this.msgRetryCounterCache.clear();
           // Reset session error tracking as we have a fresh sync
           this.sessionErrorCount = 0;
+          this.firstSessionErrorTime = null;
           this.lastSessionErrorTime = null;
         }
         
@@ -517,9 +523,15 @@ export class WAClient extends EventEmitter {
   _trackSessionError() {
     const now = Date.now();
     
+    // Track first error time for accurate window calculation
+    if (!this.lastSessionErrorTime) {
+      this.firstSessionErrorTime = now;
+    }
+    
     // Reset counter if we're outside the error tracking window
     if (this.lastSessionErrorTime && (now - this.lastSessionErrorTime) > this.sessionErrorWindowMs) {
       this.sessionErrorCount = 0;
+      this.firstSessionErrorTime = now;
     }
     
     this.sessionErrorCount++;
@@ -527,13 +539,15 @@ export class WAClient extends EventEmitter {
     
     // If we've hit the threshold, trigger session cleanup
     if (this.sessionErrorCount >= this.sessionErrorThreshold) {
-      console.warn(`[${this.config.clientId}] High session error rate detected (${this.sessionErrorCount} errors in ${this.sessionErrorWindowMs}ms) - triggering cleanup`);
+      const actualWindowMs = now - (this.firstSessionErrorTime || now);
+      console.warn(`[${this.config.clientId}] High session error rate detected (${this.sessionErrorCount} errors in ${actualWindowMs}ms) - triggering cleanup`);
       
       // Clear retry counters to allow fresh retry attempts
       this.msgRetryCounterCache.clear();
       
       // Reset the error counter after cleanup
       this.sessionErrorCount = 0;
+      this.firstSessionErrorTime = null;
       this.lastSessionErrorTime = null;
       
       // If automatic recovery is enabled and errors persist, trigger bad session recovery
@@ -893,6 +907,7 @@ export class WAClient extends EventEmitter {
     
     // Reset session error tracking
     this.sessionErrorCount = 0;
+    this.firstSessionErrorTime = null;
     this.lastSessionErrorTime = null;
     
     if (this.socket) {
