@@ -102,6 +102,15 @@ export class WAClient extends EventEmitter {
     // Message store for decryption - keeps last 100 messages per chat
     this.messageStore = new Map();
     this.maxMessagesPerChat = 100;
+    // Message retry counter cache to track failed decryption attempts
+    // Key format: "remoteJid:messageId" -> retry count
+    this.msgRetryCounterCache = new Map();
+    this.maxMsgRetryCount = 5; // Max retries before giving up on a message
+    // Session error tracking to detect persistent issues
+    this.sessionErrorCount = 0;
+    this.lastSessionErrorTime = null;
+    this.sessionErrorThreshold = 10; // Trigger cleanup after this many errors in a short time
+    this.sessionErrorWindowMs = 60000; // 1 minute window for error tracking
   }
 
   /**
@@ -167,6 +176,23 @@ export class WAClient extends EventEmitter {
         version: version,
         // Handle decryption retries - reduces "Bad MAC" errors
         retryRequestDelayMs: 350, // Slightly longer delay between retries
+        maxMsgRetryCount: 5, // Max retry count for failed messages
+        // Provide retry counter cache to track message retry attempts
+        msgRetryCounterCache: {
+          get: async (key) => {
+            const cacheKey = `${key.remoteJid}:${key.id}`;
+            return this.msgRetryCounterCache.get(cacheKey) || 0;
+          },
+          set: async (key, value) => {
+            const cacheKey = `${key.remoteJid}:${key.id}`;
+            this.msgRetryCounterCache.set(cacheKey, value);
+            // Clean up old entries to prevent memory leak (keep max 1000 entries)
+            if (this.msgRetryCounterCache.size > 1000) {
+              const firstKey = this.msgRetryCounterCache.keys().next().value;
+              this.msgRetryCounterCache.delete(firstKey);
+            }
+          }
+        },
         getMessage: async (key) => {
           // Retrieve message from store for decryption purposes
           // This is needed for message references (replies, reactions, etc.)
@@ -382,6 +408,9 @@ export class WAClient extends EventEmitter {
           // Log session-related errors at info level (they're expected in some cases)
           if (errorName === 'SessionError' || errorMsg.includes('Bad MAC') || errorMsg.includes('session')) {
             console.info(`[${this.config.clientId}] Message decryption issue (${errorName}): ${truncateString(errorMsg, MAX_ERROR_MESSAGE_LENGTH)}`);
+            
+            // Track session errors to detect persistent issues
+            this._trackSessionError();
           } else {
             // Log other errors as warnings
             console.warn(`[${this.config.clientId}] Error processing message:`, errorName, truncateString(errorMsg, MAX_ERROR_MESSAGE_LENGTH));
@@ -401,6 +430,31 @@ export class WAClient extends EventEmitter {
         if (update.update?.status) {
           // Emit message status change events if needed
         }
+      }
+    });
+
+    // Handle messaging history sync events
+    // This is important for managing session state during history sync
+    this.socket.ev.on('messaging-history.set', ({ chats, messages, isLatest }) => {
+      try {
+        console.log(`[${this.config.clientId}] Messaging history sync: ${messages.length} messages, ${chats.length} chats, isLatest: ${isLatest}`);
+        
+        // When history sync completes, it's a good time to clean up retry counters
+        // as the session state is now fresh
+        if (isLatest) {
+          console.log(`[${this.config.clientId}] History sync complete - cleaning up retry counters`);
+          this.msgRetryCounterCache.clear();
+          // Reset session error tracking as we have a fresh sync
+          this.sessionErrorCount = 0;
+          this.lastSessionErrorTime = null;
+        }
+        
+        // Store synced messages in our message store for future decryption needs
+        for (const msg of messages) {
+          this._storeMessage(msg);
+        }
+      } catch (error) {
+        console.warn(`[${this.config.clientId}] Error handling messaging history:`, error.message);
       }
     });
   }
@@ -454,6 +508,41 @@ export class WAClient extends EventEmitter {
       // Check if from group
       isGroup: baileyMsg.key.remoteJid?.endsWith('@g.us') || false
     };
+  }
+
+  /**
+   * Track session errors to detect persistent issues
+   * If too many session errors occur in a short time window, trigger cleanup
+   */
+  _trackSessionError() {
+    const now = Date.now();
+    
+    // Reset counter if we're outside the error tracking window
+    if (this.lastSessionErrorTime && (now - this.lastSessionErrorTime) > this.sessionErrorWindowMs) {
+      this.sessionErrorCount = 0;
+    }
+    
+    this.sessionErrorCount++;
+    this.lastSessionErrorTime = now;
+    
+    // If we've hit the threshold, trigger session cleanup
+    if (this.sessionErrorCount >= this.sessionErrorThreshold) {
+      console.warn(`[${this.config.clientId}] High session error rate detected (${this.sessionErrorCount} errors in ${this.sessionErrorWindowMs}ms) - triggering cleanup`);
+      
+      // Clear retry counters to allow fresh retry attempts
+      this.msgRetryCounterCache.clear();
+      
+      // Reset the error counter after cleanup
+      this.sessionErrorCount = 0;
+      this.lastSessionErrorTime = null;
+      
+      // If automatic recovery is enabled and errors persist, trigger bad session recovery
+      if (this.config.enableBadSessionRecovery) {
+        console.log(`[${this.config.clientId}] Persistent session errors - considering session recovery`);
+        // Don't immediately trigger recovery, just log it for now
+        // The connection.update handler will handle actual BAD_SESSION disconnects
+      }
+    }
   }
 
   /**
@@ -796,6 +885,15 @@ export class WAClient extends EventEmitter {
     if (this.messageStore) {
       this.messageStore.clear();
     }
+    
+    // Clear retry counter cache
+    if (this.msgRetryCounterCache) {
+      this.msgRetryCounterCache.clear();
+    }
+    
+    // Reset session error tracking
+    this.sessionErrorCount = 0;
+    this.lastSessionErrorTime = null;
     
     if (this.socket) {
       try {
