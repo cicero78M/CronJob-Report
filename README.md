@@ -24,7 +24,7 @@ Role-aware deactivation flows (per-role removal across WhatsApp menus and REST) 
 ## Requirements
 - Node.js 20 or newer
 - PostgreSQL and Redis (configure `.env` accordingly)
-- Run `npm install` before starting
+- Run `PUPPETEER_SKIP_DOWNLOAD=true npm install` before starting (Puppeteer is a transitive dependency but not needed since WhatsApp uses Baileys)
 
 ---
 
