@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 import mime from 'mime-types';
 import path from 'path';
-import AsyncLock from 'async-lock';
+import { createLockAdapter } from './lockAdapter.js';
 dotenv.config();
 
 const spreadsheetMimeTypes = {
@@ -607,7 +607,7 @@ const BLOCKED_GROUP_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Clean up every hour
 
 // Create a lock for thread-safe access to blocking maps
 // This prevents race conditions when multiple cron jobs try to block/check the same group simultaneously
-const blockingLock = new AsyncLock();
+const blockingLock = createLockAdapter();
 
 /**
  * Clean up expired blocked groups
