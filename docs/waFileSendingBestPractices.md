@@ -23,6 +23,9 @@ Pengiriman file melalui bot WhatsApp memerlukan beberapa langkah agar aman dan d
 7. **Batasi Ukuran File**  
    Hindari mengirim file yang terlalu besar agar tidak menghabiskan memori. Pertimbangkan untuk mengompres atau membagi file bila perlu.
 
+8. **Lock Adapter untuk Blocking Group**  
+   Modul `waHelper` menggunakan adapter lock (`createLockAdapter` dari `src/utils/lockAdapter.js`) untuk sinkronisasi akses map blokir grup (`blockedGroupChats`). Adapter akan mencoba memakai `async-lock` jika tersedia. Bila modul `async-lock` gagal dimuat (misalnya dependency belum terpasang), sistem otomatis fallback ke lock serial in-memory per-key agar proses tetap aman dari race condition dasar. Saat fallback aktif, warning hanya dicatat **sekali** (`[WA] async-lock module unavailable; using in-memory serial lock fallback...`) supaya mudah terdeteksi di observability tanpa membanjiri log.
+
 Contoh penggunaan sederhana:
 
 ```javascript
