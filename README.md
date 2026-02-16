@@ -194,6 +194,55 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
     npm test
     ```
 
+### Dependency Deploy Runbook (Production)
+
+Gunakan prosedur ini setiap kali ada update module/dependency agar service `cicero-` tidak gagal start karena modul belum terpasang (contoh: `ERR_MODULE_NOT_FOUND: async-lock`).
+
+1. **Masuk ke host dan direktori project yang aktif dijalankan process manager**
+   ```bash
+   cd /home/gonet/CronJob-Report
+   ```
+2. **Verifikasi dependency ada di `package.json`**
+   ```bash
+   node -e "const p=require('./package.json'); console.log(p.dependencies['async-lock'] || 'async-lock missing')"
+   ```
+   Hasil harus menampilkan versi `async-lock` (bukan `missing`).
+3. **Sinkronkan dependency dengan lockfile (clean install)**
+   - Production-only:
+     ```bash
+     npm ci --omit=dev
+     ```
+   - Jika host tersebut juga menjalankan test/lint/build lokal:
+     ```bash
+     npm ci
+     ```
+4. **Restart process manager agar Node.js memuat `node_modules` terbaru**
+   - PM2:
+     ```bash
+     pm2 restart cicero-cronjob
+     # atau jika memakai ecosystem
+     pm2 restart ecosystem.config.js --env production
+     ```
+   - systemd:
+     ```bash
+     sudo systemctl restart cicero-cronjob
+     ```
+5. **Validasi startup log**
+   - PM2:
+     ```bash
+     pm2 logs cicero-cronjob --lines 100
+     ```
+   - systemd:
+     ```bash
+     journalctl -u cicero-cronjob -n 100 --no-pager
+     ```
+   Pastikan tidak ada lagi error `ERR_MODULE_NOT_FOUND` untuk `async-lock` (atau dependency lain yang baru ditambahkan).
+6. **Checklist pasca deploy**
+   - `package.json` dan `package-lock.json` sudah ikut terdeploy.
+   - Install dependency dilakukan dengan `npm ci` (bukan `npm install` acak di server).
+   - Restart service dilakukan setelah install selesai.
+   - Log startup bersih dari error module not found.
+
 ---
 
 ## Google Contacts Integration
