@@ -554,6 +554,9 @@ berpindah ke dashboard web atau menjalankan skrip manual.
   **super admin** (`client_super`).
 - Daftar penerima dideduplikasi otomatis; nomor/ID yang tidak valid dilewati
   dan dicatat ke log `[SKIP WA] invalid recipient`.
+- Filter personel untuk menu **6️⃣** dan **9️⃣** kini menerima role direktorat
+  `ditintelkam` pada query `getUsersByDirektorat`, sehingga pengelompokan
+  pengguna tidak lagi gagal dengan pesan *Direktorat flag tidak valid*.
 
 ## Automasi Cron BIDHUMAS Malam
 - Cron `cronDirRequestBidhumasEvening.js` berjalan setiap hari pukul

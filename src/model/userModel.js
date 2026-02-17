@@ -530,7 +530,7 @@ export async function getExceptionUsersByClient(client_id, roleFilter = null) {
 
 // Ambil user dengan flag direktorat binmas atau lantas
 export async function getDirektoratUsers(clientId = null) {
-  let sql = `SELECT u.*,\n    bool_or(r.role_name='ditbinmas') AS ditbinmas,\n    bool_or(r.role_name='ditlantas') AS ditlantas,\n    bool_or(r.role_name='bidhumas') AS bidhumas,\n    bool_or(r.role_name='ditsamapta') AS ditsamapta\n  FROM "user" u\n  JOIN user_roles ur ON u.user_id = ur.user_id\n  JOIN roles r ON ur.role_id = r.role_id\n  WHERE r.role_name IN ('ditbinmas','ditlantas','bidhumas','ditsamapta')`;
+  let sql = `SELECT u.*,\n    bool_or(r.role_name='ditbinmas') AS ditbinmas,\n    bool_or(r.role_name='ditlantas') AS ditlantas,\n    bool_or(r.role_name='bidhumas') AS bidhumas,\n    bool_or(r.role_name='ditsamapta') AS ditsamapta,\n    bool_or(r.role_name='ditintelkam') AS ditintelkam\n  FROM "user" u\n  JOIN user_roles ur ON u.user_id = ur.user_id\n  JOIN roles r ON ur.role_id = r.role_id\n  WHERE r.role_name IN ('ditbinmas','ditlantas','bidhumas','ditsamapta','ditintelkam')`;
   const params = [];
   if (clientId) {
     sql += ' AND u.client_id = $1';
@@ -546,7 +546,7 @@ export async function getDirektoratUsers(clientId = null) {
 // Selalu memastikan user memiliki role yang sama dengan client_id-nya.
 export async function getUsersByDirektorat(flag, clientId = null) {
   console.log(`[USER MODEL] getUsersByDirektorat called with flag=${flag}, clientId=${JSON.stringify(clientId)}`);
-  const validFlags = ['ditbinmas', 'ditlantas', 'bidhumas', 'ditsamapta'];
+  const validFlags = ['ditbinmas', 'ditlantas', 'bidhumas', 'ditsamapta', 'ditintelkam'];
   if (!validFlags.includes(flag)) {
     console.log(`[USER MODEL] Invalid flag passed to getUsersByDirektorat: ${flag}`);
     throw new Error('Direktorat flag tidak valid');
@@ -561,7 +561,8 @@ export async function getUsersByDirektorat(flag, clientId = null) {
       bool_or(r.role_name='ditbinmas') AS ditbinmas,
       bool_or(r.role_name='ditlantas') AS ditlantas,
       bool_or(r.role_name='bidhumas') AS bidhumas,
-      bool_or(r.role_name='ditsamapta') AS ditsamapta
+      bool_or(r.role_name='ditsamapta') AS ditsamapta,
+      bool_or(r.role_name='ditintelkam') AS ditintelkam
     FROM "user" u
     LEFT JOIN user_roles ur ON ur.user_id = u.user_id
     LEFT JOIN roles r ON r.role_id = ur.role_id
