@@ -343,11 +343,12 @@ export async function formatRekapUserData(clientId, roleFlag = null) {
   ).trim();
 }
 
-export async function formatRekapBelumLengkapDirektorat(clientId) {
+export async function formatRekapBelumLengkapDirektorat(clientId, roleFlag = null) {
   const targetClientId = String(clientId || DITBINMAS_CLIENT_ID).toUpperCase();
+  const normalizedRole = String(roleFlag || targetClientId).trim().toLowerCase();
   const [client, users] = await Promise.all([
     findClientById(targetClientId),
-    getUsersSocialByClient(targetClientId, targetClientId.toLowerCase()),
+    getUsersSocialByClient(targetClientId, normalizedRole),
   ]);
 
   const clientName = client?.nama || targetClientId;
@@ -624,7 +625,7 @@ async function performAction(
       break;
     }
     case "3":
-      msg = await formatRekapBelumLengkapDirektorat(clientId);
+      msg = await formatRekapBelumLengkapDirektorat(clientId, roleFlag);
       break;
     case "4": {
       try {

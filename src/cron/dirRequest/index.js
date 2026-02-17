@@ -21,6 +21,14 @@ import {
   runCron as runDitbinmasAbsensiToday,
   JOB_KEY as DITBINMAS_ABSENSI_TODAY_JOB_KEY,
 } from '../cronDirRequestDitbinmasAbsensiToday.js';
+import {
+  runCron as runDitintelkamMorning,
+  JOB_KEY as DITINTELKAM_MORNING_JOB_KEY,
+} from '../cronDirRequestDitintelkamMorning.js';
+import {
+  runCron as runDitintelkamRoutine,
+  JOB_KEY as DITINTELKAM_ROUTINE_JOB_KEY,
+} from '../cronDirRequestDitintelkamRoutine.js';
 // Default cron options
 const DEFAULT_CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const inFlightJobs = new Map();
@@ -99,6 +107,24 @@ const dirRequestCrons = [
       'Send Ditbinmas absensi recap (menu 5 & 10, today) to the dedicated recipient only.',
     schedules: [
       { cronExpression: '18 18 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
+    ],
+  },
+  // Ditintelkam morning rekap at 07:10
+  {
+    jobKey: DITINTELKAM_MORNING_JOB_KEY,
+    description:
+      'Send Ditintelkam morning recap (menu 1 & 3) to the Ditintelkam group.',
+    schedules: [
+      { cronExpression: '10 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+    ],
+  },
+  // Ditintelkam routine recap at minute 9 every 10,12,14,16,18,20,22
+  {
+    jobKey: DITINTELKAM_ROUTINE_JOB_KEY,
+    description:
+      'Send Ditintelkam routine recap (menu 6 & 9) to group, operator, and super admin recipients.',
+    schedules: [
+      { cronExpression: '9 10,12,14,16,18,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
 ];

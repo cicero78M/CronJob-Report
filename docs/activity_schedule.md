@@ -68,6 +68,8 @@ The schedules below are bundled inside `src/cron/dirRequest/index.js` and regist
 | `cronDirRequestDitbinmasGroupRecap.js` | `52 15 * * *<br>19 18 * * *` | Send Ditbinmas group-only recap by running dirRequest menus 21 and 22 with explicit context period "hari ini" and normalized role routing for stable execution. |
 | `cronDirRequestDitbinmasSuperAdminDaily.js` | `16 18 * * *` | Send Ditbinmas super admin-only recaps by running dirRequest menus 6, 9, 34, and 35 with the "hari ini" engagement period. |
 | `cronDirRequestDitbinmasOperatorDaily.js` | `17 18 * * *` | Send Ditbinmas operator-only reports by running dirRequest menus 30 and 34 with the "hari ini" period. |
+| `cronDirRequestDitintelkamMorning.js` | `10 7 * * *` | Send DITINTELKAM morning rekap by running dirRequest menus 1 and 3 to the directorate WhatsApp group only. |
+| `cronDirRequestDitintelkamRoutine.js` | `9 10,12,14,16,18,20,22 * * *` | Send DITINTELKAM routine rekap by running dirRequest menus 6 and 9 to group, operator, and super admin recipients from the client contact fields. |
 | `cronDirRequestBidhumasEvening.js` | `45 15 * * *<br>15 20 * * *<br>15 22 * * *` | Send dirRequest menus 6, 9, 28, and 29 exclusively to the BIDHUMAS group and its super admin recipients at exactly 22:00 WIB (no fetch post/engagement step), with explicit period context for menus 28/29 to stabilize per-content recap delivery. |
 
 #### Ditbinmas WA reminder persistence
