@@ -1,5 +1,13 @@
 import redis from '../config/redis.js';
 
+/**
+ * Lua script for safe lock release.
+ * Only deletes the lock if the current value matches the owner ID.
+ * This prevents accidentally releasing a lock that was acquired by another process
+ * after the current lock expired.
+ * Args: KEYS[1] = lock key, ARGV[1] = owner ID
+ * Returns: 1 if deleted, 0 if not found or owner mismatch
+ */
 const LOCK_RELEASE_SCRIPT = `
 if redis.call("GET", KEYS[1]) == ARGV[1] then
   return redis.call("DEL", KEYS[1])

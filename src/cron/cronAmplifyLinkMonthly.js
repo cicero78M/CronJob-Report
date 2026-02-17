@@ -95,7 +95,6 @@ async function runCron() {
             tag: CRON_TAG,
             msg: `[${client.client_id}] File dikirim ke operator`
           });
-          processedCount++;
         } else {
           sendDebug({
             tag: CRON_TAG,
@@ -103,6 +102,9 @@ async function runCron() {
           });
         }
         await fs.unlink(filePath).catch(() => {});
+
+        // Client was processed successfully (regardless of operator validity)
+        processedCount++;
 
         // Add delay between clients to avoid overwhelming WhatsApp
         if (i < clients.length - 1) {
