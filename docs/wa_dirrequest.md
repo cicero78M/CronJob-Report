@@ -538,6 +538,23 @@ berpindah ke dashboard web atau menjalankan skrip manual.
 - Rekap hanya dikirim ke daftar Operator Ditbinmas (`client_operator`) tanpa
   broadcast ke grup maupun Super Admin.
 
+## Automasi Cron DITINTELKAM Pagi
+- Cron `cronDirRequestDitintelkamMorning.js` berjalan setiap hari pukul
+  **07:10 WIB** untuk menjalankan menu **1️⃣** dan **3️⃣** khusus
+  client `DITINTELKAM`.
+- Pengiriman hanya ke Group WhatsApp DITINTELKAM (`client_group`) agar
+  rekap pagi fokus untuk kanal komando grup direktorat.
+
+## Automasi Cron DITINTELKAM Rutin
+- Cron `cronDirRequestDitintelkamRoutine.js` berjalan setiap hari pada
+  **10:09, 12:09, 14:09, 16:09, 18:09, 20:09, dan 22:09 WIB** untuk
+  mengeksekusi menu **6️⃣** dan **9️⃣** pada client `DITINTELKAM`.
+- Pengiriman dilakukan ke tiga target penerima berdasarkan data client:
+  **group** (`client_group`), **operator** (`client_operator`), dan
+  **super admin** (`client_super`).
+- Daftar penerima dideduplikasi otomatis; nomor/ID yang tidak valid dilewati
+  dan dicatat ke log `[SKIP WA] invalid recipient`.
+
 ## Automasi Cron BIDHUMAS Malam
 - Cron `cronDirRequestBidhumasEvening.js` berjalan setiap hari pukul
   **22:00 WIB**. Urutan eksekusi: menjalankan menu **6** (Instagram likes),
