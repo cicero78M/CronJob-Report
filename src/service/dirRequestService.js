@@ -35,7 +35,6 @@ import { saveMonthlyLikesRecapExcel } from "./monthlyLikesRecapExcelService.js";
 import { saveSatkerUpdateMatrixExcel } from "./satkerUpdateMatrixService.js";
 import { saveEngagementRankingExcel } from "./engagementRankingExcelService.js";
 import { generateKasatkerReport } from "./kasatkerReportService.js";
-import { generateKasatkerAttendanceSummary } from "./kasatkerAttendanceService.js";
 import { generateKasatBinmasLikesRecap } from "./kasatBinmasLikesRecapService.js";
 import { sendKasatBinmasLikesRecapExcel } from "./kasatBinmasLikesRecapExcelService.js";
 import { sendKasatBinmasTiktokCommentRecapExcel } from "./kasatBinmasTiktokCommentRecapExcelService.js";
@@ -788,9 +787,10 @@ async function performAction(
       break;
     }
     case "30": {
-      msg = await generateKasatkerAttendanceSummary({
+      msg = await generateKasatkerReport({
         clientId: attendanceClientId,
         roleFlag: normalizedRoleFlag,
+        period: normalizedPeriod || "today",
       });
       break;
     }

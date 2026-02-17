@@ -49,16 +49,14 @@ Then paste the output into this section. The table is sourced from `src/cron/cro
 
 | File | Schedule (Asia/Jakarta) | Description |
 |------|-------------------------|-------------|
-| `cronDbBackup.js` | `0 4 * * *` | Backup database dump to Google Drive using service account credentials. |
 | `cronRekapLink.js` | `5 15,18,21 * * *` | Distribute amplification link recaps to all active amplification clients. |
 | `cronAmplifyLinkMonthly.js` | `0 23 28-31 * *` | Generate and deliver monthly amplification spreadsheets on the last day of the month. |
 | `cronDirRequestRekapUpdate.js` | `0 8-18/4 * * *` | Send Ditbinmas executive summaries and rekap updates to admins and broadcast groups. |
-| `cronOprRequestAbsensiUpdateDataUsername.js` | `45 8-15 * * *` | Send oprrequest absensi update data username recaps to active org clients with Instagram + TikTok enabled, delivered to each WhatsApp group. |
-| `cronOprRequestAbsensiEngagement.js` | `5 15,18,20 * * *` | Send oprrequest engagement absensi Instagram (likes) and TikTok (comments) recaps with the "all" mode to each org WhatsApp group plus operator and super admin recipients. |
-| `cronOprRequestAmplifyRoutineUpdate.js` | `0,30 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled. |
-| `cronDashboardSubscriptionExpiry.js` | `*/30 * * * *` | Mark overdue dashboard subscriptions as expired and send WhatsApp reminders when a destination number is available. |
+| `cronOprRequestAbsensiUpdateDataUsername.js` | `45 6 * * *` | Send oprrequest absensi update data username recaps to active org clients with Instagram + TikTok enabled, delivered to each WhatsApp group. |
+| `cronOprRequestAbsensiEngagement.js` | `20 15,18,20 * * *` | Send oprrequest engagement absensi Instagram (likes) and TikTok (comments) recaps with the "all" mode to each org WhatsApp group plus operator and super admin recipients. |
+| `cronOprRequestAmplifyRoutineUpdate.js` | `55,25 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled. |
+| `cronDashboardSubscriptionExpiry.js` | `*/48 * * * *` | Mark overdue dashboard subscriptions as expired and send WhatsApp reminders when a destination number is available. |
 | `cronPremiumExpiry.js` | `0 0 * * *` | Expire mobile premium users when `premium_end_date` is in the past. |
-| `cronDashboardPremiumRequestExpiry.js` | `0 * * * *` | Expire pending/confirmed dashboard premium requests after their `expired_at` deadline and send requester/admin WhatsApp notifications. |
 
 ### Ditbinmas dirRequest group (registered via `registerDirRequestCrons`)
 
@@ -66,11 +64,11 @@ The schedules below are bundled inside `src/cron/dirRequest/index.js` and regist
 
 | File | Schedule (Asia/Jakarta) | Description |
 |------|-------------------------|-------------|
-| `cronWaNotificationReminder.js` | `10 16 * * *<br>40 16 * * *<br>10 17 * * *<br>40 17 * * *` | Send WhatsApp task reminders to Ditbinmas and BIDHUMAS users who opted in, spacing each WhatsApp delivery by 3 seconds and persisting each recipient's last stage/completion in `wa_notification_reminder_state` so completed users are skipped on reruns while pending users continue their follow-up stage. |
-| `cronDirRequestDitbinmasGroupRecap.js` | `10 15 * * *<br>14 18 * * *` | Send Ditbinmas group-only recap by running dirRequest menus 21 and 22 with the "hari ini" engagement period. |
-| `cronDirRequestDitbinmasSuperAdminDaily.js` | `10 18 * * *` | Send Ditbinmas super admin-only recaps by running dirRequest menus 6, 9, 34, and 35 with the "hari ini" engagement period. |
-| `cronDirRequestDitbinmasOperatorDaily.js` | `12 18 * * *` | Send Ditbinmas operator-only reports by running dirRequest menu 30 with the "hari ini" period. |
-| `cronDirRequestBidhumasEvening.js` | `30 20 * * *<br>0 22 * * *` | Send dirRequest menus 6, 9, 28, and 29 exclusively to the BIDHUMAS group and its super admin recipients at exactly 22:00 WIB (no fetch post/engagement step). |
+| `cronWaNotificationReminder.js` | `5 17 * * *<br>35 17 * * *` | Send WhatsApp task reminders to Ditbinmas and BIDHUMAS users who opted in, spacing each WhatsApp delivery by 3 seconds and persisting each recipient's last stage/completion in `wa_notification_reminder_state` so completed users are skipped on reruns while pending users continue their follow-up stage. |
+| `cronDirRequestDitbinmasGroupRecap.js` | `52 15 * * *<br>19 18 * * *` | Send Ditbinmas group-only recap by running dirRequest menus 21 and 22 with the "hari ini" engagement period. |
+| `cronDirRequestDitbinmasSuperAdminDaily.js` | `16 18 * * *` | Send Ditbinmas super admin-only recaps by running dirRequest menus 6, 9, 34, and 35 with the "hari ini" engagement period. |
+| `cronDirRequestDitbinmasOperatorDaily.js` | `17 18 * * *` | Send Ditbinmas operator-only reports by running dirRequest menus 30 and 34 with the "hari ini" period. |
+| `cronDirRequestBidhumasEvening.js` | `45 15 * * *<br>15 20 * * *<br>15 22 * * *` | Send dirRequest menus 6, 9, 28, and 29 exclusively to the BIDHUMAS group and its super admin recipients at exactly 22:00 WIB (no fetch post/engagement step). |
 
 #### Ditbinmas WA reminder persistence
 

@@ -1,12 +1,5 @@
 export default [
   {
-    jobKey: './src/cron/cronDbBackup.js',
-    modulePath: './src/cron/cronDbBackup.js',
-    bucket: 'always',
-    affinity: 'platform',
-    description: 'Backup database dump to Google Drive using service account credentials.',
-  },
-  {
     jobKey: './src/cron/cronRekapLink.js',
     modulePath: './src/cron/cronRekapLink.js',
     bucket: 'operatorPolres',
@@ -40,13 +33,6 @@ export default [
     bucket: 'always',
     affinity: 'platform',
     description: 'Expire premium access for mobile users when premium_end_date has passed.',
-  },
-  {
-    jobKey: './src/cron/cronDashboardPremiumRequestExpiry.js',
-    modulePath: './src/cron/cronDashboardPremiumRequestExpiry.js',
-    bucket: 'direktorat',
-    affinity: 'direktorat',
-    description: 'Expire stale dashboard premium requests and notify admins plus requesters.',
   },
   {
     jobKey: './src/cron/cronOprRequestAbsensiUpdateDataUsername.js',

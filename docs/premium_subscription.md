@@ -214,9 +214,7 @@ authorized actor.
 - `expireDashboardPremiumRequests` marks pending/confirmed rows as `expired` once
   `expired_at` is reached, writes an audit row, and returns the affected
   requests.
-- `src/cron/cronDashboardPremiumRequestExpiry.js` runs hourly (Asia/Jakarta),
-  notifying requesters via the gateway client and sending an admin summary via
-  `sendWAReport`.
+- Expiry flow can be triggered from service/use-case execution paths; there is no dedicated scheduled cron job for premium request expiry in the current manifest.
 
 ## Frontend status check before submitting a new request
 
