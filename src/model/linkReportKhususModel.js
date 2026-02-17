@@ -190,8 +190,8 @@ export async function getRekapLinkByClient(
     }
   } else if (tanggal) {
     params.push(tanggal);
-    dateFilterPost = '(p.created_at AT TIME ZONE \'Asia/Jakarta\')::date = $2::date';
-    dateFilterReport = '(r.created_at AT TIME ZONE \'Asia/Jakarta\')::date = $2::date';
+    dateFilterPost = "(p.created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date";
+    dateFilterReport = "(r.created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date";
   }
 
   const { rows: postRows } = await query(
