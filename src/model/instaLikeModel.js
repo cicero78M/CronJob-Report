@@ -335,15 +335,15 @@ export async function getRekapLikesByClient(
       if (tanggal) {
         const idx = addParamFn(tanggal);
         filter =
-          `date_trunc('week', p.created_at) = date_trunc('week', $${idx}::date)`;
+          `date_trunc('week', p.created_at AT TIME ZONE 'Asia/Jakarta') = date_trunc('week', $${idx}::date)`;
       } else {
-        filter = "date_trunc('week', p.created_at) = date_trunc('week', NOW())";
+        filter = "date_trunc('week', p.created_at AT TIME ZONE 'Asia/Jakarta') = date_trunc('week', NOW() AT TIME ZONE 'Asia/Jakarta')";
       }
     } else if (periode === 'semua') {
       filter = '1=1';
     } else if (tanggal) {
       const idx = addParamFn(tanggal);
-      filter = `p.created_at::date = $${idx}::date`;
+      filter = `(p.created_at AT TIME ZONE 'Asia/Jakarta')::date = $${idx}::date`;
     }
     return filter;
   };
