@@ -395,9 +395,9 @@ export async function formatRekapBelumLengkapDirektorat(clientId, roleFlag = nul
           rankIdx(a.title) - rankIdx(b.title) ||
           formatNama(a).localeCompare(formatNama(b))
       )
-      .map((u) => `${formatNama(u)}, ${u.missing}`)
-      .join("\n\n");
-    return `*${d.toUpperCase()}* (${incomplete[d].length})\n\n${list}`;
+      .map((u, index) => `${index + 1}. ${formatNama(u)}\n   - ${u.missing}`)
+      .join("\n");
+    return `*${d.toUpperCase()}* (${incomplete[d].length})\n${list}`;
   });
   if (!lines.length) {
     return null;

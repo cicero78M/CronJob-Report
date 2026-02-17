@@ -255,6 +255,10 @@ Gunakan potongan signature berikut sebagai kata kunci pencarian log (sesuaikan t
   *Client ID* peminta.
 - Output tetap memuat daftar personel yang belum mengisi Instagram/TikTok per
   divisi beserta salam dan stempel waktu eksekusi.
+- Format daftar personel pada setiap divisi kini menggunakan nomor urut dan
+  detail kekosongan pada baris terpisah (`- Instagram kosong`/`- TikTok
+  kosong`) agar konsisten dengan pola laporan operasional Ditintelkam menu
+  **3️⃣**.
 - Jika seluruh personel sudah melengkapi Instagram/TikTok, helper rekap
   mengembalikan nilai kosong sehingga bot melewati pengiriman balasan dan
   kembali ke menu tanpa menampilkan pesan kosong.
