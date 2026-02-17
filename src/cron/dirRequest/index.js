@@ -116,7 +116,7 @@ const dirRequestCrons = [
       'Send Ditintelkam morning recap (menu 1 & 3) to the Ditintelkam group.',
     schedules: [
       { cronExpression: '11 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '35 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '45 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
 
     ],
   },
