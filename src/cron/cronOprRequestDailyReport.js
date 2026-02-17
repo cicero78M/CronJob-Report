@@ -10,11 +10,15 @@ import {
   generateYesterdayAmplificationReport,
 } from '../service/oprReportService.js';
 import { normalizeUserWhatsAppId, minPhoneDigitLength } from '../utils/waHelper.js';
+import { acquireDistributedLock } from '../service/distributedLockService.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestDailyReport.js';
 const CRON_EXPRESSION = '7 21 * * *'; // Every day at 22:30 PM Jakarta time
 const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const CRON_TAG = 'CRON OPRREQUEST DAILY REPORT';
+const DISTRIBUTED_LOCK_KEY = 'cron:oprrequest:daily-report';
+const CRON_MAX_RUN_MINUTES = 30;
+const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const { primaryClient } = getOperatorWaRoute();
 
 // Delay constants (in milliseconds)
@@ -130,9 +134,22 @@ async function processClientReports(client) {
  * Main cron job function
  */
 export async function runCron() {
+  const distributedLock = await acquireDistributedLock({
+    key: DISTRIBUTED_LOCK_KEY,
+    ttlSeconds: LOCK_TTL_SECONDS,
+  });
+
+  if (!distributedLock.acquired) {
+    sendDebug({
+      tag: CRON_TAG,
+      msg: `Lewati cron: lock sudah diambil oleh instance lain (${distributedLock.reason || 'lock_held'})`,
+    });
+    return;
+  }
+
   sendDebug({
     tag: CRON_TAG,
-    msg: 'Mulai cron laporan harian amplifikasi (oprrequest)',
+    msg: 'Mulai cron laporan harian amplifikasi (oprrequest) - lock acquired',
   });
   
   try {
@@ -179,6 +196,12 @@ export async function runCron() {
     sendDebug({
       tag: CRON_TAG,
       msg: `[ERROR GLOBAL] ${err.message || err}`,
+    });
+  } finally {
+    await distributedLock.release();
+    sendDebug({
+      tag: CRON_TAG,
+      msg: 'Lock released',
     });
   }
 }
