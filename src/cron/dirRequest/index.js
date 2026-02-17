@@ -1,7 +1,6 @@
 import { env } from '../../config/env.js';
 import { scheduleCronJob } from '../../utils/cronScheduler.js';
 import { runCron as runNotificationReminder, JOB_KEY as NOTIFICATION_REMINDER_JOB_KEY } from '../cronWaNotificationReminder.js';
-import { runCron as runSatbinmasOfficialMedia, JOB_KEY as SATBINMAS_OFFICIAL_MEDIA_JOB_KEY } from '../cronDirRequestSatbinmasOfficialMedia.js';
 import {
   runCron as runDitbinmasGroupRecap,
   JOB_KEY as DITBINMAS_GROUP_RECAP_JOB_KEY,
@@ -64,14 +63,6 @@ const dirRequestCrons = [
       { cronExpression: '45 15 * * *', handler: () => runBidhumasEvening(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '15 20 * * *', handler: () => runBidhumasEvening(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '15 22 * * *', handler: () => runBidhumasEvening(), options: DEFAULT_CRON_OPTIONS },
-    ],
-  },
-  // Satbinmas official media at 23:05
-  {
-    jobKey: SATBINMAS_OFFICIAL_MEDIA_JOB_KEY,
-    description: 'Share Satbinmas official media updates with Ditbinmas recipients.',
-    schedules: [
-      { cronExpression: '5 23 * * *', handler: () => runSatbinmasOfficialMedia(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas group recap at 15:10 and 18:14

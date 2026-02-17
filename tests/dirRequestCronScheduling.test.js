@@ -35,11 +35,6 @@ async function loadModules() {
     JOB_KEY: 'reminder-job',
   }));
 
-  jest.unstable_mockModule('../src/cron/cronDirRequestSatbinmasOfficialMedia.js', () => ({
-    runCron: jest.fn(),
-    JOB_KEY: 'satbinmas-job',
-  }));
-
   jest.unstable_mockModule('../src/cron/cronDirRequestBidhumasEvening.js', () => ({
     runCron: jest.fn(),
     JOB_KEY: 'bidhumas-evening-job',
@@ -52,7 +47,7 @@ async function loadModules() {
   };
 }
 
-test('registerDirRequestCrons schedules reminder, satbinmas, and bidhumas jobs', async () => {
+test('registerDirRequestCrons schedules reminder and bidhumas jobs', async () => {
   const { registerDirRequestCrons } = await loadModules();
 
   registerDirRequestCrons(waGatewayClient);
@@ -63,8 +58,7 @@ test('registerDirRequestCrons schedules reminder, satbinmas, and bidhumas jobs',
   }, {});
 
   expect(scheduleMap).toEqual({
-    'reminder-job': ['10 16 * * *', '40 16 * * *', '10 17 * * *', '40 17 * * *'],
-    'satbinmas-job': ['5 23 * * *'],
-    'bidhumas-evening-job': ['30 20 * * *', '00 22 * * *'],
+    'reminder-job': ['5 17 * * *', '35 17 * * *'],
+    'bidhumas-evening-job': ['45 15 * * *', '15 20 * * *', '15 22 * * *'],
   });
 });

@@ -15,7 +15,6 @@ Standar routing terbaru agar konsisten dan mudah di-maintain:
 - Cron **dirRequest terjadwal** menggunakan rute **WA Direktorat** sebagai primary (`waClient`) dengan fallback ke **WA Operator**.
   - `cronWaNotificationReminder`
   - `cronDirRequestBidhumasEvening`
-  - `cronDirRequestSatbinmasOfficialMedia`
   - `cronDirRequestDitbinmasGroupRecap`
   - `cronDirRequestDitbinmasSuperAdminDaily` (via `cronDirRequestCustomSequence`)
   - `cronDirRequestDitbinmasOperatorDaily` (via `cronDirRequestCustomSequence`)
@@ -516,14 +515,6 @@ berpindah ke dashboard web atau menjalankan skrip manual.
   `<CLIENT>_Rekap_TikTok_All_Data_<tanggal>_<jam>.xlsx` dan dikirim ke WA lewat
   `sendWAFile` sebelum berkas sementara dihapus.
 
-## Automasi Cron Satbinmas Official
-- Cron `cronDirRequestSatbinmasOfficialMedia` menjalankan menu **3️⃣7️⃣** dan
-  **3️⃣9️⃣** secara berurutan setiap hari pukul **13.05** dan **22.05**
-  (zona waktu Asia/Jakarta).
-- Rekap dikirim hanya ke daftar admin WhatsApp (`ADMIN_WHATSAPP`). Cron ini
-  tidak mengirim laporan ke Super Admin, Operator, atau Group WA dan akan
-  dilewati jika tidak ada admin penerima yang valid.
-
 ## Automasi Cron Ditbinmas Group Recap
 - Cron `cronDirRequestDitbinmasGroupRecap.js` berjalan setiap hari pukul
   **15:10** dan **18:14 WIB** untuk menjalankan menu **2️⃣1️⃣** dan **2️⃣2️⃣**
@@ -546,17 +537,6 @@ berpindah ke dashboard web atau menjalankan skrip manual.
   **hari ini**.
 - Rekap hanya dikirim ke daftar Operator Ditbinmas (`client_operator`) tanpa
   broadcast ke grup maupun Super Admin.
-
-## Rekap personel yang belum melengkapi Instagram/TikTok Ditsamapta
-- Cron `cronDirRequestRekapBelumLengkapDitsamapta` memanggil helper
-  `formatRekapBelumLengkapDirektorat("DITSAMAPTA")` setiap pukul **menit 15**
-  pada jam **07:00–21:00 WIB**.
-- Target penerima hanya kanal super admin dan operator admin yang sudah
-  terdaftar pada konfigurasi admin (termasuk `ADMIN_WHATSAPP` untuk routing
-  admin dan kontak super/operator milik client), tanpa broadcast ke grup WA.
-- Jika hasil format menyatakan seluruh personel sudah lengkap (helper
-  mengembalikan nilai kosong), cron berhenti tanpa mengirim pesan apa pun
-  sehingga tidak membanjiri admin dengan laporan kosong.
 
 ## Automasi Cron BIDHUMAS Malam
 - Cron `cronDirRequestBidhumasEvening.js` berjalan setiap hari pukul

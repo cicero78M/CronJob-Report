@@ -28,13 +28,6 @@ export default [
     description: 'Send Ditbinmas executive summaries and rekap updates to admins and broadcast groups.',
   },
   {
-    jobKey: './src/cron/cronDirRequestRekapBelumLengkapDitsamapta.js',
-    modulePath: './src/cron/cronDirRequestRekapBelumLengkapDitsamapta.js',
-    bucket: 'direktorat',
-    affinity: 'direktorat',
-    description: 'Send Ditsamapta incomplete Instagram/TikTok data recaps to admin recipients only.',
-  },
-  {
     jobKey: './src/cron/cronDashboardSubscriptionExpiry.js',
     modulePath: './src/cron/cronDashboardSubscriptionExpiry.js',
     bucket: 'direktorat',

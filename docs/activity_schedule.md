@@ -53,7 +53,6 @@ Then paste the output into this section. The table is sourced from `src/cron/cro
 | `cronRekapLink.js` | `5 15,18,21 * * *` | Distribute amplification link recaps to all active amplification clients. |
 | `cronAmplifyLinkMonthly.js` | `0 23 28-31 * *` | Generate and deliver monthly amplification spreadsheets on the last day of the month. |
 | `cronDirRequestRekapUpdate.js` | `0 8-18/4 * * *` | Send Ditbinmas executive summaries and rekap updates to admins and broadcast groups. |
-| `cronDirRequestRekapBelumLengkapDitsamapta.js` | `15 7-21 * * *` | Send Ditsamapta incomplete Instagram/TikTok data recaps to admin recipients only. |
 | `cronOprRequestAbsensiUpdateDataUsername.js` | `45 8-15 * * *` | Send oprrequest absensi update data username recaps to active org clients with Instagram + TikTok enabled, delivered to each WhatsApp group. |
 | `cronOprRequestAbsensiEngagement.js` | `5 15,18,20 * * *` | Send oprrequest engagement absensi Instagram (likes) and TikTok (comments) recaps with the "all" mode to each org WhatsApp group plus operator and super admin recipients. |
 | `cronOprRequestAmplifyRoutineUpdate.js` | `0,30 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled. |
@@ -68,7 +67,6 @@ The schedules below are bundled inside `src/cron/dirRequest/index.js` and regist
 | File | Schedule (Asia/Jakarta) | Description |
 |------|-------------------------|-------------|
 | `cronWaNotificationReminder.js` | `10 16 * * *<br>40 16 * * *<br>10 17 * * *<br>40 17 * * *` | Send WhatsApp task reminders to Ditbinmas and BIDHUMAS users who opted in, spacing each WhatsApp delivery by 3 seconds and persisting each recipient's last stage/completion in `wa_notification_reminder_state` so completed users are skipped on reruns while pending users continue their follow-up stage. |
-| `cronDirRequestSatbinmasOfficialMedia.js` | `5 23 * * *` | Share Satbinmas official media updates with Ditbinmas recipients. |
 | `cronDirRequestDitbinmasGroupRecap.js` | `10 15 * * *<br>14 18 * * *` | Send Ditbinmas group-only recap by running dirRequest menus 21 and 22 with the "hari ini" engagement period. |
 | `cronDirRequestDitbinmasSuperAdminDaily.js` | `10 18 * * *` | Send Ditbinmas super admin-only recaps by running dirRequest menus 6, 9, 34, and 35 with the "hari ini" engagement period. |
 | `cronDirRequestDitbinmasOperatorDaily.js` | `12 18 * * *` | Send Ditbinmas operator-only reports by running dirRequest menu 30 with the "hari ini" period. |
