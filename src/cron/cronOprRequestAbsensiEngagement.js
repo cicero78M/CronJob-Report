@@ -79,7 +79,8 @@ async function sendReport({ client, recipients, label, message }) {
   let sentCount = 0;
   let failedCount = 0;
 
-  for (const chatId of recipients) {
+  for (let i = 0; i < recipients.length; i++) {
+    const chatId = recipients[i];
     try {
       const success = await sendWithClientFallback({
         chatId,
@@ -101,7 +102,7 @@ async function sendReport({ client, recipients, label, message }) {
       }
 
       // Add delay between messages to avoid race conditions
-      if (chatId !== recipients[recipients.length - 1]) {
+      if (i < recipients.length - 1) {
         await new Promise(resolve => setTimeout(resolve, MESSAGE_DELAY_MS));
       }
     } catch (err) {

@@ -99,7 +99,8 @@ export async function runCron() {
         let sentCount = 0;
         let failedCount = 0;
 
-        for (const wa of targets) {
+        for (let i = 0; i < targets.length; i++) {
+          const wa = targets[i];
           try {
             const success = await sendWithClientFallback({
               chatId: wa,
@@ -121,7 +122,7 @@ export async function runCron() {
             }
 
             // Add delay between messages to avoid race conditions
-            if (wa !== targets[targets.length - 1]) {
+            if (i < targets.length - 1) {
               await new Promise(resolve => setTimeout(resolve, MESSAGE_DELAY_MS));
             }
           } catch (err) {

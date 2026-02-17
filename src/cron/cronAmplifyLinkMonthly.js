@@ -72,7 +72,8 @@ async function runCron() {
     let processedCount = 0;
     let errorCount = 0;
 
-    for (const client of clients) {
+    for (let i = 0; i < clients.length; i++) {
+      const client = clients[i];
       try {
         const rows = await getReportsThisMonthByClient(client.client_id);
         const monthName = getJakartaDate().toLocaleString('id-ID', {
@@ -104,7 +105,7 @@ async function runCron() {
         await fs.unlink(filePath).catch(() => {});
 
         // Add delay between clients to avoid overwhelming WhatsApp
-        if (client !== clients[clients.length - 1]) {
+        if (i < clients.length - 1) {
           await new Promise(resolve => setTimeout(resolve, CLIENT_DELAY_MS));
         }
       } catch (err) {
