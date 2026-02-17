@@ -758,6 +758,14 @@ async function performAction(
     }
     case "28": {
       const rekapData = await collectLikesRecap(attendanceClientId);
+      if (typeof rekapData === "string") {
+        msg = rekapData;
+        break;
+      }
+      if (!rekapData?.shortcodes?.length) {
+        msg = "Belum ada konten Instagram pada periode ini untuk rekap menu 28.";
+        break;
+      }
       const filePath = await saveLikesRecapPerContentExcel(rekapData, attendanceClientId);
       const buffer = await readFile(filePath);
       await sendWAFile(
@@ -773,6 +781,14 @@ async function performAction(
     }
     case "29": {
       const rekapData = await collectKomentarRecap(attendanceClientId);
+      if (typeof rekapData === "string") {
+        msg = rekapData;
+        break;
+      }
+      if (!rekapData?.videoIds?.length) {
+        msg = "Belum ada konten TikTok pada periode ini untuk rekap menu 29.";
+        break;
+      }
       const filePath = await saveCommentRecapPerContentExcel(rekapData, attendanceClientId);
       const buffer = await readFile(filePath);
       await sendWAFile(
