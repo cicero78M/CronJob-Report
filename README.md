@@ -275,7 +275,7 @@ pg_dump -U <dbuser> -h <host> -d <dbname> > cicero_backup.sql
 psql -U <dbuser> -h <host> -d <dbname> < cicero_backup.sql
 ```
 
-A cron job (`src/cron/cronDbBackup.js`) runs daily at **04:00** (Asia/Jakarta), storing dumps in `BACKUP_DIR` and uploading them to the Drive folder defined by `GOOGLE_DRIVE_FOLDER_ID`. Backups reuse the same Google credentials used for contact sync.
+Database backup remains available through manual `pg_dump`/restore commands above. There is no scheduled backup cron in the current runtime manifest.
 
 ---
 

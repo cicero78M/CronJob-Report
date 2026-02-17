@@ -84,29 +84,36 @@ async function logPhase(message) {
 }
 
 async function executeBidhumasMenus(recipients) {
-  const actions = ['6', '9', '28', '29'];
+  const actions = [
+    { action: '6' },
+    { action: '9' },
+    { action: '28', context: { period: 'today' } },
+    { action: '29', context: { period: 'today' } },
+  ];
   const failures = [];
 
   for (let recipientIndex = 0; recipientIndex < recipients.length; recipientIndex += 1) {
     const chatId = recipients[recipientIndex];
 
     for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
-      const action = actions[actionIndex];
+      const { action, context } = actions[actionIndex];
       try {
         await logPhase(`Mulai jalankan menu ${action} untuk BIDHUMAS -> ${chatId}`);
         await runDirRequestAction({
           action,
           clientId: BIDHUMAS_CLIENT_ID,
           chatId,
-          roleFlag: BIDHUMAS_CLIENT_ID,
+          roleFlag: BIDHUMAS_CLIENT_ID.toLowerCase(),
           userClientId: BIDHUMAS_CLIENT_ID,
           waClient: primaryClient,
+          context,
           fallbackClients: waFallbackClients,
           fallbackContext: {
             action,
             clientId: BIDHUMAS_CLIENT_ID,
             chatId,
             jobKey: JOB_KEY,
+            context,
           },
         });
         await logPhase(`Menu ${action} selesai untuk ${chatId}`);

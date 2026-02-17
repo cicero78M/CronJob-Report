@@ -19,7 +19,7 @@ const DISTRIBUTED_LOCK_KEY = 'cron:dirrequest:ditbinmas-group-recap';
 const CRON_MAX_RUN_MINUTES = 60;
 const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const ACTIONS = [
-  { action: '21' },
+  { action: '21', context: { period: 'today' } },
   { action: '22', context: { period: 'today' } },
 ];
 const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
@@ -87,7 +87,7 @@ async function executeDitbinmasMenus(recipients) {
           action,
           clientId: DITBINMAS_CLIENT_ID,
           chatId,
-          roleFlag: DITBINMAS_CLIENT_ID,
+          roleFlag: DITBINMAS_CLIENT_ID.toLowerCase(),
           userClientId: DITBINMAS_CLIENT_ID,
           waClient: primaryClient,
           context,
