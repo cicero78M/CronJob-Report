@@ -11,12 +11,16 @@ import {
 } from '../utils/waHelper.js';
 import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
+import { acquireDistributedLock } from '../service/distributedLockService.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
 const BIDHUMAS_CLIENT_ID = 'BIDHUMAS';
 export const JOB_KEY = './src/cron/cronDirRequestCustomSequence.js';
 export const BIDHUMAS_2030_JOB_KEY = `${JOB_KEY}#bidhumas-20-30`;
 export const DITBINMAS_RECAP_AND_CUSTOM_JOB_KEY = `${JOB_KEY}#ditbinmas-recap-and-custom`;
+const DISTRIBUTED_LOCK_KEY_BASE = 'cron:dirrequest:custom-sequence';
+const CRON_MAX_RUN_MINUTES = 60;
+const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const { reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function buildOrderedFallbackClients(primaryLabel) {
@@ -336,8 +340,21 @@ export async function runCron({
   includeDitbinmas = true,
   includeBidhumas = true,
   summaryTitle = '[CRON DIRREQ CUSTOM] Ringkasan',
+  lockKey = `${DISTRIBUTED_LOCK_KEY_BASE}:default`,
 } = {}) {
-  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai urutan cron custom dirrequest' });
+  const distributedLock = await acquireDistributedLock({
+    key: lockKey,
+    ttlSeconds: LOCK_TTL_SECONDS,
+  });
+
+  if (!distributedLock.acquired) {
+    const skipMsg = `Lewati cron: lock sudah diambil oleh instance lain (${distributedLock.reason || 'lock_held'})`;
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: skipMsg });
+    await logToAdmins(skipMsg);
+    return;
+  }
+
+  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai urutan cron custom dirrequest - lock acquired' });
 
   const summary = {
     fetch: includeFetch ? 'pending' : 'dilewati (tidak dijadwalkan)',
@@ -345,53 +362,70 @@ export async function runCron({
     bidhumas: includeBidhumas ? 'pending' : 'dilewati (tidak dijadwalkan)',
   };
 
-  summary.fetch = 'skipped (removed)';
+  try {
+    summary.fetch = 'skipped (removed)';
 
-  if (includeDitbinmas) {
-    try {
-      await logToAdmins('Mulai blok Menu 21 DITBINMAS');
-      const ditbinmasClient = await findClientById(DITBINMAS_CLIENT_ID);
-      const recipients = buildRecipients(ditbinmasClient, { includeGroup: true });
-      summary.ditbinmas = await executeMenuActions({
-        clientId: DITBINMAS_CLIENT_ID,
-        actions: ['21'],
-        recipients,
-        label: 'Menu 21 DITBINMAS',
-        userClientId: DITBINMAS_CLIENT_ID,
-      });
-      await logToAdmins(`Selesai blok Menu 21 DITBINMAS: ${summary.ditbinmas}`);
-    } catch (err) {
-      summary.ditbinmas = `gagal rekap DITBINMAS: ${err.message || err}`;
-      sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.ditbinmas });
-      await logToAdmins(summary.ditbinmas);
+    if (includeDitbinmas) {
+      try {
+        await logToAdmins('Mulai blok Menu 21 DITBINMAS');
+        const ditbinmasClient = await findClientById(DITBINMAS_CLIENT_ID);
+        const recipients = buildRecipients(ditbinmasClient, { includeGroup: true });
+        summary.ditbinmas = await executeMenuActions({
+          clientId: DITBINMAS_CLIENT_ID,
+          actions: ['21'],
+          recipients,
+          label: 'Menu 21 DITBINMAS',
+          userClientId: DITBINMAS_CLIENT_ID,
+        });
+        await logToAdmins(`Selesai blok Menu 21 DITBINMAS: ${summary.ditbinmas}`);
+      } catch (err) {
+        summary.ditbinmas = `gagal rekap DITBINMAS: ${err.message || err}`;
+        sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.ditbinmas });
+        await logToAdmins(summary.ditbinmas);
+      }
     }
-  }
 
-  if (includeBidhumas) {
-    try {
-      await logToAdmins('Mulai blok sekuens BIDHUMAS (menu 6, 9, 28, & 29)');
-      const { sendStatus } = await runBidhumasMenuSequence({ label: 'Menu 6, 9, 28, & 29 BIDHUMAS' });
-      summary.bidhumas = sendStatus;
-      await logToAdmins(`Selesai blok sekuens BIDHUMAS (menu 6, 9, 28, & 29): ${sendStatus}`);
-    } catch (err) {
-      summary.bidhumas = `gagal kirim BIDHUMAS: ${err.message || err}`;
-      sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.bidhumas });
-      await logToAdmins(summary.bidhumas);
+    if (includeBidhumas) {
+      try {
+        await logToAdmins('Mulai blok sekuens BIDHUMAS (menu 6, 9, 28, & 29)');
+        const { sendStatus } = await runBidhumasMenuSequence({ label: 'Menu 6, 9, 28, & 29 BIDHUMAS' });
+        summary.bidhumas = sendStatus;
+        await logToAdmins(`Selesai blok sekuens BIDHUMAS (menu 6, 9, 28, & 29): ${sendStatus}`);
+      } catch (err) {
+        summary.bidhumas = `gagal kirim BIDHUMAS: ${err.message || err}`;
+        sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.bidhumas });
+        await logToAdmins(summary.bidhumas);
+      }
     }
+
+    const logMessage =
+      `${summaryTitle}:\n` +
+      `- Fetch sosmed: ${summary.fetch}\n` +
+      `- Menu 21 DITBINMAS: ${summary.ditbinmas}\n` +
+      `- Menu 6/9/28/29 BIDHUMAS: ${summary.bidhumas}`;
+
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary });
+    await logToAdmins(logMessage);
+  } finally {
+    await distributedLock.release();
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Lock released' });
   }
-
-  const logMessage =
-    `${summaryTitle}:\n` +
-    `- Fetch sosmed: ${summary.fetch}\n` +
-    `- Menu 21 DITBINMAS: ${summary.ditbinmas}\n` +
-    `- Menu 6/9/28/29 BIDHUMAS: ${summary.bidhumas}`;
-
-  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary });
-  await logToAdmins(logMessage);
 }
 
 export async function runDitbinmasRecapAndCustomSequence(referenceDate = new Date()) {
-  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai gabungan fetch, recap Ditbinmas, dan cron custom' });
+  const distributedLock = await acquireDistributedLock({
+    key: `${DISTRIBUTED_LOCK_KEY_BASE}:ditbinmas-recap-custom`,
+    ttlSeconds: LOCK_TTL_SECONDS,
+  });
+
+  if (!distributedLock.acquired) {
+    const skipMsg = `Lewati cron: lock sudah diambil oleh instance lain (${distributedLock.reason || 'lock_held'})`;
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: skipMsg });
+    await logToAdmins(skipMsg);
+    return;
+  }
+
+  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Mulai gabungan fetch, recap Ditbinmas, dan cron custom - lock acquired' });
   await logToAdmins('Mulai gabungan fetch konten/engagement, recap Ditbinmas, lalu cron custom dirrequest');
 
   const summary = {
@@ -402,39 +436,47 @@ export async function runDitbinmasRecapAndCustomSequence(referenceDate = new Dat
   };
 
   try {
-    const recapSummary = await runDitbinmasRecapSequence(referenceDate, {
-      includeOperators: true,
-      superAdminDelayMs: 5000,
-    });
-    summary.ditbinmasSuperAdmins = recapSummary?.superAdmins || 'Ditbinmas super admin selesai';
-    summary.ditbinmasOperators = recapSummary?.operators || 'operator dilewati';
-  } catch (err) {
-    summary.ditbinmasSuperAdmins = `gagal menjalankan recap Ditbinmas super admin: ${err.message || err}`;
-    summary.ditbinmasOperators = `operator dilewati karena error: ${err.message || err}`;
-    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.ditbinmasSuperAdmins });
-    await logToAdmins(summary.ditbinmasSuperAdmins);
+    try {
+      const recapSummary = await runDitbinmasRecapSequence(referenceDate, {
+        includeOperators: true,
+        superAdminDelayMs: 5000,
+      });
+      summary.ditbinmasSuperAdmins = recapSummary?.superAdmins || 'Ditbinmas super admin selesai';
+      summary.ditbinmasOperators = recapSummary?.operators || 'operator dilewati';
+    } catch (err) {
+      summary.ditbinmasSuperAdmins = `gagal menjalankan recap Ditbinmas super admin: ${err.message || err}`;
+      summary.ditbinmasOperators = `operator dilewati karena error: ${err.message || err}`;
+      sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.ditbinmasSuperAdmins });
+      await logToAdmins(summary.ditbinmasSuperAdmins);
+    }
+
+    try {
+      await runCron({ 
+        includeFetch: false,
+        lockKey: `${DISTRIBUTED_LOCK_KEY_BASE}:nested-custom`,
+      });
+      summary.customSequence = 'cron custom selesai';
+    } catch (err) {
+      summary.customSequence = `gagal menjalankan cron custom: ${err.message || err}`;
+      sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.customSequence });
+      await logToAdmins(summary.customSequence);
+    }
+
+    const logMessage =
+      '[CRON DIRREQ CUSTOM] Ringkasan gabungan fetch + recap Ditbinmas + cron custom:\n' +
+      `- Fetch konten/engagement: ${summary.fetch}\n` +
+      `- Recap Ditbinmas (super admin): ${summary.ditbinmasSuperAdmins}\n` +
+      `- Recap Ditbinmas (operator): ${summary.ditbinmasOperators}\n` +
+      `- Cron custom dirrequest: ${summary.customSequence}`;
+
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary });
+    await logToAdmins(logMessage);
+
+    return summary;
+  } finally {
+    await distributedLock.release();
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: 'Lock released' });
   }
-
-  try {
-    await runCron({ includeFetch: false });
-    summary.customSequence = 'cron custom selesai';
-  } catch (err) {
-    summary.customSequence = `gagal menjalankan cron custom: ${err.message || err}`;
-    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary.customSequence });
-    await logToAdmins(summary.customSequence);
-  }
-
-  const logMessage =
-    '[CRON DIRREQ CUSTOM] Ringkasan gabungan fetch + recap Ditbinmas + cron custom:\n' +
-    `- Fetch konten/engagement: ${summary.fetch}\n` +
-    `- Recap Ditbinmas (super admin): ${summary.ditbinmasSuperAdmins}\n` +
-    `- Recap Ditbinmas (operator): ${summary.ditbinmasOperators}\n` +
-    `- Cron custom dirrequest: ${summary.customSequence}`;
-
-  sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: summary });
-  await logToAdmins(logMessage);
-
-  return summary;
 }
 
 export async function runDitbinmasSuperAdminDailyRecap(referenceDate = new Date()) {

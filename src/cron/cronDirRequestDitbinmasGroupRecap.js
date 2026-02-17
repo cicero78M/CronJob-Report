@@ -10,10 +10,14 @@ import {
 } from '../utils/waHelper.js';
 import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
+import { acquireDistributedLock } from '../service/distributedLockService.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
 export const JOB_KEY = './src/cron/cronDirRequestDitbinmasGroupRecap.js';
 const CRON_LABEL = 'CRON DIRREQ DITBINMAS GROUP';
+const DISTRIBUTED_LOCK_KEY = 'cron:dirrequest:ditbinmas-group-recap';
+const CRON_MAX_RUN_MINUTES = 60;
+const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const ACTIONS = [
   { action: '21' },
   { action: '22', context: { period: 'today' } },
@@ -115,7 +119,19 @@ async function executeDitbinmasMenus(recipients) {
 }
 
 export async function runCron() {
-  await logPhase('Mulai cron Ditbinmas group (menu 21 dan 22).');
+  const distributedLock = await acquireDistributedLock({
+    key: DISTRIBUTED_LOCK_KEY,
+    ttlSeconds: LOCK_TTL_SECONDS,
+  });
+
+  if (!distributedLock.acquired) {
+    const skipMsg = `Lewati cron: lock sudah diambil oleh instance lain (${distributedLock.reason || 'lock_held'})`;
+    sendDebug({ tag: CRON_LABEL, msg: skipMsg });
+    await logToAdmins(skipMsg);
+    return;
+  }
+
+  await logPhase('Mulai cron Ditbinmas group (menu 21 dan 22) - lock acquired');
 
   let sendStatus = 'pending';
 
@@ -142,6 +158,9 @@ export async function runCron() {
   } catch (err) {
     sendStatus = `gagal memproses Ditbinmas group: ${err.message || err}`;
     await logToAdmins(sendStatus);
+  } finally {
+    await distributedLock.release();
+    await logPhase('Lock released');
   }
 
   await logToAdmins(`Ringkasan: ${sendStatus}`);
