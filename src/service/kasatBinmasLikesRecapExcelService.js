@@ -83,6 +83,12 @@ function buildWorksheetRows(entries, periodLabel) {
 }
 
 export async function generateKasatBinmasLikesRecapExcel({
+  /**
+   * Periode rekap likes:
+   * - daily => harian (menggunakan parameter `tanggal`)
+   * - weekly => mingguan (menggunakan parameter `startDate` dan `endDate`)
+   * - monthly => bulanan (menggunakan parameter `tanggal` format YYYY-MM)
+   */
   period = "daily",
   referenceDate,
 } = {}) {
@@ -156,6 +162,12 @@ export async function generateKasatBinmasLikesRecapExcel({
 }
 
 export async function sendKasatBinmasLikesRecapExcel({
+  /**
+   * Periode rekap likes:
+   * - daily => harian (menggunakan parameter `tanggal`)
+   * - weekly => mingguan (menggunakan parameter `startDate` dan `endDate`)
+   * - monthly => bulanan (menggunakan parameter `tanggal` format YYYY-MM)
+   */
   period = "daily",
   referenceDate,
   chatId,
