@@ -548,6 +548,10 @@ berpindah ke dashboard web atau menjalankan skrip manual.
   client `DITINTELKAM`.
 - Pengiriman hanya ke Group WhatsApp DITINTELKAM (`client_group`) agar
   rekap pagi fokus untuk kanal komando grup direktorat.
+- Khusus eksekusi menu **3️⃣**, data personel difilter ketat hanya untuk user
+  dengan `client_id = DITINTELKAM`, memiliki role `ditintelkam`, dan berasal
+  dari satfung/divisi berikut: `SAT INTEL / SAT INTELKAM`, `SAT LANTAS`,
+  `SAT RESKRIM`, `SAT NARKOBA`, `BAG LOG`, `BAG SDM`, `BAG REN`, `BAG OPS`.
 
 ## Automasi Cron DITINTELKAM Rutin
 - Cron `cronDirRequestDitintelkamRoutine.js` berjalan setiap hari pada
