@@ -80,6 +80,7 @@ const dirRequestCrons = [
     schedules: [
       { cronExpression: '52 15 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '19 18 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '07 21 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas super admin daily recap at 18:10
@@ -88,7 +89,7 @@ const dirRequestCrons = [
     description:
       'Send Ditbinmas super admin daily recap (menus 6/9/34/35) with today period only.',
     schedules: [
-      { cronExpression: '16 18 * * *', handler: () => runDitbinmasSuperAdminDaily(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '00 21 * * *', handler: () => runDitbinmasSuperAdminDaily(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas operator daily recap at 18:12
@@ -106,7 +107,7 @@ const dirRequestCrons = [
     description:
       'Send Ditbinmas absensi recap (menu 5 & 10, today) to the dedicated recipient only.',
     schedules: [
-      { cronExpression: '18 18 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '02 21 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditintelkam morning rekap at 07:10
@@ -116,7 +117,7 @@ const dirRequestCrons = [
       'Send Ditintelkam morning recap (menu 1 & 3) to the Ditintelkam group.',
     schedules: [
       { cronExpression: '11 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '45 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '00 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
 
     ],
   },
@@ -126,7 +127,7 @@ const dirRequestCrons = [
     description:
       'Send Ditintelkam routine recap (menu 6 & 9) to group, operator, and super admin recipients.',
     schedules: [
-      { cronExpression: '12 10,12,14,16,18,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '8 10,12,14,16,18,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
 ];
