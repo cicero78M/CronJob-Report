@@ -107,6 +107,16 @@ Gunakan potongan signature berikut sebagai kata kunci pencarian log (sesuaikan t
   - **3️⃣5️⃣**: kirim narasi absensi komentar TikTok Kasat Binmas (`generateKasatBinmasTiktokCommentRecap`) dengan dukungan `context.period` dari cron (`today` dinormalisasi menjadi `daily`).
 - Dengan sinkronisasi ini, pesan fallback **"Menu tidak dikenal."** untuk menu cron di atas tidak lagi muncul.
 
+- Definisi bisnis “tugas” untuk menu **3️⃣4️⃣ Absensi Likes Kasat Binmas** kini eksplisit melalui parameter `taskScope` pada `getRekapLikesByClient`:
+  - **`ditbinmas_client` (Opsi A):** tugas dihitung hanya dari post `insta_post.client_id = DITBINMAS`.
+  - **`ditbinmas_role` (Opsi B):** tugas dihitung dari post yang memiliki relasi role `ditbinmas` pada `insta_post_roles`.
+  - **`hybrid` (Opsi C):** tugas dihitung dari gabungan keduanya (`client_id = DITBINMAS` **atau** role `ditbinmas`) sebagai fallback saat salah satu sumber relasi tidak lengkap.
+- Implementasi menu **3️⃣4️⃣** saat ini memakai `taskScope: "hybrid"` agar absensi tetap stabil ketika data role belum terpasang merata.
+- Dependensi tabel untuk definisi tugas menu **3️⃣4️⃣**:
+  - `insta_post` sebagai sumber utama konten dan tanggal post.
+  - `insta_post_roles` sebagai pemetaan post ke role (khusus filter role `ditbinmas`).
+- Diagnostik terstruktur (`console.info` JSON) ditambahkan pada jalur menu **3️⃣4️⃣** untuk mencatat periode, SQL filter aktif, serta jumlah post sebelum/sesudah filter role.
+
 ## Rekaman Snapshot Engagement per 30 Menit
 - Setiap pengambilan likes Instagram dan komentar TikTok yang berjalan lewat
   jadwal 30 menit kini juga menyimpan salinan ke tabel arsip

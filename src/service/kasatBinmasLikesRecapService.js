@@ -9,6 +9,7 @@ import {
 
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
 const TARGET_ROLE = "ditbinmas";
+const MENU34_TASK_SCOPE = "hybrid";
 
 const STATUS_SECTIONS = [
   { key: "lengkap", icon: "✅", label: "Melaksanakan Lengkap" },
@@ -168,7 +169,12 @@ export async function generateKasatBinmasLikesRecap({
     periodInfo.tanggal,
     periodInfo.startDate,
     periodInfo.endDate,
-    TARGET_ROLE
+    TARGET_ROLE,
+    {
+      taskScope: MENU34_TASK_SCOPE,
+      enableDiagnostics: true,
+      diagnosticsLabel: 'generateKasatBinmasLikesRecap',
+    }
   );
   const totalKonten = Number(totalKontenRaw) || 0;
   const likeCounts = new Map();
