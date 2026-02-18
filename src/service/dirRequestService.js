@@ -1,4 +1,8 @@
-import { getUsersSocialByClient, getClientsByRole } from "../model/userModel.js";
+import {
+  getUsersSocialByClient,
+  getClientsByRole,
+  getUsersByClientAndRole,
+} from "../model/userModel.js";
 import {
   absensiLikes,
   lapharDitbinmas,
@@ -55,6 +59,19 @@ import { generateInstagramAllDataRecap } from "./instagramAllDataRecapService.js
 import { generateTiktokAllDataRecap } from "./tiktokAllDataRecapService.js";
 
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
+const DITINTELKAM_CLIENT_ID = "DITINTELKAM";
+const DITINTELKAM_MENU_THREE_ALLOWED_DIVISIONS = new Set([
+  "SAT INTEL",
+  "SAT INTELKAM",
+  "SAT INTEL / SAT INTELKAM",
+  "SAT LANTAS",
+  "SAT RESKRIM",
+  "SAT NARKOBA",
+  "BAG LOG",
+  "BAG SDM",
+  "BAG REN",
+  "BAG OPS",
+]);
 const dirRequestGroup = "120363419830216549@g.us";
 
 const isGroupChatId = (value) => String(value || "").trim().endsWith("@g.us");
@@ -348,7 +365,9 @@ export async function formatRekapBelumLengkapDirektorat(clientId, roleFlag = nul
   const normalizedRole = String(roleFlag || targetClientId).trim().toLowerCase();
   const [client, users] = await Promise.all([
     findClientById(targetClientId),
-    getUsersSocialByClient(targetClientId, normalizedRole),
+    targetClientId === DITINTELKAM_CLIENT_ID
+      ? getUsersByClientAndRole(targetClientId, normalizedRole)
+      : getUsersSocialByClient(targetClientId, normalizedRole),
   ]);
 
   const clientName = client?.nama || targetClientId;
@@ -361,10 +380,20 @@ export async function formatRekapBelumLengkapDirektorat(clientId, roleFlag = nul
     );
   }
 
-  const targetUsers =
+  let targetUsers =
     clientType === "direktorat"
       ? users
       : users.filter((u) => (u.client_id || "").toUpperCase() === targetClientId);
+
+  if (targetClientId === DITINTELKAM_CLIENT_ID) {
+    targetUsers = targetUsers.filter((u) => {
+      const division = String(u.divisi || "")
+        .toUpperCase()
+        .replace(/\s+/g, " ")
+        .trim();
+      return DITINTELKAM_MENU_THREE_ALLOWED_DIVISIONS.has(division);
+    });
+  }
 
   const salam = getGreeting();
   const now = new Date();
