@@ -59,7 +59,7 @@ export function describeKasatBinmasLikesPeriod(period = "daily", referenceDate) 
   if (period === "weekly") {
     const { start, end, label } = resolveWeeklyRange(today);
     return {
-      type: "harian",
+      type: "mingguan",
       label,
       startDate: toDateInput(start),
       endDate: toDateInput(end),
@@ -148,6 +148,12 @@ function sortKasatList(entries) {
 }
 
 export async function generateKasatBinmasLikesRecap({
+  /**
+   * Periode rekap likes:
+   * - daily => harian (menggunakan parameter `tanggal`)
+   * - weekly => mingguan (menggunakan parameter `startDate` dan `endDate`)
+   * - monthly => bulanan (menggunakan parameter `tanggal` format YYYY-MM)
+   */
   period = "daily",
   referenceDate,
 } = {}) {
