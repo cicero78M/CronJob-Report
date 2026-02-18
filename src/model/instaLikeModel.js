@@ -261,7 +261,19 @@ export async function getRekapLikesByClient(
     matchLikeClientId = true,
     officialAccountsOnly = false,
     regionalId = null,
+    taskScope = null,
+    enableDiagnostics = false,
+    diagnosticsLabel = 'getRekapLikesByClient',
   } = options;
+
+  const normalizedTaskScope =
+    typeof taskScope === 'string' && taskScope.trim()
+      ? taskScope.trim().toLowerCase()
+      : null;
+  const isMenu34TaskScope =
+    normalizedTaskScope === 'ditbinmas_client' ||
+    normalizedTaskScope === 'ditbinmas_role' ||
+    normalizedTaskScope === 'hybrid';
   const normalizedRegionalId = regionalId
     ? String(regionalId).trim().toUpperCase()
     : null;
@@ -355,8 +367,14 @@ export async function getRekapLikesByClient(
     addParamFn,
     sharedClientIdx = null,
     sharedRoleIdx = null,
-    useOfficialAccounts = false
+    useOfficialAccounts = false,
+    scopeOptions = {}
   ) => {
+    const {
+      mode = 'default',
+      fallbackPostClientId = null,
+      fallbackPostRoleName = null,
+    } = scopeOptions;
     let postClientFilter = '1=1';
     let postRoleJoin = '';
     let postRoleFilter = '';
@@ -365,18 +383,35 @@ export async function getRekapLikesByClient(
     let postOfficialJoin = '';
     let postOfficialFilter = '';
 
-    if (resolvedPostClientId) {
-      const postClientIdx =
-        sharedClientIdx ?? addParamFn(resolvedPostClientId);
-      postClientFilter = `LOWER(p.client_id) = LOWER($${postClientIdx})`;
-    }
+    const enableRoleFilter = shouldIncludeRoleFilter && resolvedPostRoleName;
 
-    if (shouldIncludeRoleFilter && resolvedPostRoleName) {
-      const roleIdx = sharedRoleIdx ?? addParamFn(resolvedPostRoleName);
-      const roleFilterCondition =
-        `LOWER(p.client_id) = LOWER($${roleIdx}) OR LOWER(pr.role_name) = LOWER($${roleIdx})`;
+    if (mode === 'ditbinmas_client') {
+      const clientIdx = addParamFn(fallbackPostClientId || resolvedPostClientId || client_id);
+      postClientFilter = `LOWER(p.client_id) = LOWER($${clientIdx})`;
+    } else if (mode === 'ditbinmas_role') {
+      const roleIdx = addParamFn(fallbackPostRoleName || resolvedPostRoleName || roleLower || 'ditbinmas');
       postRoleJoin = 'LEFT JOIN insta_post_roles pr ON pr.shortcode = p.shortcode';
-      postRoleFilter = `AND (${roleFilterCondition})`;
+      postRoleFilter = `AND LOWER(pr.role_name) = LOWER($${roleIdx})`;
+    } else if (mode === 'hybrid') {
+      const clientIdx = addParamFn(fallbackPostClientId || resolvedPostClientId || client_id);
+      const roleIdx = addParamFn(fallbackPostRoleName || resolvedPostRoleName || roleLower || 'ditbinmas');
+      postRoleJoin = 'LEFT JOIN insta_post_roles pr ON pr.shortcode = p.shortcode';
+      postRoleFilter = `AND (LOWER(p.client_id) = LOWER($${clientIdx}) OR LOWER(pr.role_name) = LOWER($${roleIdx}))`;
+      postClientFilter = '1=1';
+    } else {
+      if (resolvedPostClientId) {
+        const postClientIdx =
+          sharedClientIdx ?? addParamFn(resolvedPostClientId);
+        postClientFilter = `LOWER(p.client_id) = LOWER($${postClientIdx})`;
+      }
+
+      if (enableRoleFilter) {
+        const roleIdx = sharedRoleIdx ?? addParamFn(resolvedPostRoleName);
+        const roleFilterCondition =
+          `LOWER(p.client_id) = LOWER($${roleIdx}) OR LOWER(pr.role_name) = LOWER($${roleIdx})`;
+        postRoleJoin = 'LEFT JOIN insta_post_roles pr ON pr.shortcode = p.shortcode';
+        postRoleFilter = `AND (${roleFilterCondition})`;
+      }
     }
 
     if (normalizedRegionalId) {
@@ -419,7 +454,12 @@ export async function getRekapLikesByClient(
     addParam,
     sharedClientParamIdx,
     sharedRoleParamIdx,
-    officialAccountsOnly
+    officialAccountsOnly,
+    {
+      mode: isMenu34TaskScope ? normalizedTaskScope : 'default',
+      fallbackPostClientId: client_id,
+      fallbackPostRoleName: roleLower || 'ditbinmas',
+    }
   );
   const {
     postClientFilter: postClientFilterPosts,
@@ -429,7 +469,39 @@ export async function getRekapLikesByClient(
     postRegionalFilter: postRegionalFilterPosts,
     postOfficialJoin: postOfficialJoinPosts,
     postOfficialFilter: postOfficialFilterPosts,
-  } = buildPostFilters(addPostParam, null, null, officialAccountsOnly);
+  } = buildPostFilters(addPostParam, null, null, officialAccountsOnly, {
+    mode: isMenu34TaskScope ? normalizedTaskScope : 'default',
+    fallbackPostClientId: client_id,
+    fallbackPostRoleName: roleLower || 'ditbinmas',
+  });
+
+  let preRolePostClientFilterPosts = '1=1';
+  let preRolePostRegionalJoinPosts = '';
+  let preRolePostRegionalFilterPosts = '';
+  let preRolePostOfficialJoinPosts = '';
+  let preRolePostOfficialFilterPosts = '';
+  let preRolePostTanggalFilter = postTanggalFilter;
+  let preRolePostParams = postParams;
+
+  if (enableDiagnostics && isMenu34TaskScope) {
+    const localPreRoleParams = [];
+    const addPreRoleParam = value => {
+      localPreRoleParams.push(value);
+      return localPreRoleParams.length;
+    };
+    preRolePostTanggalFilter = buildTanggalFilter(addPreRoleParam);
+    const preRoleFilters = buildPostFilters(addPreRoleParam, null, null, officialAccountsOnly, {
+      mode: 'ditbinmas_client',
+      fallbackPostClientId: client_id,
+    });
+    preRolePostClientFilterPosts = preRoleFilters.postClientFilter;
+    preRolePostRegionalJoinPosts = preRoleFilters.postRegionalJoin;
+    preRolePostRegionalFilterPosts = preRoleFilters.postRegionalFilter;
+    preRolePostOfficialJoinPosts = preRoleFilters.postOfficialJoin;
+    preRolePostOfficialFilterPosts = preRoleFilters.postOfficialFilter;
+    preRolePostParams = localPreRoleParams;
+  }
+
 
   let userWhere = '1=1';
   let likeCountsSelect = `
@@ -552,6 +624,49 @@ export async function getRekapLikesByClient(
     postParams
   );
   const totalKonten = parseInt(postRows[0]?.total_post || '0', 10);
+
+  if (enableDiagnostics && isMenu34TaskScope) {
+    const { rows: preRoleRows } = await query(
+      `WITH posts AS (
+        SELECT p.shortcode
+        FROM insta_post p
+        ${preRolePostRegionalJoinPosts}
+        ${preRolePostOfficialJoinPosts}
+        WHERE ${preRolePostClientFilterPosts}
+          ${preRolePostRegionalFilterPosts}
+          ${preRolePostOfficialFilterPosts}
+          AND ${preRolePostTanggalFilter}
+      )
+      SELECT COUNT(DISTINCT shortcode) AS total_post FROM posts`,
+      preRolePostParams
+    );
+    const totalPostBeforeRoleFilter = parseInt(preRoleRows[0]?.total_post || '0', 10);
+
+    console.info(
+      JSON.stringify({
+        event: 'menu34_task_scope_diagnostics',
+        source: diagnosticsLabel,
+        taskScope: normalizedTaskScope,
+        period: {
+          periode,
+          tanggal: tanggal || null,
+          start_date: start_date || null,
+          end_date: end_date || null,
+        },
+        sqlFilters: {
+          postTanggalFilter,
+          postClientFilter: postClientFilterPosts,
+          postRoleFilter: postRoleFilterPosts,
+          postRegionalFilter: postRegionalFilterPosts,
+          postOfficialFilter: postOfficialFilterPosts,
+        },
+        postCount: {
+          beforeRoleFilter: totalPostBeforeRoleFilter,
+          afterRoleFilter: totalKonten,
+        },
+      })
+    );
+  }
 
   return { rows, totalKonten };
 }
