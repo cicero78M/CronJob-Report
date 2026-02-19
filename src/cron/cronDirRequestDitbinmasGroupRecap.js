@@ -21,6 +21,8 @@ const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const ACTIONS = [
   { action: '21', context: { period: 'today' } },
   { action: '22', context: { period: 'today' } },
+  { action: '28', context: { period: 'today' } },
+  { action: '29', context: { period: 'today' } },
 ];
 const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
@@ -131,7 +133,7 @@ export async function runCron() {
     return;
   }
 
-  await logPhase('Mulai cron Ditbinmas group (menu 21 dan 22) - lock acquired');
+  await logPhase('Mulai cron Ditbinmas group (menu 21, 22, 28, dan 29) - lock acquired');
 
   let sendStatus = 'pending';
 
@@ -148,8 +150,8 @@ export async function runCron() {
       const failures = await executeDitbinmasMenus(recipients);
       sendStatus =
         failures.length === 0
-          ? `menu 21 dan 22 dikirim ke ${recipients.length} grup`
-          : `menu 21 dan 22 selesai dengan ${failures.length} kegagalan`;
+          ? `menu 21, 22, 28, dan 29 dikirim ke ${recipients.length} grup`
+          : `menu 21, 22, 28, dan 29 selesai dengan ${failures.length} kegagalan`;
 
       if (failures.length > 0) {
         await logToAdmins(`${sendStatus}\n${failures.join('\n')}`);
