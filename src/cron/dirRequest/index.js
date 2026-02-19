@@ -100,7 +100,7 @@ const dirRequestCrons = [
   {
     jobKey: DITBINMAS_OPERATOR_DAILY_JOB_KEY,
     description:
-      'Send Ditbinmas operator daily report (menu 30 and 34) with today period only.',
+      'Send Ditbinmas operator daily report (menu 30 only) with today period only.',
     schedules: [
       { cronExpression: '17 21 * * *', handler: () => runDitbinmasOperatorDaily(), options: DEFAULT_CRON_OPTIONS },
     ],

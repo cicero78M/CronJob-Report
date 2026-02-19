@@ -312,6 +312,7 @@ function buildDitbinmasRecapPlan(referenceDate = new Date()) {
   }
 
   const contextByPeriod = (period) => ({ period, referenceDate });
+  const contextByPeriodNoRef = (period) => ({ period });
 
   return {
     recapPeriods: Array.from(recapPeriods),
@@ -321,7 +322,7 @@ function buildDitbinmasRecapPlan(referenceDate = new Date()) {
       { action: '9' },
       ...Array.from(recapPeriods).map((period) => ({
         action: '34',
-        context: contextByPeriod(period),
+        context: contextByPeriodNoRef(period),
       })),
       ...Array.from(recapPeriods).map((period) => ({
         action: '35',
@@ -495,7 +496,7 @@ export async function runDitbinmasSuperAdminDailyRecap(referenceDate = new Date(
     const actions = [
       { action: '6' },
       { action: '9' },
-      { action: '34', context: { period: 'daily', referenceDate } },
+      { action: '34', context: { period: 'daily' } },
       { action: '35', context: { period: 'daily', referenceDate } },
     ];
 
@@ -518,12 +519,12 @@ export async function runDitbinmasSuperAdminDailyRecap(referenceDate = new Date(
 }
 
 export async function runDitbinmasOperatorDailyReport(referenceDate = new Date()) {
-  const label = 'Ditbinmas operator (menu 30 & 34 harian)';
+  const label = 'Ditbinmas operator (menu 30 harian)';
   sendDebug({
     tag: 'CRON DIRREQ CUSTOM',
-    msg: 'Mulai cron Ditbinmas operator harian (menu 30 & 34 hari ini)',
+    msg: 'Mulai cron Ditbinmas operator harian (menu 30 hari ini)',
   });
-  await logToAdmins('Mulai cron Ditbinmas operator harian (menu 30 & 34 hari ini)');
+  await logToAdmins('Mulai cron Ditbinmas operator harian (menu 30 hari ini)');
 
   let status = 'pending';
 
@@ -532,7 +533,6 @@ export async function runDitbinmasOperatorDailyReport(referenceDate = new Date()
     const recipients = getOperatorRecipients(ditbinmasClient);
     const actions = [
       { action: '30', context: { period: 'today', referenceDate } },
-      { action: '34', context: { period: 'today', referenceDate } },
     ];
 
     status = await executeMenuActions({
