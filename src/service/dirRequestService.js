@@ -843,7 +843,6 @@ async function performAction(
     case "34": {
       msg = await generateKasatBinmasLikesRecap({
         period: menuPeriod,
-        referenceDate: resolveBaseDate(context?.referenceDate),
       });
       break;
     }
