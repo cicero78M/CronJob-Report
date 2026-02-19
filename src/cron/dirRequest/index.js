@@ -60,6 +60,10 @@ const dirRequestCrons = [
     schedules: [
       { cronExpression: '5 17 * * *', handler: () => runNotificationReminder(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '35 17 * * *', handler: () => runNotificationReminder(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '35 18 * * *', handler: () => runNotificationReminder(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '5 19 * * *', handler: () => runNotificationReminder(), options: DEFAULT_CRON_OPTIONS },
+
+
     ],
   },
   // Bidhumas evening report at 15:15, 20:15, and 22:15
@@ -78,9 +82,9 @@ const dirRequestCrons = [
     jobKey: DITBINMAS_GROUP_RECAP_JOB_KEY,
     description: 'Send Ditbinmas group recap for menu 21/22 (today).',
     schedules: [
-      { cronExpression: '52 15 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '19 18 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '07 21 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '15 15 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '15 18 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '15 21 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas super admin daily recap at 18:10
@@ -98,7 +102,7 @@ const dirRequestCrons = [
     description:
       'Send Ditbinmas operator daily report (menu 30 and 34) with today period only.',
     schedules: [
-      { cronExpression: '17 18 * * *', handler: () => runDitbinmasOperatorDaily(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '17 21 * * *', handler: () => runDitbinmasOperatorDaily(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas absensi today at 18:14
@@ -116,8 +120,9 @@ const dirRequestCrons = [
     description:
       'Send Ditintelkam morning recap (menu 1 & 3) to the Ditintelkam group.',
     schedules: [
-      { cronExpression: '11 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '00 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '02 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '02 14 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '02 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
 
     ],
   },
