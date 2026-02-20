@@ -132,7 +132,7 @@ const dirRequestCrons = [
     description:
       'Send Ditintelkam routine recap (menu 6 & 9) to group, operator, and super admin recipients.',
     schedules: [
-      { cronExpression: '8 10,12,14,16,18,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '15 10,12,14,16,18,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
 ];
