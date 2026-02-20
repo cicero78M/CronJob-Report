@@ -102,7 +102,7 @@ const dirRequestCrons = [
     description:
       'Send Ditbinmas operator daily report (menu 30 only) with today period only.',
     schedules: [
-      { cronExpression: '17 21 * * *', handler: () => runDitbinmasOperatorDaily(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '47 20 * * *', handler: () => runDitbinmasOperatorDaily(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas absensi today at 18:14
@@ -111,7 +111,7 @@ const dirRequestCrons = [
     description:
       'Send Ditbinmas absensi recap (menu 5 & 10, today) to the dedicated recipient only.',
     schedules: [
-      { cronExpression: '02 21 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '49 20 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditintelkam morning rekap at 07:10
