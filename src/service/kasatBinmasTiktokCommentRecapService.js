@@ -12,6 +12,8 @@ import {
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
 const TARGET_ROLE = "ditbinmas";
 const JAKARTA_TIMEZONE = "Asia/Jakarta";
+const PRIORITY_USER_ID = "68020196";
+const PRIORITY_USER_TARGET_INDEX = 2;
 
 const STATUS_SECTIONS = [
   { key: "lengkap", icon: "✅", label: "Lengkap (sesuai target)" },
@@ -174,7 +176,7 @@ export function describeKasatBinmasTiktokCommentPeriod(period = "daily", referen
 }
 
 function sortKasatEntries(entries) {
-  return entries.slice().sort((a, b) => {
+  const sortedEntries = entries.slice().sort((a, b) => {
     const countA = Number(a.count) || 0;
     const countB = Number(b.count) || 0;
     const countDiff = countB - countA;
@@ -187,6 +189,19 @@ function sortKasatEntries(entries) {
     const nameB = formatNama(b.user) || "";
     return nameA.localeCompare(nameB, "id-ID", { sensitivity: "base" });
   });
+
+  const priorityIndex = sortedEntries.findIndex((entry) => {
+    const userId = String(entry?.user?.user_id || "").trim();
+    return entry?.user?.status === true && userId === PRIORITY_USER_ID;
+  });
+
+  if (priorityIndex === -1 || sortedEntries.length <= PRIORITY_USER_TARGET_INDEX) {
+    return sortedEntries;
+  }
+
+  const [priorityEntry] = sortedEntries.splice(priorityIndex, 1);
+  sortedEntries.splice(PRIORITY_USER_TARGET_INDEX, 0, priorityEntry);
+  return sortedEntries;
 }
 
 function formatEntryLine(entry, index, totalKonten) {

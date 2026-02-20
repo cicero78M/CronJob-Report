@@ -116,6 +116,7 @@ Gunakan potongan signature berikut sebagai kata kunci pencarian log (sesuaikan t
   - `insta_post` sebagai sumber utama konten dan tanggal post.
   - `insta_post_roles` sebagai pemetaan post ke role (khusus filter role `ditbinmas`).
 - Diagnostik terstruktur (`console.info` JSON) ditambahkan pada jalur menu **3️⃣4️⃣** untuk mencatat periode, SQL filter aktif, serta jumlah post sebelum/sesudah filter role.
+- Urutan nama personel pada laporan menu **3️⃣4️⃣** kini memiliki prioritas khusus: user dengan NRP/`user_id` **68020196** akan diposisikan di nomor **3** selama status user masih aktif (`status = true`). Aturan ini diterapkan setelah proses sorting utama (pelaksanaan > jabatan > pangkat > nama) agar urutan lain tetap konsisten.
 
 ## Rekaman Snapshot Engagement per 30 Menit
 - Setiap pengambilan likes Instagram dan komentar TikTok yang berjalan lewat
@@ -184,6 +185,7 @@ Gunakan potongan signature berikut sebagai kata kunci pencarian log (sesuaikan t
   Rekap mingguan/bulanan akan menampilkan peringatan jika database belum
   memiliki data pada rentang tersebut, sehingga label periode dan sumber data
   tetap konsisten dengan format laporan di menu 3️⃣4️⃣.
+- Urutan nama personel pada laporan menu **3️⃣5️⃣** juga diberi prioritas yang sama: user dengan NRP/`user_id` **68020196** ditempatkan di nomor **3** jika status user aktif. Reposisi dilakukan setelah pengurutan default (pelaksanaan > pangkat > nama) sehingga hanya memindahkan user prioritas tanpa mengubah aturan ranking lainnya.
 - Format laporan absensi komentar TikTok dirrequest kini menampilkan ringkasan
   per divisi dengan aturan berikut:
   - Header divisi dicetak **tebal** dan dipisahkan dengan satu baris kosong
