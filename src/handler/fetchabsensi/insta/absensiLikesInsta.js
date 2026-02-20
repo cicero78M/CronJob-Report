@@ -16,10 +16,15 @@ import {
 } from "../../../utils/likesHelper.js";
 import { getClientInfo } from "../../../service/instagram/instagramReport.js";
 import { computeDitbinmasLikesStats } from "./ditbinmasLikesUtils.js";
-import { sortUsersByPositionRankAndName } from "../../../utils/sortingHelper.js";
+import {
+  prioritizeActiveUserAtPosition,
+  sortUsersByPositionRankAndName,
+} from "../../../utils/sortingHelper.js";
 
 // Use the comprehensive sorting function from sortingHelper
 const sortUsersByRankAndName = sortUsersByPositionRankAndName;
+const PRIORITY_NRP = "68020196";
+const PRIORITY_POSITION = 3;
 
 export async function collectLikesRecap(clientId, opts = {}) {
   const roleName = String(clientId || "").toLowerCase();
@@ -546,26 +551,29 @@ export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
     userStats.filter((u) => u?.status === "noUsername")
   );
 
+  const reorderWithPriority = (users) =>
+    prioritizeActiveUserAtPosition(users, PRIORITY_NRP, PRIORITY_POSITION);
+
   const detailSections = [
     {
       icon: "✅",
       title: "Melaksanakan Lengkap",
-      users: lengkapUsers,
+      users: reorderWithPriority(lengkapUsers),
     },
     {
       icon: "⚠️",
       title: "Melaksanakan Kurang",
-      users: kurangUsers,
+      users: reorderWithPriority(kurangUsers),
     },
     {
       icon: "❌",
       title: "Belum Melaksanakan",
-      users: belumUsers,
+      users: reorderWithPriority(belumUsers),
     },
     {
       icon: "⚠️❌",
       title: "Belum Update Username Instagram",
-      users: noUsernameUsers,
+      users: reorderWithPriority(noUsernameUsers),
     },
   ];
 

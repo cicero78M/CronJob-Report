@@ -116,10 +116,42 @@ export function sortUsersByPositionRankAndName(users = []) {
   });
 }
 
+/**
+ * Move an active user with a specific NRP/user_id to a fixed 1-based index.
+ * If the user is not found, not active, or target index is invalid, array is returned untouched.
+ * @param {Array} users - Array of user objects
+ * @param {string} userId - target user_id/NRP
+ * @param {number} oneBasedIndex - desired 1-based position (e.g. 3)
+ * @returns {Array} Reordered array
+ */
+export function prioritizeActiveUserAtPosition(
+  users = [],
+  userId,
+  oneBasedIndex = 3
+) {
+  const sortedUsers = Array.isArray(users) ? users.slice() : [];
+  if (!userId || !sortedUsers.length) return sortedUsers;
+
+  const targetIndex = Number(oneBasedIndex) - 1;
+  if (targetIndex < 0 || targetIndex >= sortedUsers.length) return sortedUsers;
+
+  const normalizedUserId = String(userId).trim();
+  const currentIndex = sortedUsers.findIndex(
+    (user) =>
+      String(user?.user_id || "").trim() === normalizedUserId && user?.status === true
+  );
+  if (currentIndex === -1 || currentIndex === targetIndex) return sortedUsers;
+
+  const [targetUser] = sortedUsers.splice(currentIndex, 1);
+  sortedUsers.splice(targetIndex, 0, targetUser);
+  return sortedUsers;
+}
+
 export default {
   getPositionIndex,
   getRankIndex,
   sortUsersByPositionRankAndName,
+  prioritizeActiveUserAtPosition,
   JABATAN_ORDER,
   PANGKAT_ORDER,
 };
