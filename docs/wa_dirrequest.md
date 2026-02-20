@@ -575,6 +575,9 @@ berpindah ke dashboard web atau menjalankan skrip manual.
 - Filter personel untuk menu **6️⃣** dan **9️⃣** kini menerima role direktorat
   `ditintelkam` pada query `getUsersByDirektorat`, sehingga pengelompokan
   pengguna tidak lagi gagal dengan pesan *Direktorat flag tidak valid*.
+- Untuk menu **6️⃣** (Likes Instagram Simple) dan **9️⃣** (Komentar TikTok
+  Simple), user/personil dengan NRP **68020196** akan dipaksa berada di urutan
+  nomor **3** pada daftar detail selama status user masih aktif.
 
 ## Automasi Cron BIDHUMAS Malam
 - Cron `cronDirRequestBidhumasEvening.js` berjalan setiap hari pukul

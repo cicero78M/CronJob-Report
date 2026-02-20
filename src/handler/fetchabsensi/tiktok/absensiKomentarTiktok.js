@@ -14,7 +14,10 @@ import {
   groupUsersByDivisionStatus,
 } from "../../../utils/utilsHelper.js";
 import { sendDebug } from "../../../middleware/debugHandler.js";
-import { sortUsersByPositionRankAndName } from "../../../utils/sortingHelper.js";
+import {
+  prioritizeActiveUserAtPosition,
+  sortUsersByPositionRankAndName,
+} from "../../../utils/sortingHelper.js";
 
 const JAKARTA_TIMEZONE = "Asia/Jakarta";
 
@@ -65,6 +68,8 @@ export function normalizeUsername(username) {
 
 // Use the comprehensive sorting function from sortingHelper
 const sortUsersByRankAndName = sortUsersByPositionRankAndName;
+const PRIORITY_NRP = "68020196";
+const PRIORITY_POSITION = 3;
 
 export async function collectKomentarRecap(clientId, opts = {}) {
   const { selfOnly, clientFilter, referenceDate } = opts;
@@ -690,22 +695,38 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
     {
       icon: "✅",
       title: "Melaksanakan Lengkap",
-      users: sortUsersByRankAndName(categorizedUsers.lengkap),
+      users: prioritizeActiveUserAtPosition(
+        sortUsersByRankAndName(categorizedUsers.lengkap),
+        PRIORITY_NRP,
+        PRIORITY_POSITION
+      ),
     },
     {
       icon: "⚠️",
       title: "Melaksanakan Kurang",
-      users: sortUsersByRankAndName(categorizedUsers.kurang),
+      users: prioritizeActiveUserAtPosition(
+        sortUsersByRankAndName(categorizedUsers.kurang),
+        PRIORITY_NRP,
+        PRIORITY_POSITION
+      ),
     },
     {
       icon: "❌",
       title: "Belum Melaksanakan",
-      users: sortUsersByRankAndName(categorizedUsers.belum),
+      users: prioritizeActiveUserAtPosition(
+        sortUsersByRankAndName(categorizedUsers.belum),
+        PRIORITY_NRP,
+        PRIORITY_POSITION
+      ),
     },
     {
       icon: "⚠️❌",
       title: "Belum Input Username TikTok",
-      users: sortUsersByRankAndName(categorizedUsers.tanpaUsername),
+      users: prioritizeActiveUserAtPosition(
+        sortUsersByRankAndName(categorizedUsers.tanpaUsername),
+        PRIORITY_NRP,
+        PRIORITY_POSITION
+      ),
     },
   ];
 
