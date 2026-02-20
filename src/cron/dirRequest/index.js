@@ -93,7 +93,7 @@ const dirRequestCrons = [
     description:
       'Send Ditbinmas super admin daily recap (menus 6/9/34/35) with today period only.',
     schedules: [
-      { cronExpression: '03 21 * * *', handler: () => runDitbinmasSuperAdminDaily(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '45 20 * * *', handler: () => runDitbinmasSuperAdminDaily(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas operator daily recap at 18:12
