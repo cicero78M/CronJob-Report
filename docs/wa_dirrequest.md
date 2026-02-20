@@ -562,6 +562,8 @@ berpindah ke dashboard web atau menjalankan skrip manual.
   dengan `client_id = DITINTELKAM`, memiliki role `ditintelkam`, dan berasal
   dari satfung/divisi berikut: `SAT INTEL / SAT INTELKAM`, `SAT LANTAS`,
   `SAT RESKRIM`, `SAT NARKOBA`, `BAG LOG`, `BAG SDM`, `BAG REN`, `BAG OPS`.
+  Variasi penulisan `SAT INTEL` atau `SAT INTELKAM` tunggal tidak lagi
+  dimasukkan ke whitelist menu ini.
 
 ## Automasi Cron DITINTELKAM Rutin
 - Cron `cronDirRequestDitintelkamRoutine.js` berjalan setiap hari pada
