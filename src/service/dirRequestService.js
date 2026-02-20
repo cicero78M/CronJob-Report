@@ -61,8 +61,6 @@ import { generateTiktokAllDataRecap } from "./tiktokAllDataRecapService.js";
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
 const DITINTELKAM_CLIENT_ID = "DITINTELKAM";
 const DITINTELKAM_MENU_THREE_ALLOWED_DIVISIONS = new Set([
-  "SAT INTEL",
-  "SAT INTELKAM",
   "SAT INTEL / SAT INTELKAM",
   "SAT LANTAS",
   "SAT RESKRIM",
