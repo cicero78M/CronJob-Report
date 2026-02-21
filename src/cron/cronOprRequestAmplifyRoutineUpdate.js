@@ -11,6 +11,38 @@ const CRON_TAG = 'CRON OPRREQUEST UPDATE TUGAS RUTIN AMPLIFIKASI';
 const DISTRIBUTED_LOCK_KEY = 'cron:oprrequest:amplify-routine-update';
 const CRON_MAX_RUN_MINUTES = 20;
 const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
+const CLIENT_LIST_QUERY_TIMEOUT_MS = 45 * 1000;
+
+async function findAllActiveOrgAmplifyClientsWithTimeout() {
+  sendDebug({
+    tag: CRON_TAG,
+    msg: 'Mulai ambil daftar client amplifikasi aktif',
+  });
+
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Timeout query daftar client amplifikasi aktif setelah ${CLIENT_LIST_QUERY_TIMEOUT_MS / 1000} detik.`));
+    }, CLIENT_LIST_QUERY_TIMEOUT_MS);
+  });
+
+  try {
+    const clients = await Promise.race([findAllActiveOrgAmplifyClients(), timeoutPromise]);
+    sendDebug({
+      tag: CRON_TAG,
+      msg: `Selesai ambil daftar client, total ${clients.length}`,
+    });
+    return clients;
+  } catch (err) {
+    if (err.message?.includes('Timeout query daftar client amplifikasi aktif')) {
+      sendDebug({
+        tag: CRON_TAG,
+        msg: `[TIMEOUT] Tahap query daftar client amplifikasi aktif macet/melewati batas waktu (${CLIENT_LIST_QUERY_TIMEOUT_MS / 1000} detik).`,
+      });
+    }
+
+    throw err;
+  }
+}
 
 async function runUpdateForClient(client) {
   if (client?.client_insta_status === false) {
@@ -57,7 +89,7 @@ export async function runCron() {
   });
 
   try {
-    const clients = await findAllActiveOrgAmplifyClients();
+    const clients = await findAllActiveOrgAmplifyClientsWithTimeout();
     if (!clients.length) {
       sendDebug({ tag: CRON_TAG, msg: 'Tidak ada client org aktif dengan amplifikasi aktif.' });
       return;
