@@ -12,7 +12,7 @@ const pool = new Pool({
   connectionTimeoutMillis: env.DB_CONNECTION_TIMEOUT_MS,
   query_timeout: env.DB_QUERY_TIMEOUT_MS,
   statement_timeout: env.DB_STATEMENT_TIMEOUT_MS,
-  idle_in_transaction_session_timeout: env.DB_STATEMENT_TIMEOUT_MS
+  idle_in_transaction_session_timeout: env.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS
 });
 
 const decorateTimeoutError = (error, text) => {
