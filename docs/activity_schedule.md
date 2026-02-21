@@ -40,6 +40,7 @@ Bucket runtime yang aktif sekarang:
 
 - Sebelum query `findAllActiveOrgAmplifyClients()`, cron menulis log fase: `Mulai ambil daftar client amplifikasi aktif`.
 - Setelah query sukses, cron menulis log fase: `Selesai ambil daftar client, total X` (nilai `X` adalah jumlah data client yang didapat).
+- Sebelum proses tiap client, cron menulis marker: `Mulai update client [client_id] (i/n)` untuk menunjukkan progres batch client ke-`i` dari total `n`; marker ini dipakai sebagai acuan troubleshooting saat menelusuri jeda/hang antar client.
 - Query daftar client dibungkus `Promise.race` dengan timeout 45 detik. Jika timeout, cron mengirim `sendDebug` bertag cron dengan pesan: `[TIMEOUT] Tahap query daftar client amplifikasi aktif macet/melewati batas waktu (45 detik).`.
 - Error timeout akan masuk jalur `catch` global, namun alur tetap menuju `finally` untuk melepas distributed lock dan mencatat log `Lock released`.
 
@@ -62,7 +63,7 @@ Then paste the output into this section. The table is sourced from `src/cron/cro
 | `cronDirRequestRekapUpdate.js` | `0 8-18/4 * * *` | Send Ditbinmas executive summaries and rekap updates to admins and broadcast groups. |
 | `cronOprRequestAbsensiUpdateDataUsername.js` | `45 6 * * *` | Send oprrequest absensi update data username recaps to active org clients with Instagram + TikTok enabled, delivered to each WhatsApp group. |
 | `cronOprRequestAbsensiEngagement.js` | `20 15,18,20 * * *` | Send oprrequest engagement absensi Instagram (likes) and TikTok (comments) recaps with the "all" mode to each org WhatsApp group plus operator and super admin recipients. |
-| `cronOprRequestAmplifyRoutineUpdate.js` | `55,25 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled and `client_insta_status=true`; execution now uses distributed lock key `cron:oprrequest:amplify-routine-update` so overlapping instances skip when lock is held. Tahap query daftar client menulis log fase `Mulai ambil daftar client amplifikasi aktif` dan `Selesai ambil daftar client, total X`, serta memakai timeout 45 detik agar hang terdeteksi eksplisit dengan log `[TIMEOUT] Tahap query daftar client amplifikasi aktif macet/melewati batas waktu (45 detik).`. |
+| `cronOprRequestAmplifyRoutineUpdate.js` | `55,25 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled and `client_insta_status=true`; execution now uses distributed lock key `cron:oprrequest:amplify-routine-update` so overlapping instances skip when lock is held. Tahap query daftar client menulis log fase `Mulai ambil daftar client amplifikasi aktif` dan `Selesai ambil daftar client, total X`; proses per client menulis marker `Mulai update client [client_id] (i/n)` untuk progres dan troubleshooting; seluruh alur juga memakai timeout 45 detik agar hang terdeteksi eksplisit dengan log `[TIMEOUT] Tahap query daftar client amplifikasi aktif macet/melewati batas waktu (45 detik).`. |
 | `cronDashboardSubscriptionExpiry.js` | `*/48 * * * *` | Mark overdue dashboard subscriptions as expired and send WhatsApp reminders when a destination number is available. |
 | `cronPremiumExpiry.js` | `0 0 * * *` | Expire mobile premium users when `premium_end_date` is in the past. |
 

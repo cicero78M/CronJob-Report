@@ -95,7 +95,15 @@ export async function runCron() {
       return;
     }
 
-    for (const client of clients) {
+    const totalClients = clients.length;
+
+    for (const [clientIndex, client] of clients.entries()) {
+      const currentClientNumber = clientIndex + 1;
+      sendDebug({
+        tag: CRON_TAG,
+        msg: `Mulai update client [${client.client_id}] (${currentClientNumber}/${totalClients})`,
+      });
+
       try {
         await runUpdateForClient(client);
       } catch (err) {
