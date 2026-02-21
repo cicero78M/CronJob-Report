@@ -81,7 +81,7 @@ Menu ini hanya muncul jika client memiliki kanal engagement yang aktif. Aturan a
   1. Bot menampilkan rangkuman link konten yang dikumpulkan kemarin dari pengguna dengan role **operator** di client.
 - **Update Tugas Instagram**
   1. Bot menjalankan proses pengambilan tugas terbaru untuk client terkait.
-  2. Sistem juga menjalankan cron otomatis setiap 30 menit (08.00-21.00 WIB) untuk client bertipe org yang aktif dengan amplifikasi aktif, sehingga tugas rutin tetap terbarui tanpa perlu trigger manual.
+  2. Sistem juga menjalankan cron otomatis setiap 30 menit (08.00-21.00 WIB) untuk client bertipe org yang aktif, amplifikasi aktif, dan Instagram client aktif (`client_insta_status=true`), sehingga tugas rutin tetap terbarui tanpa perlu trigger manual.
 - **Absensi Likes Instagram**
   1. Bot menampilkan rekap absensi likes Instagram untuk user operator berdasarkan mode (semua/sudah/belum).
   2. Mode akumulasi menampilkan daftar per satfung dengan sub-list *lengkap/kurang/belum* (lengkap = seluruh konten terpenuhi).

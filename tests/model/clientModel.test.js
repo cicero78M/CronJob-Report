@@ -7,9 +7,10 @@ jest.unstable_mockModule('../../src/repository/db.js', () => ({
 }));
 
 let findBySuperAdmin;
+let findAllActiveOrgAmplifyClients;
 
 beforeAll(async () => {
-  ({ findBySuperAdmin } = await import('../../src/model/clientModel.js'));
+  ({ findBySuperAdmin, findAllActiveOrgAmplifyClients } = await import('../../src/model/clientModel.js'));
 });
 
 beforeEach(() => {
@@ -28,7 +29,7 @@ describe('findBySuperAdmin', () => {
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
     const [sql, params] = mockQuery.mock.calls[0];
-    expect(sql).toContain("client_super ~ ('(^|\\\\D)' || $1 || '(\\\\D|$)')");
+    expect(sql).toMatch(/client_super ~ \('\(\^\|\\D\)' \|\| \$1 \|\| '\(\\D\|\$\)'\)/);
     expect(params).toEqual(['628999888777', '08999888777']);
     expect(result).toEqual(row);
   });
@@ -40,5 +41,20 @@ describe('findBySuperAdmin', () => {
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
     expect(result).toBeNull();
+  });
+});
+
+
+describe('findAllActiveOrgAmplifyClients', () => {
+  test('filters to active org amplify clients with active instagram status', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await findAllActiveOrgAmplifyClients();
+
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    const [sql] = mockQuery.mock.calls[0];
+    expect(sql).toContain('client_amplify_status = true');
+    expect(sql).toContain('client_insta_status = true');
+    expect(sql).toContain("LOWER(client_type) = LOWER('org')");
   });
 });
