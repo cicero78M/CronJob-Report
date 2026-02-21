@@ -21,5 +21,6 @@ This document summarizes how to properly format a pull request for the **Cicero_
 - Mention related issues or context so others understand why the change is needed.
 - Keep the description short but informative.
 - When adding or updating cron jobs, register them in `src/cron/cronManifest.js` so documentation and runtime buckets stay in sync.
+- For Instagram fetch post sync changes, follow [docs/fetch_post_sync_checklist.md](fetch_post_sync_checklist.md) and include the required diff summary in the PR body.
 
 Refer to [docs/naming_conventions.md](naming_conventions.md) for code style guidelines.
