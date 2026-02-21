@@ -85,6 +85,7 @@ export const findAllActiveOrgAmplifyClients = async () => {
     "client_type",
     "client_status",
     "client_amplify_status",
+    "client_insta_status",
     "client_insta",
     "client_operator",
   ]);
@@ -93,6 +94,7 @@ export const findAllActiveOrgAmplifyClients = async () => {
      FROM clients
      WHERE client_status = true
        AND client_amplify_status = true
+       AND client_insta_status = true
        AND LOWER(client_type) = LOWER('org')
      ORDER BY client_id`
   );

@@ -9,6 +9,14 @@ const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const CRON_TAG = 'CRON OPRREQUEST UPDATE TUGAS RUTIN AMPLIFIKASI';
 
 async function runUpdateForClient(client) {
+  if (client?.client_insta_status === false) {
+    sendDebug({
+      tag: CRON_TAG,
+      msg: `[${client.client_id}] Lewati update tugas rutin: status Instagram client tidak aktif.`,
+    });
+    return;
+  }
+
   if (!client?.client_insta) {
     sendDebug({
       tag: CRON_TAG,
