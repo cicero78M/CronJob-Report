@@ -54,7 +54,7 @@ Then paste the output into this section. The table is sourced from `src/cron/cro
 | `cronDirRequestRekapUpdate.js` | `0 8-18/4 * * *` | Send Ditbinmas executive summaries and rekap updates to admins and broadcast groups. |
 | `cronOprRequestAbsensiUpdateDataUsername.js` | `45 6 * * *` | Send oprrequest absensi update data username recaps to active org clients with Instagram + TikTok enabled, delivered to each WhatsApp group. |
 | `cronOprRequestAbsensiEngagement.js` | `20 15,18,20 * * *` | Send oprrequest engagement absensi Instagram (likes) and TikTok (comments) recaps with the "all" mode to each org WhatsApp group plus operator and super admin recipients. |
-| `cronOprRequestAmplifyRoutineUpdate.js` | `55,25 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled and `client_insta_status=true`. |
+| `cronOprRequestAmplifyRoutineUpdate.js` | `55,25 8-21 * * *` | Refresh oprrequest tugas rutin amplification content for active org clients with amplification enabled and `client_insta_status=true`; execution now uses distributed lock key `cron:oprrequest:amplify-routine-update` so overlapping instances skip when lock is held. |
 | `cronDashboardSubscriptionExpiry.js` | `*/48 * * * *` | Mark overdue dashboard subscriptions as expired and send WhatsApp reminders when a destination number is available. |
 | `cronPremiumExpiry.js` | `0 0 * * *` | Expire mobile premium users when `premium_end_date` is in the past. |
 
