@@ -4,6 +4,7 @@ const mockScheduleCronJob = jest.fn();
 const mockSendDebug = jest.fn();
 const mockFetchAndStoreInstaContent = jest.fn();
 const mockFindAllActiveOrgAmplifyClients = jest.fn();
+const mockAcquireDistributedLock = jest.fn();
 
 jest.unstable_mockModule('../src/utils/cronScheduler.js', () => ({
   scheduleCronJob: mockScheduleCronJob,
@@ -21,6 +22,10 @@ jest.unstable_mockModule('../src/model/clientModel.js', () => ({
   findAllActiveOrgAmplifyClients: mockFindAllActiveOrgAmplifyClients,
 }));
 
+jest.unstable_mockModule('../src/service/distributedLockService.js', () => ({
+  acquireDistributedLock: mockAcquireDistributedLock,
+}));
+
 let runCron;
 
 beforeAll(async () => {
@@ -32,6 +37,8 @@ beforeEach(() => {
 });
 
 test('runCron hanya memproses client amplify org dengan instagram aktif', async () => {
+  const release = jest.fn().mockResolvedValue(undefined);
+  mockAcquireDistributedLock.mockResolvedValueOnce({ acquired: true, release });
   mockFindAllActiveOrgAmplifyClients.mockResolvedValueOnce([
     {
       client_id: 'ORG-INACTIVE-IG',
@@ -57,6 +64,25 @@ test('runCron hanya memproses client amplify org dengan instagram aktif', async 
   expect(mockSendDebug).toHaveBeenCalledWith(
     expect.objectContaining({
       msg: expect.stringContaining('[ORG-INACTIVE-IG] Lewati update tugas rutin: status Instagram client tidak aktif.'),
+    })
+  );
+  expect(release).toHaveBeenCalledTimes(1);
+});
+
+test('runCron skip ketika lock sudah dipegang instance lain', async () => {
+  mockAcquireDistributedLock.mockResolvedValueOnce({
+    acquired: false,
+    reason: 'lock_held',
+    release: jest.fn(),
+  });
+
+  await runCron();
+
+  expect(mockFindAllActiveOrgAmplifyClients).not.toHaveBeenCalled();
+  expect(mockFetchAndStoreInstaContent).not.toHaveBeenCalled();
+  expect(mockSendDebug).toHaveBeenCalledWith(
+    expect.objectContaining({
+      msg: expect.stringContaining('Lewati cron: lock sudah diambil oleh instance lain (lock_held)'),
     })
   );
 });
