@@ -110,6 +110,9 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
     DB_NAME=cicero_db
     DB_PASS=secret
     DB_PORT=5432
+    DB_CONNECTION_TIMEOUT_MS=10000
+    DB_QUERY_TIMEOUT_MS=30000
+    DB_STATEMENT_TIMEOUT_MS=30000
     DB_DRIVER=postgres
     REDIS_URL=redis://localhost:6379
     ADMIN_WHATSAPP=628xxxxxx,628yyyyyy
@@ -133,6 +136,8 @@ Application logs are timestamped using the Asia/Jakarta timezone by the console 
     SMTP_FROM="Cicero OTP" <otp@example.com>
     ```
    Use `DB_DRIVER=postgres`, `postgresql`, or `pg` when connecting to Postgres so the backend applies the session settings (`app.current_*`) required by database row-level security. Switching `DB_DRIVER` to another value disables these Postgres-only settings.
+   `DB_CONNECTION_TIMEOUT_MS` controls how long the pool waits when opening a new PostgreSQL connection before failing fast (default `10000`).
+   `DB_QUERY_TIMEOUT_MS` limits query execution at the pg client layer (default `30000`), while `DB_STATEMENT_TIMEOUT_MS` sets PostgreSQL `statement_timeout` and `idle_in_transaction_session_timeout` for each session (default `30000`). Keep these values aligned with cron SLA; timeout errors are re-thrown so global cron handlers can catch them and log `[ERROR GLOBAL]`.
    `ADMIN_WHATSAPP` accepts numbers with or without the `@c.us` suffix. When the suffix is omitted, the application automatically appends it.
    `GATEWAY_WA_CLIENT_ID` **harus lowercase dan tidak boleh default `wa-gateway`**. Service akan menghentikan proses sejak awal jika nilai masih default, mengandung huruf besar, atau folder `session-<clientId>` di `WA_AUTH_DATA_PATH` memakai casing berbeda.
    Saat mengganti `GATEWAY_WA_CLIENT_ID`, bersihkan session lama di `WA_AUTH_DATA_PATH` dengan cara rename atau hapus folder `session-<clientId>` yang lama agar tidak meninggalkan sesi usang.
