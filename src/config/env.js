@@ -13,6 +13,7 @@ export const env = cleanEnv(process.env, {
   DB_CONNECTION_TIMEOUT_MS: num({ default: 10000 }),
   DB_QUERY_TIMEOUT_MS: num({ default: 30000 }),
   DB_STATEMENT_TIMEOUT_MS: num({ default: 30000 }),
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: num({ default: 30000 }),
   DB_DRIVER: str({ default: 'postgres' }),
   REDIS_URL: str({ default: 'redis://localhost:6379' }),
   CORS_ORIGIN: str({ default: '*' }),
