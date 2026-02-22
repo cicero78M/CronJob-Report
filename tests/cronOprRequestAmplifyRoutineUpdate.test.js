@@ -36,7 +36,7 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-test('runCron hanya memproses client amplify org dengan instagram aktif', async () => {
+test('runCron memproses list client aktif+amplify dan skip akun IG yang tidak valid', async () => {
   const release = jest.fn().mockResolvedValue(undefined);
   mockAcquireDistributedLock.mockResolvedValueOnce({ acquired: true, release });
   mockFindAllActiveOrgAmplifyClients.mockResolvedValueOnce([
@@ -44,6 +44,11 @@ test('runCron hanya memproses client amplify org dengan instagram aktif', async 
       client_id: 'ORG-INACTIVE-IG',
       client_insta_status: false,
       client_insta: 'orginactive',
+    },
+    {
+      client_id: 'ORG-EMPTY-USERNAME',
+      client_insta_status: true,
+      client_insta: '   ',
     },
     {
       client_id: 'ORG-ACTIVE-IG',
@@ -63,7 +68,13 @@ test('runCron hanya memproses client amplify org dengan instagram aktif', async 
   );
   expect(mockSendDebug).toHaveBeenCalledWith(
     expect.objectContaining({
-      msg: expect.stringContaining('[ORG-INACTIVE-IG] Lewati update tugas rutin: status Instagram client tidak aktif.'),
+      msg: expect.stringContaining('[ORG-INACTIVE-IG] Skip update tugas rutin (reason=instagram_inactive)'),
+    })
+  );
+
+  expect(mockSendDebug).toHaveBeenCalledWith(
+    expect.objectContaining({
+      msg: expect.stringContaining('[ORG-EMPTY-USERNAME] Skip update tugas rutin (reason=instagram_username_missing)'),
     })
   );
   expect(release).toHaveBeenCalledTimes(1);
