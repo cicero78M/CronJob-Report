@@ -17,7 +17,7 @@ async function getActiveClients() {
     `SELECT client_id, nama, client_operator, client_super, client_group
      FROM clients
      WHERE client_status=true AND client_amplify_status=true
-       AND LOWER(client_type)='org'
+       AND LOWER(client_type) IN ('org', 'opr')
      ORDER BY client_id`
   );
   return rows.rows;
@@ -82,11 +82,11 @@ export async function runCron() {
   try {
     const clients = await getActiveClients();
     if (!clients.length) {
-      sendDebug({ tag: CRON_TAG, msg: 'Tidak ada client org aktif untuk diproses.' });
+      sendDebug({ tag: CRON_TAG, msg: 'Tidak ada client OPR aktif untuk diproses.' });
       return;
     }
 
-    sendDebug({ tag: CRON_TAG, msg: `Memproses ${clients.length} client org aktif` });
+    sendDebug({ tag: CRON_TAG, msg: `Memproses ${clients.length} client OPR aktif` });
 
     let processedCount = 0;
     let errorCount = 0;

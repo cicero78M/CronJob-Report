@@ -3,12 +3,14 @@
 
 Dokumen ini menjelaskan cara menggunakan perintah `oprrequest` pada Bot WhatsApp **Cicero_V2**. Menu ini hanya untuk operator client dan berguna untuk mengelola data user serta update tugas harian. Akses menu dibatasi sebagai berikut:
 - Nomor operator dan **Super Admin** client yang terdaftar pada data client aktif dapat langsung masuk ke menu operator.
-- Nomor **Admin WhatsApp** (`ADMIN_WHATSAPP`) dapat masuk ke menu operator setelah memilih client bertipe **org** yang aktif.
-Seluruh laporan di menu ini hanya menampilkan data user dengan role **operator**. Menu *Kelola User* hanya tersedia untuk client berstatus aktif dengan `client_type` = **org**. Menu *Kelola Amplifikasi* hanya tersedia untuk client dengan status aktif dan `client_amplify_status` aktif. Menu *Manajemen Engagement* hanya tersedia untuk client dengan Instagram atau TikTok aktif (`client_insta_status` / `client_tiktok_status`).
+- Nomor **Admin WhatsApp** (`ADMIN_WHATSAPP`) dapat masuk ke menu operator setelah memilih client bertipe **org** (termasuk alias **opr**) yang aktif.
+Seluruh laporan di menu ini hanya menampilkan data user dengan role **operator**. Menu *Kelola User* hanya tersedia untuk client berstatus aktif dengan `client_type` = **org** (alias **opr** juga dianggap setara). Menu *Kelola Amplifikasi* hanya tersedia untuk client dengan status aktif dan `client_amplify_status` aktif. Menu *Manajemen Engagement* hanya tersedia untuk client dengan Instagram atau TikTok aktif (`client_insta_status` / `client_tiktok_status`).
+
+Catatan domain: istilah utama di dokumen tetap menggunakan **org** untuk menjaga kompatibilitas historis, namun sistem kini menerima alias `client_type` **opr** sebagai padanan yang sama.
 
 ## Cara Masuk Menu Operator
 1. Kirim perintah `oprrequest` ke Bot WhatsApp.
-2. Jika nomor Anda adalah Admin WhatsApp, bot menampilkan daftar client bertipe **org** yang aktif. Pilih client dengan membalas nomor atau `client_id` untuk melanjutkan.
+2. Jika nomor Anda adalah Admin WhatsApp, bot menampilkan daftar client bertipe **org** (termasuk alias **opr**) yang aktif. Pilih client dengan membalas nomor atau `client_id` untuk melanjutkan.
 3. Jika nomor Anda terdaftar sebagai operator/Super Admin client, bot langsung menampilkan pilihan utama:
    - 1️⃣ Kelola User
    - 2️⃣ Kelola Amplifikasi
@@ -81,7 +83,7 @@ Menu ini hanya muncul jika client memiliki kanal engagement yang aktif. Aturan a
   1. Bot menampilkan rangkuman link konten yang dikumpulkan kemarin dari pengguna dengan role **operator** di client.
 - **Update Tugas Instagram**
   1. Bot menjalankan proses pengambilan tugas terbaru untuk client terkait.
-  2. Sistem juga menjalankan cron otomatis setiap 30 menit (08.00-21.00 WIB) untuk client bertipe org yang aktif, amplifikasi aktif, dan Instagram client aktif (`client_insta_status=true`), sehingga tugas rutin tetap terbarui tanpa perlu trigger manual.
+  2. Sistem juga menjalankan cron otomatis setiap 30 menit (08.00-21.00 WIB) untuk client bertipe org/opr yang aktif, amplifikasi aktif, dan Instagram client aktif (`client_insta_status=true`), sehingga tugas rutin tetap terbarui tanpa perlu trigger manual.
 - **Absensi Likes Instagram**
   1. Bot menampilkan rekap absensi likes Instagram untuk user operator berdasarkan mode (semua/sudah/belum).
   2. Mode akumulasi menampilkan daftar per satfung dengan sub-list *lengkap/kurang/belum* (lengkap = seluruh konten terpenuhi).

@@ -50,7 +50,7 @@ export const findAllActiveOrgClients = async () => {
     `SELECT ${selectColumns}
      FROM clients
      WHERE client_status = true
-       AND LOWER(client_type) = LOWER('org')
+       AND LOWER(client_type) IN ('org', 'opr')
      ORDER BY client_id`
   );
   return res.rows;
@@ -70,7 +70,7 @@ export const findAllActiveOrgClientsWithSosmed = async () => {
     `SELECT ${selectColumns}
      FROM clients
      WHERE client_status = true
-       AND LOWER(client_type) = LOWER('org')
+       AND LOWER(client_type) IN ('org', 'opr')
        AND client_insta_status = true
        AND client_tiktok_status = true
      ORDER BY client_id`
@@ -95,7 +95,7 @@ export const findAllActiveOrgAmplifyClients = async () => {
      WHERE client_status = true
        AND client_amplify_status = true
        AND client_insta_status = true
-       AND LOWER(client_type) = LOWER('org')
+       AND LOWER(client_type) IN ('org', 'opr')
      ORDER BY client_id`
   );
   return res.rows;
