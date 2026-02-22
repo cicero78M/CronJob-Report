@@ -45,18 +45,22 @@ async function findAllActiveOrgAmplifyClientsWithTimeout() {
 }
 
 async function runUpdateForClient(client) {
+  const instagramUsername = typeof client?.client_insta === 'string'
+    ? client.client_insta.trim()
+    : client?.client_insta;
+
   if (client?.client_insta_status === false) {
     sendDebug({
       tag: CRON_TAG,
-      msg: `[${client.client_id}] Lewati update tugas rutin: status Instagram client tidak aktif.`,
+      msg: `[${client.client_id}] Skip update tugas rutin (reason=instagram_inactive): client_insta_status=${client?.client_insta_status}.`,
     });
     return;
   }
 
-  if (!client?.client_insta) {
+  if (!instagramUsername) {
     sendDebug({
       tag: CRON_TAG,
-      msg: `[${client.client_id}] Lewati update tugas rutin: username Instagram belum terdaftar.`,
+      msg: `[${client.client_id}] Skip update tugas rutin (reason=instagram_username_missing): client_insta=${JSON.stringify(client?.client_insta)}.`,
     });
     return;
   }
