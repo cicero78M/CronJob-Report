@@ -7,10 +7,17 @@ jest.unstable_mockModule('../../src/repository/db.js', () => ({
 }));
 
 let findBySuperAdmin;
+let findAllActiveOrgClients;
+let findAllActiveOrgClientsWithSosmed;
 let findAllActiveOrgAmplifyClients;
 
 beforeAll(async () => {
-  ({ findBySuperAdmin, findAllActiveOrgAmplifyClients } = await import('../../src/model/clientModel.js'));
+  ({
+    findBySuperAdmin,
+    findAllActiveOrgClients,
+    findAllActiveOrgClientsWithSosmed,
+    findAllActiveOrgAmplifyClients,
+  } = await import('../../src/model/clientModel.js'));
 });
 
 beforeEach(() => {
@@ -55,6 +62,29 @@ describe('findAllActiveOrgAmplifyClients', () => {
     const [sql] = mockQuery.mock.calls[0];
     expect(sql).toContain('client_amplify_status = true');
     expect(sql).toContain('client_insta_status = true');
-    expect(sql).toContain("LOWER(client_type) = LOWER('org')");
+    expect(sql).toContain("LOWER(client_type) IN ('org', 'opr')");
+  });
+});
+
+
+describe('OPR alias filter for org client queries', () => {
+  test('findAllActiveOrgClients includes org and opr aliases', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await findAllActiveOrgClients();
+
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    const [sql] = mockQuery.mock.calls[0];
+    expect(sql).toContain("LOWER(client_type) IN ('org', 'opr')");
+  });
+
+  test('findAllActiveOrgClientsWithSosmed includes org and opr aliases', async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [] });
+
+    await findAllActiveOrgClientsWithSosmed();
+
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    const [sql] = mockQuery.mock.calls[0];
+    expect(sql).toContain("LOWER(client_type) IN ('org', 'opr')");
   });
 });
