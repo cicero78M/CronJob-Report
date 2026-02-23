@@ -71,6 +71,7 @@ const DITINTELKAM_MENU_THREE_ALLOWED_DIVISIONS = new Set([
   "BAG OPS",
 ]);
 const dirRequestGroup = "120363419830216549@g.us";
+const WA_DOCUMENT_SIZE_LIMIT_BYTES = 60 * 1024 * 1024;
 
 const isGroupChatId = (value) => String(value || "").trim().endsWith("@g.us");
 
@@ -124,6 +125,46 @@ const rankIdx = (t) => {
   const i = pangkatOrder.indexOf((t || "").toUpperCase());
   return i === -1 ? pangkatOrder.length : i;
 };
+
+const formatFileSizeMb = (sizeBytes) => {
+  const mb = Number(sizeBytes || 0) / (1024 * 1024);
+  return `${mb.toFixed(2)} MB`;
+};
+
+async function sendExcelDocumentWithGuard({ waClient, chatId, filePath, menuCode, successMessage }) {
+  const filename = basename(filePath);
+  try {
+    const fileStats = await stat(filePath);
+    if (!fileStats?.size) {
+      return `⚠️ Rekap menu ${menuCode} tidak dapat dikirim karena file Excel kosong.`;
+    }
+
+    if (fileStats.size > WA_DOCUMENT_SIZE_LIMIT_BYTES) {
+      return (
+        `⚠️ Rekap menu ${menuCode} tidak dapat dikirim karena ukuran file terlalu besar ` +
+        `(${formatFileSizeMb(fileStats.size)}). Batas kirim otomatis saat ini ${formatFileSizeMb(
+          WA_DOCUMENT_SIZE_LIMIT_BYTES
+        )}.`
+      );
+    }
+
+    const buffer = await readFile(filePath);
+    await waClient.sendMessage(chatId, {
+      document: buffer,
+      mimetype: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      fileName: filename,
+    });
+    return successMessage;
+  } catch (error) {
+    console.error(`[DIRREQ] Gagal kirim Excel menu ${menuCode}:`, error);
+    return (
+      `⚠️ Rekap menu ${menuCode} gagal mengirim file Excel. ` +
+      `Penyebab: ${error?.message || "error tidak diketahui"}.`
+    );
+  } finally {
+    await unlink(filePath).catch(() => undefined);
+  }
+}
 
 export async function formatRekapUserData(clientId, roleFlag = null) {
   const directorateRoles = ["ditbinmas", "ditlantas", "bidhumas"];
@@ -795,16 +836,13 @@ async function performAction(
         break;
       }
       const filePath = await saveLikesRecapPerContentExcel(rekapData, attendanceClientId);
-      const buffer = await readFile(filePath);
-      await sendWAFile(
+      msg = await sendExcelDocumentWithGuard({
         waClient,
-        buffer,
-        basename(filePath),
         chatId,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
-      await unlink(filePath);
-      msg = "✅ File rekap likes Instagram per konten berhasil dikirim.";
+        filePath,
+        menuCode: "28",
+        successMessage: "✅ File rekap likes Instagram per konten berhasil dikirim.",
+      });
       break;
     }
     case "29": {
@@ -818,16 +856,13 @@ async function performAction(
         break;
       }
       const filePath = await saveCommentRecapPerContentExcel(rekapData, attendanceClientId);
-      const buffer = await readFile(filePath);
-      await sendWAFile(
+      msg = await sendExcelDocumentWithGuard({
         waClient,
-        buffer,
-        basename(filePath),
         chatId,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-      );
-      await unlink(filePath);
-      msg = "✅ File rekap komentar TikTok per konten berhasil dikirim.";
+        filePath,
+        menuCode: "29",
+        successMessage: "✅ File rekap komentar TikTok per konten berhasil dikirim.",
+      });
       break;
     }
     case "30": {
