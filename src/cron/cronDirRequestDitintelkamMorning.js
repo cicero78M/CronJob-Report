@@ -18,7 +18,8 @@ const DISTRIBUTED_LOCK_KEY = 'cron:dirrequest:ditintelkam-morning';
 const CRON_MAX_RUN_MINUTES = 30;
 const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const CRON_LABEL = 'CRON DIRREQ DITINTELKAM 07:10';
-const MENUS = ['1', '3'];
+const DEFAULT_MENUS = ['1'];
+const NIGHT_MENUS = ['1', '2', '3'];
 
 const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
@@ -62,11 +63,11 @@ function getGroupRecipient(client) {
   return normalizeGroupId(client?.client_group);
 }
 
-async function executeMenusForRecipient(chatId) {
+async function executeMenusForRecipient(chatId, menus) {
   const failures = [];
 
-  for (let index = 0; index < MENUS.length; index += 1) {
-    const action = MENUS[index];
+  for (let index = 0; index < menus.length; index += 1) {
+    const action = menus[index];
     try {
       await logPhase(`Mulai jalankan menu ${action} untuk ${CLIENT_ID} -> ${chatId}`);
       await runDirRequestAction({
@@ -91,7 +92,7 @@ async function executeMenusForRecipient(chatId) {
       await logPhase(errorMsg);
     }
 
-    if (index < MENUS.length - 1) {
+    if (index < menus.length - 1) {
       await delayAfterSend();
     }
   }
@@ -99,9 +100,9 @@ async function executeMenusForRecipient(chatId) {
   return failures;
 }
 
-export async function runCron() {
+async function runCronWithMenus(menus, runLabel) {
   const distributedLock = await acquireDistributedLock({
-    key: DISTRIBUTED_LOCK_KEY,
+    key: `${DISTRIBUTED_LOCK_KEY}:${runLabel}`,
     ttlSeconds: LOCK_TTL_SECONDS,
   });
 
@@ -112,7 +113,7 @@ export async function runCron() {
     return;
   }
 
-  await logPhase('Mulai cron DITINTELKAM pagi (menu 1 & 3) - lock acquired');
+  await logPhase(`Mulai cron DITINTELKAM ${runLabel} (menu ${menus.join(', ')}) - lock acquired`);
 
   let sendStatus = 'pending';
 
@@ -124,11 +125,11 @@ export async function runCron() {
       sendStatus = 'tidak ada group penerima valid untuk DITINTELKAM';
       await logToAdmins(sendStatus);
     } else {
-      const failures = await executeMenusForRecipient(groupRecipient);
+      const failures = await executeMenusForRecipient(groupRecipient, menus);
       sendStatus =
         failures.length === 0
-          ? `menu 1 dan 3 dikirim ke group ${groupRecipient}`
-          : `menu 1 dan 3 selesai dengan ${failures.length} kegagalan`;
+          ? `menu ${menus.join(', ')} dikirim ke group ${groupRecipient}`
+          : `menu ${menus.join(', ')} selesai dengan ${failures.length} kegagalan`;
 
       if (failures.length > 0) {
         await logToAdmins(`${sendStatus}\n${failures.join('\n')}`);
@@ -144,6 +145,14 @@ export async function runCron() {
 
   await logToAdmins(`Ringkasan: ${sendStatus}`);
   sendDebug({ tag: CRON_LABEL, msg: { sendStatus } });
+}
+
+export async function runCron() {
+  return runCronWithMenus(DEFAULT_MENUS, 'pagi/siang');
+}
+
+export async function runCronAt2202() {
+  return runCronWithMenus(NIGHT_MENUS, '22.02 (chakranarayana jajaran 2 & 3)');
 }
 
 export default null;

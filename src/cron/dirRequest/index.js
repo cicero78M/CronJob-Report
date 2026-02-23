@@ -23,6 +23,7 @@ import {
 } from '../cronDirRequestDitbinmasAbsensiToday.js';
 import {
   runCron as runDitintelkamMorning,
+  runCronAt2202 as runDitintelkamMorningAt2202,
   JOB_KEY as DITINTELKAM_MORNING_JOB_KEY,
 } from '../cronDirRequestDitintelkamMorning.js';
 import {
@@ -118,11 +119,11 @@ const dirRequestCrons = [
   {
     jobKey: DITINTELKAM_MORNING_JOB_KEY,
     description:
-      'Send Ditintelkam morning recap (menu 1 & 3) to the Ditintelkam group.',
+      'Send Ditintelkam morning/afternoon recap (menu 1), plus 22.02 run with menu chakranarayana jajaran 2 & 3.',
     schedules: [
       { cronExpression: '02 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '02 14 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '02 22 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '02 22 * * *', handler: () => runDitintelkamMorningAt2202(), options: DEFAULT_CRON_OPTIONS },
 
     ],
   },
