@@ -110,7 +110,7 @@ const dirRequestCrons = [
   {
     jobKey: DITBINMAS_ABSENSI_TODAY_JOB_KEY,
     description:
-      'Send Ditbinmas absensi recap (menu 5 & 10, today) to the dedicated recipient only.',
+      'Send Ditbinmas absensi recap (menu 5/6/9/10, today) to the dedicated recipient only.',
     schedules: [
       { cronExpression: '49 20 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
     ],

@@ -11,7 +11,7 @@ const DITBINMAS_CLIENT_ID = 'DITBINMAS';
 const TARGET_RECIPIENT = '081331780006';
 export const JOB_KEY = './src/cron/cronDirRequestDitbinmasAbsensiToday.js';
 const CRON_LABEL = 'CRON DIRREQ DITBINMAS 18:27';
-const ACTIONS = ['5', '10'];
+const ACTIONS = ['5', '6', '9', '10'];
 const { primaryClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
 function normalizeRecipient(value) {
@@ -59,7 +59,7 @@ async function executeDitbinmasMenus(chatId) {
 export async function runCron() {
   sendDebug({
     tag: CRON_LABEL,
-    msg: 'Mulai cron Ditbinmas menu 5 & 10 (data hari ini) untuk nomor khusus.',
+    msg: 'Mulai cron Ditbinmas menu 5, 6, 9 & 10 (data hari ini) untuk nomor khusus.',
   });
 
   const recipient = normalizeRecipient(TARGET_RECIPIENT);
@@ -74,8 +74,8 @@ export async function runCron() {
   const failures = await executeDitbinmasMenus(recipient);
   const summary =
     failures.length === 0
-      ? `Menu 5 & 10 dikirim ke ${recipient}`
-      : `Menu 5 & 10 selesai dengan ${failures.length} kegagalan`;
+      ? `Menu 5, 6, 9 & 10 dikirim ke ${recipient}`
+      : `Menu 5, 6, 9 & 10 selesai dengan ${failures.length} kegagalan`;
 
   sendDebug({ tag: CRON_LABEL, msg: { summary, failures } });
 }
