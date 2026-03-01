@@ -5,6 +5,7 @@ import { query } from "../../db/index.js";
 import { sendDebug } from "../../middleware/debugHandler.js";
 import { fetchAllTiktokComments } from "../../service/tiktokApi.js";
 import { saveCommentSnapshotAudit } from "../../model/tiktokCommentModel.js";
+import { getVideoIdsTodayByClient } from "../../model/tiktokPostModel.js";
 
 const MAX_COMMENT_FETCH_ATTEMPTS = 3;
 const COMMENT_FETCH_RETRY_DELAY_MS = 2000;
@@ -115,16 +116,8 @@ async function upsertTiktokUserComments(video_id, usernamesArr) {
  */
 export async function handleFetchKomentarTiktokBatch(waClient = null, chatId = null, client_id = null, options = {}) {
   try {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
     const normalizedId = normalizeClientId(client_id);
-    const { rows } = await query(
-      `SELECT video_id FROM tiktok_post WHERE LOWER(TRIM(client_id)) = $1 AND DATE(created_at) = $2`,
-      [normalizedId, `${yyyy}-${mm}-${dd}`]
-    );
-    const videoIds = rows.map((r) => r.video_id);
+    const videoIds = await getVideoIdsTodayByClient(normalizedId);
     const excRes = await query(
       `SELECT tiktok FROM "user" WHERE exception = true AND tiktok IS NOT NULL`
     );
