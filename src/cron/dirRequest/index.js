@@ -83,9 +83,9 @@ const dirRequestCrons = [
     jobKey: DITBINMAS_GROUP_RECAP_JOB_KEY,
     description: 'Send Ditbinmas group recap for menu 21/22/28/29 (today).',
     schedules: [
-      { cronExpression: '15 15 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '15 18 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '15 21 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '11 15 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '11 18 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '55 20 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas super admin daily recap at 18:10
@@ -106,7 +106,7 @@ const dirRequestCrons = [
       { cronExpression: '47 20 * * *', handler: () => runDitbinmasOperatorDaily(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
-  // Ditbinmas absensi today at 18:14
+  // Ditbinmas absensi today at 20:49
   {
     jobKey: DITBINMAS_ABSENSI_TODAY_JOB_KEY,
     description:
@@ -115,25 +115,24 @@ const dirRequestCrons = [
       { cronExpression: '49 20 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
-  // Ditintelkam morning rekap at 07:10
+  // Ditintelkam morning rekap at 07:02
   {
     jobKey: DITINTELKAM_MORNING_JOB_KEY,
     description:
       'Send Ditintelkam morning/afternoon recap (menu 1), plus 22.02 run with menu chakranarayana jajaran 2 & 3.',
     schedules: [
       { cronExpression: '02 7 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
-      { cronExpression: '02 14 * * *', handler: () => runDitintelkamMorning(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '02 22 * * *', handler: () => runDitintelkamMorningAt2202(), options: DEFAULT_CRON_OPTIONS },
 
     ],
   },
-  // Ditintelkam routine recap at minute 9 every 10,12,14,16,18,20,22
+  // Ditintelkam routine recap at minute 9 every 16,20,22
   {
     jobKey: DITINTELKAM_ROUTINE_JOB_KEY,
     description:
       'Send Ditintelkam routine recap (menu 6 & 9) to group, operator, and super admin recipients.',
     schedules: [
-      { cronExpression: '15 10,12,14,16,18,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
+      { cronExpression: '9 16,20,22 * * *', handler: () => runDitintelkamRoutine(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
 ];
