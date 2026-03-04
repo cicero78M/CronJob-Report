@@ -69,6 +69,31 @@ function buildRecipients(client) {
   return Array.from(recipients);
 }
 
+function shouldRunDitintelkam(client) {
+  if (client?.client_status !== true) {
+    return { shouldRun: false, reason: 'client_inactive' };
+  }
+
+  if (client?.client_insta_status !== true) {
+    return { shouldRun: false, reason: 'instagram_inactive' };
+  }
+
+  if (client?.client_tiktok_status !== true) {
+    return { shouldRun: false, reason: 'tiktok_inactive' };
+  }
+
+  return { shouldRun: true, reason: null };
+}
+
+function buildSkipMessage(client, reason) {
+  return [
+    `Skip DITINTELKAM rutin (reason=${reason})`,
+    `client_status=${String(client?.client_status)}`,
+    `client_insta_status=${String(client?.client_insta_status)}`,
+    `client_tiktok_status=${String(client?.client_tiktok_status)}`,
+  ].join(' | ');
+}
+
 async function logToAdmins(message) {
   if (!message || adminRecipients.size === 0) return;
   const prefix = '[CRON DIRREQ DITINTELKAM RUTIN] ';
@@ -150,6 +175,14 @@ export async function runCron() {
 
   try {
     const client = await findClientById(CLIENT_ID);
+    const runCheck = shouldRunDitintelkam(client);
+
+    if (!runCheck.shouldRun) {
+      sendStatus = buildSkipMessage(client, runCheck.reason);
+      await logPhase(sendStatus);
+      return;
+    }
+
     const recipients = buildRecipients(client);
 
     if (recipients.length === 0) {
@@ -173,10 +206,9 @@ export async function runCron() {
   } finally {
     await distributedLock.release();
     await logPhase('Lock released');
+    await logToAdmins(`Ringkasan: ${sendStatus}`);
+    sendDebug({ tag: CRON_LABEL, msg: { sendStatus } });
   }
-
-  await logToAdmins(`Ringkasan: ${sendStatus}`);
-  sendDebug({ tag: CRON_LABEL, msg: { sendStatus } });
 }
 
 export default null;
