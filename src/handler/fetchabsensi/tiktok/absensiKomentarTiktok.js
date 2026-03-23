@@ -609,10 +609,14 @@ export async function absensiKomentar(client_id, opts = {}) {
 export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
+  const JAKARTA_TZ = "Asia/Jakarta";
   const now = new Date();
   const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const tanggal = now.toLocaleDateString("id-ID", { timeZone: JAKARTA_TZ });
+  const jam = now.toLocaleTimeString("id-ID", {
+    hour12: false,
+    timeZone: JAKARTA_TZ,
+  });
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
   const clientNameUpper = String(clientName || targetClientId).toUpperCase();

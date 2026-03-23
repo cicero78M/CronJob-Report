@@ -19,12 +19,14 @@ jest.unstable_mockModule('../src/model/instaLikeModel.js', () => ({ getLikesBySh
 let absensiLikes;
 let lapharDitbinmas;
 let absensiLikesDitbinmasReport;
+let absensiLikesDitbinmasSimple;
 
 beforeAll(async () => {
   ({
     absensiLikes,
     lapharDitbinmas,
     absensiLikesDitbinmasReport,
+    absensiLikesDitbinmasSimple,
   } = await import('../src/handler/fetchabsensi/insta/absensiLikesInsta.js'));
 });
 
@@ -245,6 +247,35 @@ test('absensiLikesDitbinmasReport filters users by client_id DITBINMAS', async (
   expect(mockGetUsersByDirektorat).toHaveBeenCalledWith('ditbinmas', 'DITBINMAS');
 });
 
+test('absensiLikesDitbinmasSimple keeps Jakarta date/time even when server TZ is UTC', async () => {
+  const originalTZ = process.env.TZ;
+  process.env.TZ = 'UTC';
+  jest.useFakeTimers().setSystemTime(new Date('2025-01-01T10:15:00.000Z'));
+  mockQuery.mockResolvedValueOnce({ rows: [{ nama: 'DIREKTORAT BINMAS' }] });
+  mockGetShortcodesTodayByClient.mockResolvedValueOnce(['sc1']);
+  mockGetLikesByShortcode.mockResolvedValueOnce(['user1']);
+  mockGetUsersByDirektorat.mockResolvedValueOnce([
+    {
+      user_id: 'u1',
+      title: 'Bripka',
+      nama: 'User 1',
+      insta: '@user1',
+      divisi: 'DITBINMAS',
+      client_id: 'DITBINMAS',
+      status: true,
+    },
+  ]);
+
+  try {
+    const msg = await absensiLikesDitbinmasSimple();
+    expect(msg).toContain('Rabu, 1/1/2025');
+    expect(msg).toContain('Jam: 17.15.00');
+  } finally {
+    jest.useRealTimers();
+    process.env.TZ = originalTZ;
+  }
+});
+
 test('lapharDitbinmas does not count exception usernames as likes', async () => {
   mockQuery.mockResolvedValueOnce({ rows: [{ nama: 'DITBINMAS', client_type: 'direktorat' }] });
   mockGetShortcodesTodayByClient.mockResolvedValueOnce(['sc1']);
@@ -265,4 +296,3 @@ test('lapharDitbinmas does not count exception usernames as likes', async () => 
 
   expect(result.narrative).toMatch(/https:\/\/www.instagram.com\/p\/sc1 — 0 likes/);
 });
-
