@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 
 const mockQuery = jest.fn();
 const mockGetUsersByClient = jest.fn();
+const mockGetUsersByDirektorat = jest.fn();
 const mockGetPostsTodayByClient = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockSendDebug = jest.fn();
@@ -9,7 +10,7 @@ const mockSendDebug = jest.fn();
 jest.unstable_mockModule('../src/db/index.js', () => ({ query: mockQuery }));
 jest.unstable_mockModule('../src/model/userModel.js', () => ({
   getUsersByClient: mockGetUsersByClient,
-  getUsersByDirektorat: jest.fn(),
+  getUsersByDirektorat: mockGetUsersByDirektorat,
   getClientsByRole: jest.fn(),
 }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
@@ -84,4 +85,40 @@ test('returns compact analytical recap with lampiran details', async () => {
 
 afterAll(() => {
   jest.resetModules();
+});
+
+test('absensiKomentarDitbinmasSimple keeps Jakarta date/time when server TZ is UTC', async () => {
+  const originalTZ = process.env.TZ;
+  process.env.TZ = 'UTC';
+  jest.useFakeTimers().setSystemTime(new Date('2025-01-01T10:15:00.000Z'));
+  mockQuery.mockResolvedValue({
+    rows: [{ nama: 'DIREKTORAT BINMAS', client_tiktok: '@ditbinmas', client_type: 'direktorat' }],
+  });
+  mockGetPostsTodayByClient.mockResolvedValue([{ video_id: 'v1', caption: 'Konten A' }]);
+  mockGetCommentsByVideoId.mockResolvedValue({ comments: [{ username: 'user1' }] });
+  mockGetUsersByDirektorat.mockResolvedValue([
+    {
+      user_id: '1',
+      nama: 'Personel 1',
+      title: 'AKP',
+      divisi: 'DITBINMAS',
+      tiktok: 'user1',
+      status: true,
+      client_id: 'DITBINMAS',
+    },
+  ]);
+
+  let absensiKomentarDitbinmasSimple;
+  await jest.isolateModulesAsync(async () => {
+    ({ absensiKomentarDitbinmasSimple } = await import('../src/handler/fetchabsensi/tiktok/absensiKomentarTiktok.js'));
+  });
+
+  try {
+    const message = await absensiKomentarDitbinmasSimple();
+    expect(message).toContain('Rabu, 1/1/2025');
+    expect(message).toContain('Jam: 17.15.00');
+  } finally {
+    jest.useRealTimers();
+    process.env.TZ = originalTZ;
+  }
 });

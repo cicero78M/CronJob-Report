@@ -490,10 +490,14 @@ export async function rekapLikesIG(client_id) {
 export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
+  const JAKARTA_TZ = "Asia/Jakarta";
   const now = new Date();
   const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const tanggal = now.toLocaleDateString("id-ID", { timeZone: JAKARTA_TZ });
+  const jam = now.toLocaleTimeString("id-ID", {
+    hour12: false,
+    timeZone: JAKARTA_TZ,
+  });
 
   let shortcodes;
   try {
