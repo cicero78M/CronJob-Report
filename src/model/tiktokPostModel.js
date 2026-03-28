@@ -1,5 +1,6 @@
 // src/model/tiktokPostModel.js
 import { query } from '../repository/db.js';
+import { getJakartaAttendanceWindow } from '../utils/jakartaTime.js';
 
 function normalizeClientId(id) {
   return typeof id === "string" ? id.trim().toLowerCase() : id;
@@ -11,11 +12,6 @@ function toInteger(value) {
   return Math.trunc(numeric);
 }
 
-function resolveJakartaDate(referenceDate) {
-  const baseDate = referenceDate ? new Date(referenceDate) : new Date();
-  const validDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
-  return validDate.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
-}
 
 function normalizeUtcCreatedAt(input) {
   if (!input) return null;
@@ -147,13 +143,13 @@ export async function upsertTiktokPostWithStatus({
  * @returns {Array} Array of video_id
  */
 export async function getVideoIdsTodayByClient(client_id, referenceDate) {
-  const targetDate = resolveJakartaDate(referenceDate);
+  const attendanceWindow = getJakartaAttendanceWindow(referenceDate);
   const normalizedId = normalizeClientId(client_id);
   const res = await query(
     `SELECT video_id FROM tiktok_post
      WHERE LOWER(TRIM(client_id)) = $1
-     AND ${jakartaDateCast("created_at")}::date = $2::date`,
-    [normalizedId, targetDate]
+     AND ${jakartaDateCast("created_at")} BETWEEN $2::timestamp AND $3::timestamp`,
+    [normalizedId, attendanceWindow.startJakarta, attendanceWindow.endJakarta]
   );
   return res.rows.map((r) => r.video_id);
 }
@@ -165,12 +161,12 @@ export async function getVideoIdsTodayByClient(client_id, referenceDate) {
  */
 export async function getPostsTodayByClient(client_id, referenceDate) {
   const normalizedId = normalizeClientId(client_id);
-  const targetDate = resolveJakartaDate(referenceDate);
+  const attendanceWindow = getJakartaAttendanceWindow(referenceDate);
   const res = await query(
     `SELECT * FROM tiktok_post WHERE LOWER(TRIM(client_id)) = $1 AND ${jakartaDateCast(
       "created_at"
-    )}::date = $2::date ORDER BY created_at ASC, video_id ASC`,
-    [normalizedId, targetDate]
+    )} BETWEEN $2::timestamp AND $3::timestamp ORDER BY created_at ASC, video_id ASC`,
+    [normalizedId, attendanceWindow.startJakarta, attendanceWindow.endJakarta]
   );
   return res.rows;
 }

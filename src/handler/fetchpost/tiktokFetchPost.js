@@ -11,6 +11,7 @@ import {
   fetchTiktokPostDetail,
 } from "../../service/tiktokApi.js";
 import { extractVideoId } from "../../utils/tiktokHelper.js";
+import { isWithinJakartaAttendanceWindow } from "../../utils/jakartaTime.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -23,24 +24,11 @@ const ADMIN_WHATSAPP = (process.env.ADMIN_WHATSAPP || "")
 /**
  * Cek apakah unixTimestamp adalah hari ini (Asia/Jakarta)
  */
-function isTodayJakarta(unixTimestamp) {
+function isTodayJakarta(unixTimestamp, referenceDate) {
   if (!unixTimestamp) return false;
-  
-  // Convert Unix timestamp to Date object
   const postDate = new Date(unixTimestamp * 1000);
-  
-  // Get the date string in Jakarta timezone (format: YYYY-MM-DD)
-  const postDateJakarta = postDate.toLocaleDateString("en-CA", {
-    timeZone: "Asia/Jakarta",
-  });
-  
-  // Get today's date string in Jakarta timezone (format: YYYY-MM-DD)
-  const todayJakarta = new Date().toLocaleDateString("en-CA", {
-    timeZone: "Asia/Jakarta",
-  });
-  
-  // Compare the date strings directly
-  return postDateJakarta === todayJakarta;
+  if (Number.isNaN(postDate.getTime())) return false;
+  return isWithinJakartaAttendanceWindow(postDate, referenceDate);
 }
 
 function normalizeClientId(id) {
