@@ -289,6 +289,29 @@ describe('engagementRankingExcelService', () => {
     expect(savedPath).toContain("Minggu_");
   });
 
+  test('resolve period around 00:00 WIB uses Jakarta date boundaries deterministically', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-06-30T17:00:00Z'));
+    try {
+      await collectEngagementRanking('DITBINMAS', 'ditbinmas', {
+        period: 'yesterday',
+      });
+      await collectEngagementRanking('DITBINMAS', 'ditbinmas', {
+        period: 'this_month',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    const yesterdayCall = mockGetShortcodesByDateRange.mock.calls.at(-2);
+    expect(yesterdayCall[1]).toBe('2024-06-30');
+    expect(yesterdayCall[2]).toBe('2024-06-30');
+
+    const thisMonthCall = mockGetShortcodesByDateRange.mock.calls.at(-1);
+    expect(thisMonthCall[1]).toBe('2024-07-01');
+    expect(thisMonthCall[2]).toBe('2024-07-31');
+  });
+
   test('collectEngagementRanking rejects for non directorate client', async () => {
     mockFindClientById.mockResolvedValueOnce({
       nama: 'Polres A',

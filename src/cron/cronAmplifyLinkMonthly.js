@@ -8,6 +8,7 @@ import { saveLinkReportExcel } from '../service/linkReportExcelService.js';
 import { formatToWhatsAppId, sendWAFile } from '../utils/waHelper.js';
 import { getReportsThisMonthByClient } from '../model/linkReportModel.js';
 import { acquireDistributedLock } from '../service/distributedLockService.js';
+import { toJakartaDateKey } from '../utils/jakartaTime.js';
 
 const { primaryClient } = getOperatorWaRoute();
 
@@ -19,6 +20,7 @@ const DISTRIBUTED_LOCK_KEY = 'cron:amplify-link-monthly';
 const CRON_MAX_RUN_MINUTES = 60;
 const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const CLIENT_DELAY_MS = 3000;
+const JAKARTA_TIME_ZONE = 'Asia/Jakarta';
 
 async function getActiveClients() {
   const { query } = await import('../db/index.js');
@@ -31,15 +33,24 @@ async function getActiveClients() {
   return res.rows;
 }
 
-function getJakartaDate() {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+function parseJakartaDateKey(dateKey) {
+  const [year, month, day] = (dateKey || '').split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function getJakartaDateKey(value = new Date()) {
+  return toJakartaDateKey(value);
 }
 
 function isLastDayOfMonth() {
-  const now = getJakartaDate();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  return tomorrow.getDate() === 1;
+  const todayKey = getJakartaDateKey();
+  const todayUtc = parseJakartaDateKey(todayKey);
+  if (!todayUtc) return false;
+  const tomorrowUtc = new Date(todayUtc);
+  tomorrowUtc.setUTCDate(todayUtc.getUTCDate() + 1);
+  const tomorrowKey = getJakartaDateKey(tomorrowUtc);
+  return Boolean(tomorrowKey) && tomorrowKey.endsWith('-01');
 }
 
 async function runCron() {
@@ -76,10 +87,10 @@ async function runCron() {
       const client = clients[i];
       try {
         const rows = await getReportsThisMonthByClient(client.client_id);
-        const monthName = getJakartaDate().toLocaleString('id-ID', {
+        const monthName = new Intl.DateTimeFormat('id-ID', {
           month: 'long',
-          timeZone: 'Asia/Jakarta'
-        });
+          timeZone: JAKARTA_TIME_ZONE,
+        }).format(new Date());
         const filePath = await saveLinkReportExcel(
           rows,
           client.client_id,
