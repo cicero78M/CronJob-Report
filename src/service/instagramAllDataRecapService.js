@@ -2,7 +2,12 @@ import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
 import { getRekapLikesByClient } from '../model/instaLikeModel.js';
-import { formatJakartaDate, formatJakartaTime, getJakartaNow } from '../utils/jakartaTime.js';
+import {
+  formatJakartaDate,
+  formatJakartaTime,
+  getJakartaMonthRange,
+  getJakartaNow,
+} from '../utils/jakartaTime.js';
 
 const MONTH_NAMES_ID = [
   'Januari',
@@ -20,23 +25,24 @@ const MONTH_NAMES_ID = [
 ];
 
 function buildMonthRange(now = new Date()) {
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const { endDate } = getJakartaMonthRange({ mode: 'this_month', value: now });
+  const currentMonth = endDate.getUTCMonth();
+  const currentYear = endDate.getUTCFullYear();
   const startYear = currentMonth < 8 ? currentYear - 1 : currentYear;
   const startMonth = 8; // September (0-based)
 
-  const cursor = new Date(startYear, startMonth, 1);
-  const end = new Date(currentYear, currentMonth, 1);
+  const cursor = new Date(Date.UTC(startYear, startMonth, 1));
+  const end = new Date(Date.UTC(currentYear, currentMonth, 1));
   const months = [];
 
   while (cursor <= end) {
-    const year = cursor.getFullYear();
-    const month = cursor.getMonth();
+    const year = cursor.getUTCFullYear();
+    const month = cursor.getUTCMonth();
     months.push({
       key: `${year}-${String(month + 1).padStart(2, '0')}`,
       label: `${MONTH_NAMES_ID[month]} ${year}`,
     });
-    cursor.setMonth(month + 1);
+    cursor.setUTCMonth(month + 1);
   }
 
   return months;
