@@ -2,6 +2,7 @@ import { getRekapLikesByClient } from "../model/instaLikeModel.js";
 import { getUsersByClient } from "../model/userModel.js";
 import { formatNama } from "../utils/utilsHelper.js";
 import { matchesKasatBinmasJabatan } from "./kasatkerAttendanceService.js";
+import { formatJakartaDate, getJakartaDayIndex, toJakartaDateKey } from "../utils/jakartaTime.js";
 import { 
   getPositionIndex, 
   getRankIndex 
@@ -19,14 +20,11 @@ const STATUS_SECTIONS = [
 ];
 
 function toDateInput(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return toJakartaDateKey(date) || "1970-01-01";
 }
 
 function formatDateLong(date) {
-  return date.toLocaleDateString("id-ID", {
+  return formatJakartaDate(date, {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -34,18 +32,18 @@ function formatDateLong(date) {
 }
 
 function formatDayLabel(date) {
-  const weekday = date.toLocaleDateString("id-ID", { weekday: "long" });
+  const weekday = formatJakartaDate(date, { weekday: "long" });
   return `${weekday}, ${formatDateLong(date)}`;
 }
 
 function resolveWeeklyRange(baseDate = new Date()) {
   const date = new Date(baseDate.getTime());
-  const day = date.getDay(); // 0=Sunday
+  const day = getJakartaDayIndex(date) ?? date.getDay(); // 0=Sunday
   const mondayDiff = day === 0 ? -6 : 1 - day;
   const monday = new Date(date.getTime());
   monday.setDate(date.getDate() + mondayDiff);
   const sunday = new Date(monday.getTime());
-  sunday.setDate(monday.getDate() + 6);
+  sunday.setDate(sunday.getDate() + 6);
   return {
     start: monday,
     end: sunday,
@@ -67,17 +65,14 @@ export function describeKasatBinmasLikesPeriod(period = "daily", referenceDate) 
     };
   }
   if (period === "monthly") {
-    const label = today.toLocaleDateString("id-ID", {
+    const label = formatJakartaDate(today, {
       month: "long",
       year: "numeric",
     });
     return {
       type: "bulanan",
       label: `Bulan ${label}`,
-      tanggal: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
-        2,
-        "0"
-      )}`,
+      tanggal: (toJakartaDateKey(today) || "1970-01-01").slice(0, 7),
       title: "Bulanan",
     };
   }

@@ -1,6 +1,7 @@
 import { getUsersSocialByClient } from "../../../model/userModel.js";
 import { findClientById } from "../../../service/clientService.js";
 import { formatNama, getGreeting, sortDivisionKeys } from "../../../utils/utilsHelper.js";
+import { formatJakartaDate, formatJakartaTime, getJakartaNow } from "../../../utils/jakartaTime.js";
 
 const formatUsername = (value) => {
   const trimmed = String(value || "").trim();
@@ -31,14 +32,14 @@ export async function absensiUpdateDataUsername(clientId, roleFlag = null) {
   }
 
   const salam = getGreeting();
-  const now = new Date();
-  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
-  const tanggal = now.toLocaleDateString("id-ID", {
+  const now = getJakartaNow();
+  const hari = formatJakartaDate(now, { weekday: "long" });
+  const tanggal = formatJakartaDate(now, {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
-  const jam = now.toLocaleTimeString("id-ID", {
+  const jam = formatJakartaTime(now, {
     hour: "2-digit",
     minute: "2-digit",
   });

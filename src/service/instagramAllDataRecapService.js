@@ -2,6 +2,7 @@ import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
 import { getRekapLikesByClient } from '../model/instaLikeModel.js';
+import { formatJakartaDate, formatJakartaTime, getJakartaNow } from '../utils/jakartaTime.js';
 
 const MONTH_NAMES_ID = [
   'Januari',
@@ -173,11 +174,11 @@ export async function generateInstagramAllDataRecap({
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Instagram All Data');
 
-  const now = new Date();
+  const now = getJakartaNow();
   const exportDir = path.resolve('export_data/dirrequest');
   await mkdir(exportDir, { recursive: true });
-  const tanggal = now.toLocaleDateString('id-ID');
-  const jam = now.toLocaleTimeString('id-ID', { hour12: false });
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
   const dateSafe = tanggal.replace(/\//g, '-');
   const timeSafe = jam.replace(/[:.]/g, '-');
   const clientLabel = formatClientLabel(clientName, clientId);

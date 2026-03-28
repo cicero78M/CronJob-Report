@@ -7,7 +7,9 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "lint": "eslint .",
+    "lint": "npm run lint:eslint && npm run lint:jakarta-time",
+    "lint:eslint": "eslint .",
+    "lint:jakarta-time": "node scripts/check-jakarta-timezone.js",
     "format": "prettier --write \"**/*.js\""
   },
   "dependencies": {

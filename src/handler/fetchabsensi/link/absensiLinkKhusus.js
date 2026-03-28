@@ -8,6 +8,7 @@ import {
   getReportsTodayByShortcode,
 } from "../../../model/linkReportKhususModel.js";
 import { hariIndo } from "../../../utils/constants.js";
+import { formatJakartaDate, formatJakartaTime, getJakartaDayIndex, getJakartaNow } from "../../../utils/jakartaTime.js";
 import { groupByDivision, sortDivisionKeys, getGreeting } from "../../../utils/utilsHelper.js";
 
 async function getClientInfo(client_id) {
@@ -22,10 +23,10 @@ async function getClientInfo(client_id) {
 }
 
 export async function absensiLinkKhusus(client_id, opts = {}) {
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const now = getJakartaNow();
+  const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
 
   const { nama: clientNama, clientType } = await getClientInfo(client_id);
   const roleFlag = opts.roleFlag?.toLowerCase() === "operator" ? "operator" : null;
@@ -131,10 +132,10 @@ export async function absensiLinkKhusus(client_id, opts = {}) {
 }
 
 export async function absensiLinkKhususPerPost(client_id, opts = {}) {
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const now = getJakartaNow();
+  const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
 
   const { nama: clientNama, clientType } = await getClientInfo(client_id);
   const roleFlag = opts.roleFlag?.toLowerCase() === "operator" ? "operator" : null;
