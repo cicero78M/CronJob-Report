@@ -311,7 +311,8 @@ export async function getRekapKomentarByClient(
       const idx = addParam(tanggal);
       tanggalFilter = `date_trunc('week', __DATE_FIELD__) = date_trunc('week', $${idx}::date)`;
     } else {
-      tanggalFilter = "date_trunc('week', __DATE_FIELD__) = date_trunc('week', NOW())";
+      tanggalFilter =
+        "date_trunc('week', __DATE_FIELD__) = date_trunc('week', NOW() AT TIME ZONE 'Asia/Jakarta')";
     }
   } else if (periode === "bulanan") {
     if (tanggal) {

@@ -1,5 +1,6 @@
 // src/model/instaPostModel.js
 import { query } from '../repository/db.js';
+import { toJakartaDateKey } from '../utils/jakartaTime.js';
 
 export async function upsertInstaPost(data) {
   // Pastikan field yang dipakai sesuai dengan kolom di DB
@@ -183,14 +184,12 @@ export async function getShortcodesByDateRange(identifier, startDate, endDate) {
 
 export async function getShortcodesTodayByUsername(username) {
   if (!username) return [];
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
+  const todayJakarta = toJakartaDateKey(new Date());
   const res = await query(
     `SELECT p.shortcode FROM insta_post p JOIN clients c ON c.client_id = p.client_id
-     WHERE c.client_insta = $1 AND DATE(p.created_at) = $2`,
-    [username, `${yyyy}-${mm}-${dd}`]
+     WHERE c.client_insta = $1
+       AND (p.created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
+    [username, todayJakarta]
   );
   return res.rows.map(r => r.shortcode);
 }
@@ -252,7 +251,7 @@ export async function getPostsByFilters(
   }
 
   const addDateFilter = (addParamFn) => {
-    let filter = "p.created_at::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date";
+    let filter = "(p.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date";
     if (startDate && endDate) {
       const startIdx = addParamFn(startDate);
       const endIdx = addParamFn(endDate);
@@ -383,7 +382,7 @@ export async function countPostsByClient(
       : normalizedClientId;
 
   const addDateFilter = (addParamFn) => {
-    let filter = "p.created_at::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date";
+    let filter = "(p.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date";
     if (start_date && end_date) {
       const startIdx = addParamFn(start_date);
       const endIdx = addParamFn(end_date);

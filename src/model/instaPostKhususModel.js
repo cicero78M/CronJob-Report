@@ -1,5 +1,6 @@
 // src/model/instaPostKhususModel.js
 import { query } from '../repository/db.js';
+import { toJakartaDateKey } from '../utils/jakartaTime.js';
 
 export async function upsertInstaPost(data) {
   // Pastikan field yang dipakai sesuai dengan kolom di DB
@@ -41,28 +42,24 @@ export async function findPostByShortcode(shortcode) {
 }
 
 export async function getShortcodesTodayByClient(client_id) {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
+  const todayJakarta = toJakartaDateKey(new Date());
   const res = await query(
     `SELECT shortcode FROM insta_post_khusus
-     WHERE client_id = $1 AND DATE(created_at) = $2`,
-    [client_id, `${yyyy}-${mm}-${dd}`]
+     WHERE client_id = $1
+       AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
+    [client_id, todayJakarta]
   );
   return res.rows.map(r => r.shortcode);
 }
 
 export async function getShortcodesTodayByUsername(username) {
   if (!username) return [];
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
+  const todayJakarta = toJakartaDateKey(new Date());
   const res = await query(
     `SELECT p.shortcode FROM insta_post_khusus p JOIN clients c ON c.client_id = p.client_id
-     WHERE c.client_insta = $1 AND DATE(p.created_at) = $2`,
-    [username, `${yyyy}-${mm}-${dd}`]
+     WHERE c.client_insta = $1
+       AND (p.created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
+    [username, todayJakarta]
   );
   return res.rows.map(r => r.shortcode);
 }
@@ -70,7 +67,9 @@ export async function getShortcodesTodayByUsername(username) {
 
 export async function getPostsTodayByClient(client_id) {
   const res = await query(
-    `SELECT * FROM insta_post_khusus WHERE client_id = $1 AND created_at::date = NOW()::date`,
+    `SELECT * FROM insta_post_khusus
+     WHERE client_id = $1
+       AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date`,
     [client_id]
   );
   return res.rows;
@@ -105,11 +104,11 @@ export async function getPostsByClientAndDateRange(
   } else {
     if (startDate) {
       values.push(startDate);
-      text += ` AND created_at::date >= $${values.length}`;
+      text += ` AND (created_at AT TIME ZONE 'Asia/Jakarta')::date >= $${values.length}::date`;
     }
     if (endDate) {
       values.push(endDate);
-      text += ` AND created_at::date <= $${values.length}`;
+      text += ` AND (created_at AT TIME ZONE 'Asia/Jakarta')::date <= $${values.length}::date`;
     }
   }
 
