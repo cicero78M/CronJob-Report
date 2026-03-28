@@ -4,7 +4,7 @@ import { getPostsTodayByClient } from "../model/tiktokPostModel.js";
 import { getRekapKomentarByClient } from "../model/tiktokCommentModel.js";
 import { formatNama } from "../utils/utilsHelper.js";
 import { matchesKasatBinmasJabatan } from "./kasatkerAttendanceService.js";
-import { formatJakartaDate } from "../utils/jakartaTime.js";
+import { formatJakartaDate, toJakartaDateKey } from "../utils/jakartaTime.js";
 import {
   extractUsernamesFromComments,
   normalizeUsername,
@@ -12,7 +12,6 @@ import {
 
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
 const TARGET_ROLE = "ditbinmas";
-const JAKARTA_TIMEZONE = "Asia/Jakarta";
 
 const STATUS_SECTIONS = [
   { key: "lengkap", icon: "✅", label: "Lengkap (sesuai target)" },
@@ -44,37 +43,10 @@ function rankWeight(rank) {
   return idx === -1 ? PANGKAT_ORDER.length : idx;
 }
 
-function toZonedDate(baseDate = new Date(), timeZone = JAKARTA_TIMEZONE) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
-    .formatToParts(baseDate)
-    .reduce((acc, part) => {
-      if (part.type !== "literal") acc[part.type] = part.value;
-      return acc;
-    }, {});
-
-  const year = Number(parts.year);
-  const month = Number(parts.month) - 1;
-  const day = Number(parts.day);
-  const hour = Number(parts.hour);
-  const minute = Number(parts.minute);
-  const second = Number(parts.second);
-
-  const normalizedHour = hour === 24 ? 0 : hour;
-
-  return new Date(Date.UTC(year, month, day, normalizedHour, minute, second));
-}
-
 function toJakartaDate(baseDate = new Date()) {
-  return toZonedDate(baseDate, JAKARTA_TIMEZONE);
+  const isoDate = toJakartaDateKey(baseDate);
+  if (!isoDate) return new Date();
+  return new Date(`${isoDate}T00:00:00Z`);
 }
 
 export function resolveBaseDate(referenceDate) {
