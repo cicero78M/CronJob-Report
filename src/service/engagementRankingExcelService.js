@@ -9,7 +9,7 @@ import { getPostsByClientAndDateRange } from "../model/tiktokPostModel.js";
 import { getCommentsByVideoId } from "../model/tiktokCommentModel.js";
 import { computeDitbinmasLikesStats } from "../handler/fetchabsensi/insta/ditbinmasLikesUtils.js";
 import { hariIndo } from "../utils/constants.js";
-import { formatJakartaIsoDate } from "../utils/jakartaTime.js";
+import { formatJakartaIsoDate, formatJakartaLocale, toJakartaDateKey } from "../utils/jakartaTime.js";
 
 const EXPORT_DIR = path.resolve("export_data/engagement_ranking");
 const PERIOD_DESCRIPTIONS = {
@@ -22,29 +22,36 @@ const PERIOD_DESCRIPTIONS = {
   all_time: "semua periode",
 };
 
-function getJakartaDate(baseDate = new Date()) {
-  const reference =
-    baseDate instanceof Date ? baseDate : new Date(baseDate ?? Date.now());
-  if (Number.isNaN(reference.getTime())) {
-    return new Date(NaN);
-  }
-  return new Date(
-    reference.toLocaleString("en-US", { timeZone: "Asia/Jakarta" })
-  );
+function toDateKey(value) {
+  return toJakartaDateKey(value);
 }
 
-function toDateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function dateFromJakartaKey(dateKey) {
+  const [year, month, day] = String(dateKey || "")
+    .split("-")
+    .map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function shiftJakartaDateKey(dateKey, days) {
+  const baseDate = dateFromJakartaKey(dateKey);
+  if (!baseDate) return null;
+  baseDate.setUTCDate(baseDate.getUTCDate() + Number(days || 0));
+  return `${baseDate.getUTCFullYear()}-${String(baseDate.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    baseDate.getUTCDate()
+  ).padStart(2, "0")}`;
 }
 
 function formatDayDate(date) {
-  const hari = hariIndo[date.getDay()] || date.toLocaleDateString("id-ID", {
-    weekday: "long",
-  });
-  const tanggal = date.toLocaleDateString("id-ID", {
+  const normalizedDate = dateFromJakartaKey(date) || date;
+  if (!(normalizedDate instanceof Date) || Number.isNaN(normalizedDate.getTime())) {
+    return "";
+  }
+  const hari =
+    hariIndo[normalizedDate.getUTCDay()] ||
+    formatJakartaLocale(normalizedDate, "id-ID", { weekday: "long" });
+  const tanggal = formatJakartaLocale(normalizedDate, "id-ID", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -53,7 +60,11 @@ function formatDayDate(date) {
 }
 
 function formatDateOnly(date) {
-  return date.toLocaleDateString("id-ID", {
+  const normalizedDate = dateFromJakartaKey(date) || date;
+  if (!(normalizedDate instanceof Date) || Number.isNaN(normalizedDate.getTime())) {
+    return "";
+  }
+  return formatJakartaLocale(normalizedDate, "id-ID", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -66,11 +77,11 @@ function formatDateRangeText(startDate, endDate) {
 
 function getIsoWeekNumber(date) {
   const target = new Date(date.valueOf());
-  target.setHours(0, 0, 0, 0);
-  target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7));
-  const firstThursday = new Date(target.getFullYear(), 0, 4);
-  firstThursday.setHours(0, 0, 0, 0);
-  firstThursday.setDate(firstThursday.getDate() + 3 - ((firstThursday.getDay() + 6) % 7));
+  target.setUTCHours(0, 0, 0, 0);
+  target.setUTCDate(target.getUTCDate() + 3 - ((target.getUTCDay() + 6) % 7));
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  firstThursday.setUTCHours(0, 0, 0, 0);
+  firstThursday.setUTCDate(firstThursday.getUTCDate() + 3 - ((firstThursday.getUTCDay() + 6) % 7));
   const diff = target.getTime() - firstThursday.getTime();
   return 1 + Math.round(diff / (7 * 24 * 60 * 60 * 1000));
 }
@@ -78,115 +89,123 @@ function getIsoWeekNumber(date) {
 function resolvePeriodRange(
   period = "today",
   { startDate: customStart, endDate: customEnd } = {},
-  referenceDate = getJakartaDate()
+  referenceDate = new Date()
 ) {
   const normalizedPeriod = PERIOD_DESCRIPTIONS[period] ? period : "today";
 
   if (customStart && customEnd) {
-    const start = getJakartaDate(customStart);
-    const end = getJakartaDate(customEnd);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    const startKey = toDateKey(customStart);
+    const endKey = toDateKey(customEnd);
+    if (!startKey || !endKey) {
       return resolvePeriodRange(normalizedPeriod, {}, referenceDate);
     }
-    const [startDateObj, endDateObj] =
-      start.getTime() <= end.getTime() ? [start, end] : [end, start];
+    const [startDateObj, endDateObj] = startKey <= endKey ? [startKey, endKey] : [endKey, startKey];
     const rangeLabel = `${formatDayDate(startDateObj)} - ${formatDayDate(endDateObj)}`;
     return {
       period: normalizedPeriod,
-      startDate: toDateKey(startDateObj),
-      endDate: toDateKey(endDateObj),
+      startDate: startDateObj,
+      endDate: endDateObj,
       label: `Periode Data: ${rangeLabel}`,
       description: PERIOD_DESCRIPTIONS[normalizedPeriod],
-      fileLabel: `Periode_${toDateKey(startDateObj)}_${toDateKey(endDateObj)}`,
+      fileLabel: `Periode_${startDateObj}_${endDateObj}`,
     };
   }
 
-  const now = getJakartaDate(referenceDate);
-  let startDateObj = new Date(now);
-  let endDateObj = new Date(now);
+  const nowKey = toDateKey(referenceDate);
+  const nowUtc = dateFromJakartaKey(nowKey);
+  if (!nowKey || !nowUtc) {
+    return resolvePeriodRange(normalizedPeriod, {}, new Date());
+  }
+
+  let startDateObj = nowKey;
+  let endDateObj = nowKey;
   let label;
   let fileLabel;
 
   switch (normalizedPeriod) {
     case "all_time": {
-      startDateObj = new Date(2000, 0, 1);
-      endDateObj = new Date(now);
+      startDateObj = "2000-01-01";
+      endDateObj = nowKey;
       label = `Semua periode data hingga ${formatDayDate(endDateObj)}`;
-      fileLabel = `Semua_Periode_${toDateKey(startDateObj)}_${toDateKey(endDateObj)}`;
+      fileLabel = `Semua_Periode_${startDateObj}_${endDateObj}`;
       break;
     }
     case "yesterday": {
-      startDateObj.setDate(now.getDate() - 1);
-      endDateObj = new Date(startDateObj);
+      startDateObj = shiftJakartaDateKey(nowKey, -1);
+      endDateObj = startDateObj;
       label = `Hari, Tanggal: ${formatDayDate(startDateObj)}`;
-      fileLabel = `Tanggal_${toDateKey(startDateObj)}`;
+      fileLabel = `Tanggal_${startDateObj}`;
       break;
     }
     case "this_week": {
-      const day = now.getDay();
+      const day = nowUtc.getUTCDay();
       const diffToMonday = (day + 6) % 7;
-      startDateObj.setDate(now.getDate() - diffToMonday);
-      endDateObj = new Date(startDateObj);
-      endDateObj.setDate(startDateObj.getDate() + 6);
-      const weekNumber = getIsoWeekNumber(startDateObj);
+      startDateObj = shiftJakartaDateKey(nowKey, -diffToMonday);
+      endDateObj = shiftJakartaDateKey(startDateObj, 6);
+      const weekNumber = getIsoWeekNumber(dateFromJakartaKey(startDateObj));
       const rangeText = formatDateRangeText(startDateObj, endDateObj);
       label = `Minggu ke-${weekNumber} (${rangeText})`;
-      fileLabel = `Minggu_${weekNumber}_${toDateKey(startDateObj)}_${toDateKey(endDateObj)}`;
+      fileLabel = `Minggu_${weekNumber}_${startDateObj}_${endDateObj}`;
       break;
     }
     case "last_week": {
-      const day = now.getDay();
+      const day = nowUtc.getUTCDay();
       const diffToMonday = (day + 6) % 7;
-      const thisWeekMonday = new Date(now);
-      thisWeekMonday.setDate(now.getDate() - diffToMonday);
-      startDateObj = new Date(thisWeekMonday);
-      startDateObj.setDate(thisWeekMonday.getDate() - 7);
-      endDateObj = new Date(startDateObj);
-      endDateObj.setDate(startDateObj.getDate() + 6);
-      const weekNumber = getIsoWeekNumber(startDateObj);
+      const thisWeekMonday = shiftJakartaDateKey(nowKey, -diffToMonday);
+      startDateObj = shiftJakartaDateKey(thisWeekMonday, -7);
+      endDateObj = shiftJakartaDateKey(startDateObj, 6);
+      const weekNumber = getIsoWeekNumber(dateFromJakartaKey(startDateObj));
       const rangeText = formatDateRangeText(startDateObj, endDateObj);
       label = `Minggu ke-${weekNumber} (${rangeText})`;
-      fileLabel = `Minggu_${weekNumber}_${toDateKey(startDateObj)}_${toDateKey(endDateObj)}`;
+      fileLabel = `Minggu_${weekNumber}_${startDateObj}_${endDateObj}`;
       break;
     }
     case "this_month": {
-      startDateObj = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDateObj = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const monthLabel = startDateObj.toLocaleDateString("id-ID", {
+      const year = nowUtc.getUTCFullYear();
+      const month = nowUtc.getUTCMonth() + 1;
+      startDateObj = `${year}-${String(month).padStart(2, "0")}-01`;
+      endDateObj = `${year}-${String(month).padStart(2, "0")}-${String(
+        new Date(Date.UTC(year, month, 0)).getUTCDate()
+      ).padStart(2, "0")}`;
+      const monthLabel = formatJakartaLocale(dateFromJakartaKey(startDateObj), "id-ID", {
         month: "long",
         year: "numeric",
       });
       label = `Bulan: ${monthLabel}`;
-      fileLabel = `Bulan_${startDateObj.getFullYear()}-${String(
-        startDateObj.getMonth() + 1
-      ).padStart(2, "0")}`;
+      fileLabel = `Bulan_${year}-${String(month).padStart(2, "0")}`;
       break;
     }
     case "last_month": {
-      startDateObj = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      endDateObj = new Date(now.getFullYear(), now.getMonth(), 0);
-      const monthLabel = startDateObj.toLocaleDateString("id-ID", {
+      let year = nowUtc.getUTCFullYear();
+      let month = nowUtc.getUTCMonth();
+      if (month === 0) {
+        month = 12;
+        year -= 1;
+      }
+      startDateObj = `${year}-${String(month).padStart(2, "0")}-01`;
+      endDateObj = `${year}-${String(month).padStart(2, "0")}-${String(
+        new Date(Date.UTC(year, month, 0)).getUTCDate()
+      ).padStart(2, "0")}`;
+      const monthLabel = formatJakartaLocale(dateFromJakartaKey(startDateObj), "id-ID", {
         month: "long",
         year: "numeric",
       });
       label = `Bulan: ${monthLabel}`;
-      fileLabel = `Bulan_${startDateObj.getFullYear()}-${String(
-        startDateObj.getMonth() + 1
-      ).padStart(2, "0")}`;
+      fileLabel = `Bulan_${year}-${String(month).padStart(2, "0")}`;
       break;
     }
     case "today":
     default: {
       label = `Hari, Tanggal: ${formatDayDate(startDateObj)}`;
-      fileLabel = `Tanggal_${toDateKey(startDateObj)}`;
+      fileLabel = `Tanggal_${startDateObj}`;
       break;
     }
   }
 
   return {
     period: normalizedPeriod,
-    startDate: toDateKey(startDateObj),
-    endDate: toDateKey(endDateObj),
+    startDate: startDateObj,
+    endDate: endDateObj,
     label,
     description: PERIOD_DESCRIPTIONS[normalizedPeriod],
     fileLabel,
@@ -486,16 +505,22 @@ export async function saveEngagementRankingExcel({
     endDate: customEnd,
   });
 
-  const now = getJakartaDate();
-  const hari = hariIndo[now.getDay()] || now.toLocaleDateString("id-ID", { weekday: "long" });
-  const tanggal = now.toLocaleDateString("id-ID", {
+  const now = new Date();
+  const hari = formatJakartaLocale(now, "id-ID", { weekday: "long" }) || "";
+  const tanggal = formatJakartaLocale(now, "id-ID", {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
 
-  const jam = String(now.getHours()).padStart(2, "0");
-  const menit = String(now.getMinutes()).padStart(2, "0");
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const jam = timeParts.find((part) => part.type === "hour")?.value || "00";
+  const menit = timeParts.find((part) => part.type === "minute")?.value || "00";
   const waktuPengambilan = `${jam}.${menit}`;
 
   const aoa = [
