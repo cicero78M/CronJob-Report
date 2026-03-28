@@ -21,6 +21,54 @@ import {
 
 const JAKARTA_TIMEZONE = "Asia/Jakarta";
 
+const jakartaDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: JAKARTA_TIMEZONE,
+});
+
+const jakartaTimeFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: JAKARTA_TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+const jakartaWeekdayFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: JAKARTA_TIMEZONE,
+  weekday: "long",
+});
+
+const jakartaDateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: JAKARTA_TIMEZONE,
+});
+
+const hariFromWeekday = {
+  minggu: hariIndo[0],
+  senin: hariIndo[1],
+  selasa: hariIndo[2],
+  rabu: hariIndo[3],
+  kamis: hariIndo[4],
+  jumat: hariIndo[5],
+  "jum'at": hariIndo[5],
+  sabtu: hariIndo[6],
+};
+
+function getJakartaNowParts(referenceDate = new Date(), opts = {}) {
+  const baseDate =
+    referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  const safeDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+  const weekdayRaw = jakartaWeekdayFormatter.format(safeDate).toLowerCase();
+  const normalizedWeekday = weekdayRaw.replace(/\./g, "").trim();
+  const hari = hariFromWeekday[normalizedWeekday] || hariIndo[0];
+  const tanggal = jakartaDateFormatter.format(safeDate);
+  const jam = jakartaTimeFormatter.format(safeDate);
+  const result = { hari, tanggal, jam };
+  if (opts.includeDateKey) {
+    result.dateKey = jakartaDateKeyFormatter.format(safeDate);
+  }
+  return result;
+}
+
 function toJakartaDateInput(referenceDate) {
   if (!referenceDate) return undefined;
   const baseDate = new Date(referenceDate);
@@ -156,10 +204,7 @@ export async function absensiKomentar(client_id, opts = {}) {
   const roleFlag = opts.roleFlag;
   const normalizedRole = (roleFlag || "").toLowerCase();
   const isOperatorRole = normalizedRole === "operator";
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const { hari, tanggal, jam } = getJakartaNowParts();
 
   const clientInfo = await getClientInfo(client_id);
   const clientNama = clientInfo.nama;
@@ -769,10 +814,7 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
 export async function absensiKomentarDitbinmasReport(clientId = "DITBINMAS") {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const { hari, tanggal, jam } = getJakartaNowParts();
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
 
@@ -958,11 +1000,9 @@ export async function absensiKomentarDitbinmasReport(clientId = "DITBINMAS") {
 
 export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const roleName = String(clientId || "DITBINMAS").toLowerCase();
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const dateKey = now.toDateString();
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const { hari, tanggal, jam, dateKey } = getJakartaNowParts(undefined, {
+    includeDateKey: true,
+  });
   const dateSafe = tanggal.replace(/\//g, "-");
   const timeSafe = jam.replace(/[:.]/g, "-");
   const filename = `Absensi_All_Engagement_Tiktok_${hari}_${dateSafe}_${timeSafe}.txt`;
@@ -1306,10 +1346,7 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
 
 // === PER KONTEN ===
 export async function absensiKomentarTiktokPerKonten(client_id, opts = {}) {
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const { hari, tanggal, jam } = getJakartaNowParts();
 
   const clientInfo = await getClientInfo(client_id);
   const clientNama = clientInfo.nama;
