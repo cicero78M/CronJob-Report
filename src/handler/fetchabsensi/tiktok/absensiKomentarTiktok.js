@@ -993,9 +993,9 @@ export async function absensiKomentarDitbinmasReport(clientId = "DITBINMAS") {
 
 export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const roleName = String(clientId || "DITBINMAS").toLowerCase();
-  const { hari, tanggal, jam, dateKey } = getJakartaNowParts(undefined, {
-    includeDateKey: true,
-  });
+  const now = new Date();
+  const { hari, tanggal, jam } = getJakartaNowParts(now);
+  const dateKey = jakartaDateKeyFormatter.format(now);
   const dateSafe = tanggal.replace(/\//g, "-");
   const timeSafe = jam.replace(/[:.]/g, "-");
   const filename = `Absensi_All_Engagement_Tiktok_${hari}_${dateSafe}_${timeSafe}.txt`;
