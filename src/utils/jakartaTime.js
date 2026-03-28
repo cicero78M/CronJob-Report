@@ -154,6 +154,59 @@ function buildRangeResult(mode, startIsoDate, endIsoDate) {
   };
 }
 
+
+function shiftIsoDate(isoDate, dayOffset) {
+  const date = toUtcDateFromIsoDate(isoDate);
+  const shifted = addUtcDays(date, dayOffset);
+  return shifted ? shifted.toISOString().slice(0, 10) : null;
+}
+
+export function getJakartaAttendanceWindow(referenceDate = new Date()) {
+  const referenceDateKey = toJakartaDateKey(referenceDate);
+  if (!referenceDateKey) {
+    const fallbackStartJakarta = "1970-01-01 17:00:00";
+    const fallbackEndJakarta = "1970-01-02 16:59:59";
+    const fallbackStartUtc = new Date("1970-01-01T10:00:00.000Z");
+    const fallbackEndUtc = new Date("1970-01-02T09:59:59.000Z");
+    return {
+      referenceDateKey: "1970-01-02",
+      startJakarta: fallbackStartJakarta,
+      endJakarta: fallbackEndJakarta,
+      startJakartaIso: "1970-01-01T17:00:00+07:00",
+      endJakartaIso: "1970-01-02T16:59:59+07:00",
+      startUtcDate: fallbackStartUtc,
+      endUtcDate: fallbackEndUtc,
+      startUtcIso: fallbackStartUtc.toISOString(),
+      endUtcIso: fallbackEndUtc.toISOString(),
+    };
+  }
+
+  const previousDateKey = shiftIsoDate(referenceDateKey, -1) || referenceDateKey;
+  const startJakartaIso = `${previousDateKey}T17:00:00${JAKARTA_UTC_OFFSET}`;
+  const endJakartaIso = `${referenceDateKey}T16:59:59${JAKARTA_UTC_OFFSET}`;
+  const startUtcDate = new Date(startJakartaIso);
+  const endUtcDate = new Date(endJakartaIso);
+
+  return {
+    referenceDateKey,
+    startJakarta: `${previousDateKey} 17:00:00`,
+    endJakarta: `${referenceDateKey} 16:59:59`,
+    startJakartaIso,
+    endJakartaIso,
+    startUtcDate,
+    endUtcDate,
+    startUtcIso: startUtcDate.toISOString(),
+    endUtcIso: endUtcDate.toISOString(),
+  };
+}
+
+export function isWithinJakartaAttendanceWindow(value, referenceDate = new Date()) {
+  const date = safeDate(value);
+  if (!date) return false;
+  const window = getJakartaAttendanceWindow(referenceDate);
+  if (!window?.startUtcDate || !window?.endUtcDate) return false;
+  return date >= window.startUtcDate && date <= window.endUtcDate;
+}
 export function getJakartaDayRange(value = new Date()) {
   const isoDate = toJakartaDateKey(value);
   if (!isoDate) {

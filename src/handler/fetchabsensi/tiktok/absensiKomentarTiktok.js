@@ -14,6 +14,7 @@ import {
   groupUsersByDivisionStatus,
 } from "../../../utils/utilsHelper.js";
 import { sendDebug } from "../../../middleware/debugHandler.js";
+import { getJakartaAttendanceWindow } from "../../../utils/jakartaTime.js";
 import {
   prioritizeActiveUserAtPosition,
   sortUsersByPositionRankAndName,
@@ -69,11 +70,23 @@ function getJakartaNowParts(referenceDate = new Date(), opts = {}) {
   return result;
 }
 
-function toJakartaDateInput(referenceDate) {
-  if (!referenceDate) return undefined;
-  const baseDate = new Date(referenceDate);
-  if (Number.isNaN(baseDate.getTime())) return undefined;
-  return baseDate.toLocaleDateString("en-CA", { timeZone: JAKARTA_TIMEZONE });
+
+
+async function getPostsInAbsensiWindow(clientId, options = {}) {
+  const { referenceDate, logContext } = options;
+  const attendanceWindow = getJakartaAttendanceWindow(referenceDate);
+  sendDebug({
+    tag: "ABSEN TTK",
+    msg: {
+      event: "attendance_window_active",
+      start: attendanceWindow.startJakartaIso,
+      end: attendanceWindow.endJakartaIso,
+      referenceDate: attendanceWindow.referenceDateKey,
+      ...(logContext || {}),
+    },
+    client_id: clientId,
+  });
+  return getPostsTodayByClient(clientId, referenceDate);
 }
 
 // Dapatkan nama dan username tiktok client
@@ -121,10 +134,10 @@ const PRIORITY_POSITION = 3;
 
 export async function collectKomentarRecap(clientId, opts = {}) {
   const { selfOnly, clientFilter, referenceDate } = opts;
-  const posts = await getPostsTodayByClient(
-    clientId,
-    toJakartaDateInput(referenceDate)
-  );
+  const posts = await getPostsInAbsensiWindow(clientId, {
+    referenceDate,
+    logContext: { scope: "collect_komentar_recap" },
+  });
   const videoIds = posts.map((p) => p.video_id);
   const commentSets = [];
   const failedVideoIds = [];
@@ -218,7 +231,9 @@ export async function absensiKomentar(client_id, opts = {}) {
   } else {
     users = await getUsersByClient(clientFilter || client_id, roleFlag);
   }
-  const posts = await getPostsTodayByClient(client_id);
+  const posts = await getPostsInAbsensiWindow(client_id, {
+    logContext: { scope: "absensi_komentar" },
+  });
 
   sendDebug({
     tag: "ABSEN TTK",
@@ -658,7 +673,9 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
   const clientNameUpper = String(clientName || targetClientId).toUpperCase();
-  const posts = await getPostsTodayByClient(targetClientId);
+  const posts = await getPostsInAbsensiWindow(targetClientId, {
+    logContext: { scope: "absensi_ditbinmas_simple" },
+  });
   if (!posts.length)
     return `Tidak ada konten TikTok pada akun Official ${clientNameUpper} hari ini.`;
   const kontenLinks = posts.map(
@@ -811,7 +828,9 @@ export async function absensiKomentarDitbinmasReport(clientId = "DITBINMAS") {
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
 
-  const posts = await getPostsTodayByClient(targetClientId);
+  const posts = await getPostsInAbsensiWindow(targetClientId, {
+    logContext: { scope: "absensi_ditbinmas_report" },
+  });
   if (!posts.length)
     return `Tidak ada konten TikTok pada akun Official ${clientName.toUpperCase()} hari ini.`;
   const kontenLinks = posts.map(
@@ -1004,7 +1023,9 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(clientId);
   const clientNameUpper = String(clientName || clientId || roleName).toUpperCase();
 
-  const posts = await getPostsTodayByClient(roleName);
+  const posts = await getPostsInAbsensiWindow(roleName, {
+    logContext: { scope: "laphar_tiktok_ditbinmas" },
+  });
   if (!posts.length)
     return { filename, text: `Tidak ada konten TikTok untuk ${clientNameUpper} hari ini.` };
   const kontenLinks = [];
@@ -1349,7 +1370,10 @@ export async function absensiKomentarTiktokPerKonten(client_id, opts = {}) {
       ? "Direktorat"
       : "Polres";
   const users = await getUsersByClient(client_id);
-  const posts = await getPostsTodayByClient(client_id);
+  const posts = await getPostsInAbsensiWindow(client_id, {
+    referenceDate: opts?.referenceDate,
+    logContext: { scope: "absensi_per_konten" },
+  });
   sendDebug({
     tag: "ABSEN TTK",
     msg: `Start per-konten absensi. Posts=${posts.length} users=${users.length}`,
