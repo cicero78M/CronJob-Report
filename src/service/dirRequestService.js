@@ -20,6 +20,7 @@ import {
 import { absensiRegistrasiDashboardDirektorat } from "../handler/fetchabsensi/dashboard/absensiRegistrasiDashboardDirektorat.js";
 import { findClientById } from "./clientService.js";
 import { getGreeting, sortDivisionKeys, formatNama } from "../utils/utilsHelper.js";
+import { formatJakartaDate, formatJakartaTime, getJakartaNow } from "../utils/jakartaTime.js";
 import { sendWAFile, safeSendMessage, sendWithClientFallback } from "../utils/waHelper.js";
 import { writeFile, mkdir, readFile, unlink, stat } from "fs/promises";
 import { join, basename } from "path";
@@ -182,14 +183,14 @@ export async function formatRekapUserData(clientId, roleFlag = null) {
     : null;
   const users = await getUsersSocialByClient(clientId, filterRole);
   const salam = getGreeting();
-  const now = new Date();
-  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
-  const tanggal = now.toLocaleDateString("id-ID", {
+  const now = getJakartaNow();
+  const hari = formatJakartaDate(now, { weekday: "long" });
+  const tanggal = formatJakartaDate(now, {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
-  const jam = now.toLocaleTimeString("id-ID", {
+  const jam = formatJakartaTime(now, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -435,14 +436,14 @@ export async function formatRekapBelumLengkapDirektorat(clientId, roleFlag = nul
   }
 
   const salam = getGreeting();
-  const now = new Date();
-  const hari = now.toLocaleDateString("id-ID", { weekday: "long" });
-  const tanggal = now.toLocaleDateString("id-ID", {
+  const now = getJakartaNow();
+  const hari = formatJakartaDate(now, { weekday: "long" });
+  const tanggal = formatJakartaDate(now, {
     day: "2-digit",
     month: "long",
     year: "numeric",
   });
-  const jam = now.toLocaleTimeString("id-ID", {
+  const jam = formatJakartaTime(now, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -560,13 +561,13 @@ export async function formatExecutiveSummary(clientId, roleFlag = null) {
   const percentTopTt = missingTt ? ((top10TtCount / missingTt) * 100).toFixed(1) : "0.0";
   const projectedIg = ((totals.insta + 0.7 * top10IgCount) / totals.total) * 100;
   const projectedTt = ((totals.tiktok + 0.7 * top10TtCount) / totals.total) * 100;
-  const now = new Date();
-  const dateStr = now.toLocaleDateString("id-ID", {
+  const now = getJakartaNow();
+  const dateStr = formatJakartaDate(now, {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  const timeStr = now.toLocaleTimeString("id-ID", {
+  const timeStr = formatJakartaTime(now, {
     hour: "2-digit",
     minute: "2-digit",
   });

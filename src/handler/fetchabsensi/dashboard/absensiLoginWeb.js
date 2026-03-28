@@ -1,6 +1,7 @@
 import { query } from '../../../db/index.js';
 import { getWebLoginCountsByActor } from '../../../model/loginLogModel.js';
 import { getGreeting } from '../../../utils/utilsHelper.js';
+import { formatJakartaDate, getJakartaDayIndex, getJakartaNow } from '../../../utils/jakartaTime.js';
 
 const numberFormatter = new Intl.NumberFormat('id-ID');
 const monthFormatter = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
@@ -49,9 +50,10 @@ function resolveRange({ mode, startTime, endTime }) {
   }
 
   if (!start && !end) {
-    const now = new Date();
+    const now = getJakartaNow();
     if (normalizedMode === 'mingguan') {
-      const day = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const jakartaDay = getJakartaDayIndex(now) ?? now.getDay();
+      const day = jakartaDay === 0 ? 6 : jakartaDay - 1;
       start = startOfDay(addDays(now, -day));
       end = endOfDay(addDays(start, 6));
     } else {
@@ -78,9 +80,7 @@ function resolveMonthlyRange({ startTime, endTime }) {
 }
 
 function formatDate(date) {
-  return new Date(date).toLocaleDateString('id-ID', {
-    timeZone: 'Asia/Jakarta',
-  });
+  return formatJakartaDate(new Date(date));
 }
 
 function formatMonthYear(date) {

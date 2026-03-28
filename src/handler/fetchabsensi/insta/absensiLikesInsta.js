@@ -2,6 +2,7 @@ import { query } from "../../../db/index.js";
 import { getUsersByClient } from "../../../model/userModel.js";
 import { getShortcodesTodayByClient } from "../../../model/instaPostModel.js";
 import { hariIndo } from "../../../utils/constants.js";
+import { formatJakartaDate, formatJakartaTime, getJakartaDayIndex, getJakartaNow } from "../../../utils/jakartaTime.js";
 import {
   groupByDivision,
   sortDivisionKeys,
@@ -84,10 +85,10 @@ export async function collectLikesRecap(clientId, opts = {}) {
 export async function absensiLikes(client_id, opts = {}) {
   const { clientFilter } = opts;
   const roleFlag = opts.roleFlag;
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const now = getJakartaNow();
+  const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
 
   const { nama: clientNama, clientType } = await getClientInfo(client_id);
   const allowedRoles = ["ditbinmas", "ditlantas", "bidhumas"];
@@ -336,10 +337,10 @@ export async function absensiLikes(client_id, opts = {}) {
 // === PER KONTEN ===
 export async function absensiLikesPerKonten(client_id, opts = {}) {
   const { clientFilter } = opts;
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const now = getJakartaNow();
+  const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
 
   const { nama: clientNama } = await getClientInfo(client_id);
   const users = await getUsersByClient(client_id);
@@ -490,14 +491,10 @@ export async function rekapLikesIG(client_id) {
 export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
-  const JAKARTA_TZ = "Asia/Jakarta";
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID", { timeZone: JAKARTA_TZ });
-  const jam = now.toLocaleTimeString("id-ID", {
-    hour12: false,
-    timeZone: JAKARTA_TZ,
-  });
+  const now = getJakartaNow();
+  const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
 
   let shortcodes;
   try {
@@ -613,10 +610,10 @@ export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
 export async function absensiLikesDitbinmasReport(clientId = "DITBINMAS") {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
-  const now = new Date();
-  const hari = hariIndo[now.getDay()];
-  const tanggal = now.toLocaleDateString("id-ID");
-  const jam = now.toLocaleTimeString("id-ID", { hour12: false });
+  const now = getJakartaNow();
+  const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
+  const tanggal = formatJakartaDate(now);
+  const jam = formatJakartaTime(now);
   const { nama: clientName } = await getClientInfo(targetClientId);
 
   let shortcodes;

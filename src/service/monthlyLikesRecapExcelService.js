@@ -1,6 +1,7 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
+import { formatJakartaDate, formatJakartaTime, getJakartaDayIndex, getJakartaNow } from '../utils/jakartaTime.js';
 import { hariIndo } from '../utils/constants.js';
 import { getNamaPriorityIndex } from '../utils/sqlPriority.js';
 import { getRekapLikesByClient } from '../model/instaLikeModel.js';
@@ -34,7 +35,7 @@ export async function saveMonthlyLikesRecapExcel(clientId) {
 
   const formatIso = (d) => d.toISOString().slice(0, 10);
   const formatDisplay = (d) =>
-    new Date(d).toLocaleDateString('id-ID', {
+    formatJakartaDate(new Date(d), {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -187,9 +188,9 @@ export async function saveMonthlyLikesRecapExcel(clientId) {
   const exportDir = path.resolve('export_data/monthly_likes');
   await mkdir(exportDir, { recursive: true });
 
-  const hari = hariIndo[endDate.getDay()];
-  const tanggal = endDate.toLocaleDateString('id-ID');
-  const jam = now.toLocaleTimeString('id-ID', { hour12: false });
+  const hari = hariIndo[getJakartaDayIndex(endDate) ?? endDate.getDay()];
+  const tanggal = formatJakartaDate(endDate);
+  const jam = formatJakartaTime(now);
   const dateSafe = tanggal.replace(/\//g, '-');
   const timeSafe = jam.replace(/[:.]/g, '-');
   const formattedClient = (clientId || '')
