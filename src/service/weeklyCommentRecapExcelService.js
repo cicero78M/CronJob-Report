@@ -1,7 +1,13 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
-import { formatJakartaDate, formatJakartaTime, getJakartaDayIndex, getJakartaNow } from '../utils/jakartaTime.js';
+import {
+  formatJakartaDate,
+  formatJakartaTime,
+  getJakartaDayIndex,
+  getJakartaNow,
+  getJakartaWeekRange,
+} from '../utils/jakartaTime.js';
 import { hariIndo } from '../utils/constants.js';
 import { getNamaPriorityIndex } from '../utils/sqlPriority.js';
 import { getRekapKomentarByClient } from '../model/tiktokCommentModel.js';
@@ -25,52 +31,17 @@ const RANK_ORDER = [
   'BRIPDA',
 ];
 
-const JAKARTA_TZ = 'Asia/Jakarta';
-const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const jakartaIsoFormatter = new Intl.DateTimeFormat('en-CA', {
-  timeZone: JAKARTA_TZ,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
-const jakartaDisplayFormatter = new Intl.DateTimeFormat('id-ID', {
-  timeZone: JAKARTA_TZ,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
-
-const jakartaWeekdayFormatter = new Intl.DateTimeFormat('en-US', {
-  timeZone: JAKARTA_TZ,
-  weekday: 'short',
-});
-
 function rankWeight(rank) {
   const idx = RANK_ORDER.indexOf(String(rank || '').toUpperCase());
   return idx === -1 ? RANK_ORDER.length : idx;
 }
 
 export async function saveWeeklyCommentRecapExcel(clientId, { regionalId } = {}) {
-  const today = new Date();
-  const isoToday = jakartaIsoFormatter.format(today);
-  const weekdayIdx = WEEKDAY_ABBR.indexOf(jakartaWeekdayFormatter.format(today));
-  const dayOfWeek = weekdayIdx === -1 ? today.getUTCDay() : weekdayIdx;
-  const todayJakarta = new Date(`${isoToday}T00:00:00Z`);
-  let weekStart;
-  let weekEnd;
-
-  if (dayOfWeek === 0) {
-    weekEnd = new Date(todayJakarta);
-    weekStart = new Date(weekEnd);
-    weekStart.setUTCDate(weekStart.getUTCDate() - 6);
-  } else {
-    weekEnd = new Date(todayJakarta);
-    weekEnd.setUTCDate(weekEnd.getUTCDate() - dayOfWeek);
-    weekStart = new Date(weekEnd);
-    weekStart.setUTCDate(weekStart.getUTCDate() - 6);
-  }
+  const now = getJakartaNow();
+  const { startDate: weekStart, endDate: weekEnd } = getJakartaWeekRange({
+    mode: 'this_week',
+    value: now,
+  });
 
   const ensureDate = (value) => {
     if (value instanceof Date) return new Date(value);
@@ -78,11 +49,11 @@ export async function saveWeeklyCommentRecapExcel(clientId, { regionalId } = {})
     return new Date(value);
   };
 
-  const formatIso = (d) => jakartaIsoFormatter.format(ensureDate(d));
-  const formatDisplay = (d) => jakartaDisplayFormatter.format(ensureDate(d));
+  const formatIso = (d) => ensureDate(d).toISOString().slice(0, 10);
+  const formatDisplay = (d) => formatJakartaDate(ensureDate(d));
   const formatHeaderDate = (d) => {
     const dateObj = ensureDate(d);
-    const hari = hariIndo[dateObj.getUTCDay()];
+    const hari = hariIndo[getJakartaDayIndex(dateObj) ?? dateObj.getUTCDay()];
     return `${hari || ''}, ${formatDisplay(dateObj)}`.trim().replace(/^,\s*/, '');
   };
 
@@ -354,8 +325,7 @@ export async function saveWeeklyCommentRecapExcel(clientId, { regionalId } = {})
   const fileDate = dateList.length
     ? new Date(dateList[dateList.length - 1])
     : new Date(weekEnd);
-  const now = getJakartaNow();
-  const hari = hariIndo[getJakartaDayIndex(fileDate) ?? fileDate.getDay()];
+  const hari = hariIndo[getJakartaDayIndex(fileDate) ?? fileDate.getUTCDay()];
   const tanggal = formatJakartaDate(fileDate);
   const jam = formatJakartaTime(now);
   const dateSafe = tanggal.replace(/\//g, '-');

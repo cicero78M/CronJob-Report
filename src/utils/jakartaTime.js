@@ -120,3 +120,97 @@ export function getJakartaHour(value = new Date()) {
   if (!parts) return null;
   return Number(parts.hour);
 }
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function toUtcDateFromIsoDate(isoDate) {
+  return safeDate(`${isoDate}T00:00:00Z`);
+}
+
+function addUtcDays(date, dayOffset) {
+  const base = safeDate(date);
+  if (!base) return null;
+  const next = new Date(base.getTime());
+  next.setUTCDate(next.getUTCDate() + dayOffset);
+  return next;
+}
+
+function toIsoDateFromJakartaParts(parts) {
+  if (!parts) return null;
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function buildRangeResult(mode, startIsoDate, endIsoDate) {
+  const startDate = toUtcDateFromIsoDate(startIsoDate);
+  const endDate = toUtcDateFromIsoDate(endIsoDate);
+  return {
+    mode,
+    startDate,
+    endDate,
+    startIsoDate,
+    endIsoDate,
+  };
+}
+
+export function getJakartaDayRange(value = new Date()) {
+  const isoDate = toJakartaDateKey(value);
+  if (!isoDate) {
+    return buildRangeResult("day", "1970-01-01", "1970-01-01");
+  }
+  return buildRangeResult("day", isoDate, isoDate);
+}
+
+export function getJakartaWeekRange({ mode = "this_week", value = new Date() } = {}) {
+  const todayIso = toJakartaDateKey(value);
+  if (!todayIso) {
+    return buildRangeResult(mode, "1970-01-01", "1970-01-01");
+  }
+
+  const dayIndex = getJakartaDayIndex(value);
+  const todayDate = toUtcDateFromIsoDate(todayIso);
+  const thisWeekEnd =
+    dayIndex === 0 ? todayDate : addUtcDays(todayDate, -1 * (dayIndex || 0));
+  const resolvedWeekEnd =
+    mode === "last_week" ? addUtcDays(thisWeekEnd, -7) : thisWeekEnd;
+  const resolvedWeekStart = addUtcDays(resolvedWeekEnd, -6);
+
+  const startIsoDate = formatJakartaIsoDate(resolvedWeekStart);
+  const endIsoDate = formatJakartaIsoDate(resolvedWeekEnd);
+  return buildRangeResult(mode, startIsoDate, endIsoDate);
+}
+
+export function getJakartaMonthRange({ mode = "this_month", value = new Date() } = {}) {
+  const parts = getJakartaDateParts(value);
+  if (!parts) {
+    return buildRangeResult(mode, "1970-01-01", "1970-01-01");
+  }
+
+  let targetYear = Number(parts.year);
+  let targetMonth = Number(parts.month);
+
+  if (mode === "last_month") {
+    targetMonth -= 1;
+    if (targetMonth < 1) {
+      targetMonth = 12;
+      targetYear -= 1;
+    }
+  }
+
+  const startIsoDate = `${targetYear}-${pad2(targetMonth)}-01`;
+  let endIsoDate;
+  if (mode === "this_month") {
+    endIsoDate = toIsoDateFromJakartaParts(parts);
+  } else {
+    const nextMonthYear = targetMonth === 12 ? targetYear + 1 : targetYear;
+    const nextMonth = targetMonth === 12 ? 1 : targetMonth + 1;
+    const firstNextMonth = toUtcDateFromIsoDate(
+      `${nextMonthYear}-${pad2(nextMonth)}-01`
+    );
+    const lastDayTargetMonth = addUtcDays(firstNextMonth, -1);
+    endIsoDate = formatJakartaIsoDate(lastDayTargetMonth);
+  }
+
+  return buildRangeResult(mode, startIsoDate, endIsoDate);
+}

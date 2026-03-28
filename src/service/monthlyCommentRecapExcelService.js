@@ -1,7 +1,13 @@
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import XLSX from 'xlsx';
-import { formatJakartaDate, formatJakartaTime, getJakartaDayIndex, getJakartaNow } from '../utils/jakartaTime.js';
+import {
+  formatJakartaDate,
+  formatJakartaTime,
+  getJakartaDayIndex,
+  getJakartaMonthRange,
+  getJakartaNow,
+} from '../utils/jakartaTime.js';
 import { hariIndo } from '../utils/constants.js';
 import { getNamaPriorityIndex } from '../utils/sqlPriority.js';
 import { getRekapKomentarByClient } from '../model/tiktokCommentModel.js';
@@ -31,9 +37,8 @@ function rankWeight(rank) {
 }
 
 export async function saveMonthlyCommentRecapExcel(clientId, { regionalId } = {}) {
-  const now = new Date();
-  const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endDate = new Date(now);
+  const now = getJakartaNow();
+  const { startDate, endDate } = getJakartaMonthRange({ mode: 'this_month', value: now });
 
   const formatIso = (d) => d.toISOString().slice(0, 10);
   const formatDisplay = (d) =>
@@ -44,7 +49,7 @@ export async function saveMonthlyCommentRecapExcel(clientId, { regionalId } = {}
     });
 
   const dateList = [];
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
     dateList.push(formatIso(d));
   }
 
@@ -198,7 +203,7 @@ export async function saveMonthlyCommentRecapExcel(clientId, { regionalId } = {}
   const exportDir = path.resolve('export_data/monthly_comment');
   await mkdir(exportDir, { recursive: true });
 
-  const hari = hariIndo[getJakartaDayIndex(endDate) ?? endDate.getDay()];
+  const hari = hariIndo[getJakartaDayIndex(endDate) ?? endDate.getUTCDay()];
   const tanggal = formatJakartaDate(endDate);
   const jam = formatJakartaTime(now);
   const dateSafe = tanggal.replace(/\//g, '-');
