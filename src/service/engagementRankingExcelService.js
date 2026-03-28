@@ -9,6 +9,7 @@ import { getPostsByClientAndDateRange } from "../model/tiktokPostModel.js";
 import { getCommentsByVideoId } from "../model/tiktokCommentModel.js";
 import { computeDitbinmasLikesStats } from "../handler/fetchabsensi/insta/ditbinmasLikesUtils.js";
 import { hariIndo } from "../utils/constants.js";
+import { formatJakartaIsoDate } from "../utils/jakartaTime.js";
 
 const EXPORT_DIR = path.resolve("export_data/engagement_ranking");
 const PERIOD_DESCRIPTIONS = {
@@ -485,7 +486,7 @@ export async function saveEngagementRankingExcel({
     endDate: customEnd,
   });
 
-  const now = new Date();
+  const now = getJakartaDate();
   const hari = hariIndo[now.getDay()] || now.toLocaleDateString("id-ID", { weekday: "long" });
   const tanggal = now.toLocaleDateString("id-ID", {
     day: "2-digit",
@@ -667,7 +668,7 @@ export async function saveEngagementRankingExcel({
   XLSX.utils.book_append_sheet(workbook, worksheet, "Ranking Engagement");
 
   await mkdir(EXPORT_DIR, { recursive: true });
-  const dateLabel = now.toISOString().slice(0, 10);
+  const dateLabel = formatJakartaIsoDate(now) || "tanggal_tidak_valid";
   const timeLabel = `${jam}${menit}`;
   const clientSlug = sanitizeFilename(clientName || clientId || "Direktorat");
   const periodSlug = sanitizeFilename(

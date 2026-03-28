@@ -4,6 +4,7 @@ import XLSX from "xlsx";
 import { getUsersSocialByClient, getClientsByRole } from "../model/userModel.js";
 import { findClientById } from "./clientService.js";
 import { getSatkerDspCount } from "../data/satkerDspMap.js";
+import { formatJakartaIsoDate } from "../utils/jakartaTime.js";
 
 const DIRECTORATE_ROLES = ["ditbinmas", "ditlantas", "bidhumas"];
 
@@ -323,7 +324,7 @@ export async function saveSatkerUpdateMatrixExcel({
   const exportDir = path.resolve("export_data/satker_update_matrix");
   await mkdir(exportDir, { recursive: true });
 
-  const dateLabel = now.toISOString().slice(0, 10);
+  const dateLabel = formatJakartaIsoDate(now) || "tanggal_tidak_valid";
   const safeUsername = sanitizeFilename(trimmedUsername);
   const fileName = `Ditbinmas_Satker_Update_Rank_${dateLabel}${
     safeUsername ? `_${safeUsername}` : ""
