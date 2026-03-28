@@ -1,4 +1,10 @@
 import { normalizeHandleValue } from "./handleNormalizer.js";
+import {
+  formatJakartaIsoDate,
+  formatJakartaIsoTimestamp,
+  getJakartaDateParts,
+  getJakartaHour,
+} from "./jakartaTime.js";
 
 export function sortDivisionKeys(keys) {
   const order = ["BAG", "SAT", "SI", "SPKT", "POLSEK"];
@@ -118,9 +124,9 @@ export function normalizeKomentarArr(arr) {
 }
 
 // Helper salam
-export function getGreeting() {
-  const now = new Date();
-  const hour = now.getHours();
+export function getGreeting(referenceDate = new Date()) {
+  const hour = getJakartaHour(referenceDate);
+  if (hour === null) return "Selamat malam";
   if (hour >= 4 && hour < 10) return "Selamat pagi";
   if (hour >= 10 && hour < 15) return "Selamat siang";
   if (hour >= 15 && hour < 18) return "Selamat sore";
@@ -436,45 +442,42 @@ export function extractFirstUrl(text) {
 
 export function formatDdMmYyyy(value) {
   if (!value) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d)) return null;
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  const parts = getJakartaDateParts(value);
+  if (!parts) return null;
+  return `${parts.day}/${parts.month}/${parts.year}`;
 }
 
 export function formatIsoTimestamp(value) {
   if (!value) return null;
-  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Date) return formatJakartaIsoTimestamp(value);
   const str = String(value).trim();
-  // dd/mm/yyyy or dd-mm-yyyy optionally with time HH:MM
+  // dd/mm/yyyy or dd-mm-yyyy optionally with time HH:MM (diasumsikan WIB)
   let match = str.match(/^(\d{2})[-/](\d{2})[-/](\d{4})(?:[ T](\d{2}):(\d{2}))?$/);
   if (match) {
     const [, d, m, y, hh = '00', mm = '00'] = match;
-    return `${y}-${m}-${d}T${hh}:${mm}:00Z`;
+    return `${y}-${m}-${d}T${hh}:${mm}:00+07:00`;
   }
-  // yyyy-mm-dd or yyyy/mm/dd optionally with time
+  // yyyy-mm-dd or yyyy/mm/dd optionally with time (diasumsikan WIB)
   match = str.match(/^(\d{4})[-/](\d{2})[-/](\d{2})(?:[ T](\d{2}):(\d{2}))?$/);
   if (match) {
     const [, y, m, d, hh = '00', mm = '00'] = match;
-    return `${y}-${m}-${d}T${hh}:${mm}:00Z`;
+    return `${y}-${m}-${d}T${hh}:${mm}:00+07:00`;
   }
   const d = new Date(str);
-  if (!Number.isNaN(d)) return d.toISOString();
+  if (!Number.isNaN(d)) return formatJakartaIsoTimestamp(d);
   return null;
 }
 
 export function formatIsoDate(value) {
   if (!value) return null;
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) return formatJakartaIsoDate(value);
   const str = String(value).trim();
   let match = str.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
   if (match) return `${match[3]}-${match[2]}-${match[1]}`;
   match = str.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
   if (match) return `${match[1]}-${match[2]}-${match[3]}`;
   const d = new Date(str);
-  if (!Number.isNaN(d)) return d.toISOString().slice(0, 10);
+  if (!Number.isNaN(d)) return formatJakartaIsoDate(d);
   return null;
 }
 

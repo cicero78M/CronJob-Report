@@ -6,6 +6,7 @@ import { getUsersByClient } from "../model/userModel.js";
 import { formatNama } from "../utils/utilsHelper.js";
 import { sendWAFile, safeSendMessage } from "../utils/waHelper.js";
 import { matchesKasatBinmasJabatan } from "./kasatkerAttendanceService.js";
+import { formatJakartaIsoTimestamp } from "../utils/jakartaTime.js";
 import {
   describeKasatBinmasLikesPeriod,
 } from "./kasatBinmasLikesRecapService.js";
@@ -26,9 +27,9 @@ function sanitizeLabel(label) {
 
 function buildFilename(periodLabel) {
   const now = new Date();
-  const stamp = now
-    .toISOString()
-    .replace(/[:.]/g, "-")
+  const jakartaTimestamp = formatJakartaIsoTimestamp(now) || "1970-01-01T00:00:00+07:00";
+  const stamp = jakartaTimestamp
+    .replace(/[+:]/g, "-")
     .replace(/T/, "_")
     .slice(0, 19);
   const safeLabel = sanitizeLabel(periodLabel);
