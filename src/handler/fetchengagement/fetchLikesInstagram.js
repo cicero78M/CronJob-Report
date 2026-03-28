@@ -5,6 +5,7 @@ import { sendDebug } from "../../middleware/debugHandler.js";
 import { fetchAllInstagramLikes } from "../../service/instagramApi.js";
 import { getAllExceptionUsers } from "../../model/userModel.js";
 import { saveLikeSnapshotAudit } from "../../model/instaLikeModel.js";
+import { toJakartaDateKey } from "../../utils/jakartaTime.js";
 
 const SNAPSHOT_INTERVAL_MS = 30 * 60 * 1000;
 
@@ -138,13 +139,12 @@ async function fetchAndStoreLikes(shortcode, client_id = null, snapshotWindow = 
 export async function handleFetchLikesInstagram(waClient, chatId, client_id, options = {}) {
   try {
     // Ambil semua post IG milik client hari ini
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
+    const todayJakarta = toJakartaDateKey(new Date());
     const { rows } = await query(
-      `SELECT shortcode FROM insta_post WHERE client_id = $1 AND DATE(created_at) = $2`,
-      [client_id, `${yyyy}-${mm}-${dd}`]
+      `SELECT shortcode FROM insta_post
+       WHERE client_id = $1
+         AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
+      [client_id, todayJakarta]
     );
 
     if (!rows.length) {

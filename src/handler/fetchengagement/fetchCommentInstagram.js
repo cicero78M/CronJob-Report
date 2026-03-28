@@ -5,19 +5,19 @@ import { fetchAllInstagramComments } from '../../service/instagramApi.js';
 import { insertIgPostComments } from '../../model/igPostCommentModel.js';
 import { upsertIgUser } from '../../model/instaPostExtendedModel.js';
 import * as clientService from '../../service/clientService.js';
+import { toJakartaDateKey } from '../../utils/jakartaTime.js';
 
 const limit = pLimit(3);
 
 export async function handleFetchKomentarInstagram(waClient = null, chatId = null, client_id = null) {
   try {
     const clientName = client_id ? (await clientService.findClientById(client_id))?.nama || '' : '';
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
+    const todayJakarta = toJakartaDateKey(new Date());
     const { rows } = await query(
-      `SELECT shortcode FROM insta_post WHERE client_id = $1 AND DATE(created_at) = $2`,
-      [client_id, `${yyyy}-${mm}-${dd}`]
+      `SELECT shortcode FROM insta_post
+       WHERE client_id = $1
+         AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date`,
+      [client_id, todayJakarta]
     );
     const shortcodes = rows.map((r) => r.shortcode);
     if (!shortcodes.length) {
