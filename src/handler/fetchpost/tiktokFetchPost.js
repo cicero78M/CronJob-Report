@@ -85,7 +85,6 @@ function parseCreatedAt(value) {
 
 /**
  * Cek apakah sekarang (Asia/Jakarta) berada di antara 11:00 sampai 17:15.
- * Dipakai untuk membatasi fallback RapidAPI via username agar hanya berjalan pada jam sibuk.
  */
 function isWithinJakartaFallbackWindow() {
   const nowJakarta = new Date(
@@ -96,6 +95,23 @@ function isWithinJakartaFallbackWindow() {
   const end = new Date(nowJakarta);
   end.setHours(17, 15, 0, 0);
   return nowJakarta >= start && nowJakarta <= end;
+}
+
+function parseBooleanEnv(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
+function parsePositiveIntEnv(value, fallback) {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed) || parsed < 1) return fallback;
+  return parsed;
 }
 
 export async function fetchAndStoreSingleTiktokPost(clientId, videoInput) {
@@ -279,30 +295,56 @@ export async function fetchAndStoreTiktokContent(
     throw new Error(`Client ID ${targetClientId} tidak ditemukan atau tidak aktif`);
   }
 
+  const isCronOrReportMode = !waClient;
+  const fallbackWindowRequired = parseBooleanEnv(
+    process.env.TIKTOK_USERNAME_FALLBACK_USE_WINDOW,
+    !isCronOrReportMode
+  );
+  const fallbackMaxRetriesPerClient = parsePositiveIntEnv(
+    process.env.TIKTOK_USERNAME_FALLBACK_MAX_RETRIES,
+    isCronOrReportMode ? 2 : 1
+  );
+
   for (const client of clientsToFetch) {
     let secUid;
     const username = client.client_tiktok;
     const canFallbackToUsername = Boolean(username);
-    let triedUsernameFallback = false;
+    let usernameFallbackRetryCount = 0;
     let itemList = [];
 
     const tryUsernameFallback = async (reason) => {
-      if (!canFallbackToUsername || triedUsernameFallback) return false;
-      if (!isWithinJakartaFallbackWindow()) {
+      if (!canFallbackToUsername) return false;
+
+      if (usernameFallbackRetryCount >= fallbackMaxRetriesPerClient) {
         sendDebug({
           tag: "TIKTOK FETCH",
-          msg: `${reason}. Lewati fallback RapidAPI karena di luar jam 11:00-17:15 WIB`,
+          msg: `${reason}. Lewati fallback username karena retry mencapai batas ${usernameFallbackRetryCount}/${fallbackMaxRetriesPerClient}`,
           client_id: client.id,
         });
         return false;
       }
-      triedUsernameFallback = true;
+
+      if (fallbackWindowRequired && !isWithinJakartaFallbackWindow()) {
+        sendDebug({
+          tag: "TIKTOK FETCH",
+          msg: `${reason}. Lewati fallback RapidAPI karena di luar jam 11:00-17:15 WIB (config window aktif)`,
+          client_id: client.id,
+        });
+        return false;
+      }
+
+      usernameFallbackRetryCount += 1;
       sendDebug({
         tag: "TIKTOK FETCH",
-        msg: `${reason}. Coba fallback host RapidAPI via username ${username}`,
+        msg: `${reason}. Coba fallback host RapidAPI via username ${username} (retry ${usernameFallbackRetryCount}/${fallbackMaxRetriesPerClient})`,
         client_id: client.id,
       });
       itemList = await fetchTiktokPosts(username, 35);
+      sendDebug({
+        tag: "TIKTOK FETCH",
+        msg: `Hasil fallback username: ${itemList.length} item`,
+        client_id: client.id,
+      });
       return true;
     };
 
@@ -389,7 +431,7 @@ export async function fetchAndStoreTiktokContent(
     if (
       items.length === 0 &&
       canFallbackToUsername &&
-      !triedUsernameFallback &&
+      usernameFallbackRetryCount < fallbackMaxRetriesPerClient &&
       secUid
     ) {
       try {
