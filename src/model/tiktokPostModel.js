@@ -172,6 +172,35 @@ export async function getPostsTodayByClient(client_id, referenceDate) {
 }
 
 /**
+ * Ambil semua TikTok post (row) pada tanggal kalender Jakarta berdasarkan client_id.
+ * Tidak menggunakan attendance window operasional (17:00-16:59).
+ * @param {string} client_id
+ * @param {Date|string|number} [referenceDate=new Date()]
+ * @returns {Array} Array of post object
+ */
+export async function getPostsByClientOnJakartaDate(
+  client_id,
+  referenceDate = new Date()
+) {
+  const normalizedId = normalizeClientId(client_id);
+  const baseDate =
+    referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
+  const safeDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
+  const dateKey = safeDate.toLocaleDateString("en-CA", {
+    timeZone: "Asia/Jakarta",
+  });
+
+  const res = await query(
+    `SELECT * FROM tiktok_post
+     WHERE LOWER(TRIM(client_id)) = $1
+       AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date
+     ORDER BY created_at ASC, video_id ASC`,
+    [normalizedId, dateKey]
+  );
+  return res.rows;
+}
+
+/**
  * Ambil semua TikTok post (row) untuk client tanpa filter hari
  * @param {string} client_id
  * @returns {Array} Array of post object

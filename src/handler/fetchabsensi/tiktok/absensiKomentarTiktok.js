@@ -4,7 +4,10 @@ import {
   getUsersByDirektorat,
   getClientsByRole,
 } from "../../../model/userModel.js";
-import { getPostsTodayByClient } from "../../../model/tiktokPostModel.js";
+import {
+  getPostsByClientOnJakartaDate,
+  getPostsTodayByClient,
+} from "../../../model/tiktokPostModel.js";
 import { getCommentsByVideoId } from "../../../model/tiktokCommentModel.js";
 import { hariIndo } from "../../../utils/constants.js";
 import {
@@ -1023,9 +1026,7 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(clientId);
   const clientNameUpper = String(clientName || clientId || roleName).toUpperCase();
 
-  const posts = await getPostsInAbsensiWindow(roleName, {
-    logContext: { scope: "laphar_tiktok_ditbinmas" },
-  });
+  const posts = await getPostsByClientOnJakartaDate(roleName, now);
   if (!posts.length)
     return { filename, text: `Tidak ada konten TikTok untuk ${clientNameUpper} hari ini.` };
   const kontenLinks = [];
