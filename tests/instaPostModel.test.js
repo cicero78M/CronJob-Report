@@ -25,6 +25,10 @@ beforeEach(() => {
   mockQuery.mockReset();
 });
 
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 test('findByClientId uses DISTINCT ON to avoid duplicates', async () => {
   mockQuery.mockResolvedValueOnce({ rows: [] });
   await findByClientId('c1');
@@ -125,6 +129,32 @@ test('getShortcodesYesterdayByClient uses role filter for directorate', async ()
   const sql = mockQuery.mock.calls[1][0];
   expect(sql).toContain('insta_post_roles');
   expect(sql).toContain('LOWER(pr.role_name) = LOWER($1)');
+});
+
+test('getShortcodesYesterdayByClient uses deterministic Jakarta boundary before midnight WIB (16:59:59 UTC)', async () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date('2026-01-01T16:59:59.000Z'));
+
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  await getShortcodesYesterdayByClient('C1');
+
+  expect(mockQuery.mock.calls[1][1]).toEqual(['C1', '2025-12-31']);
+});
+
+test('getShortcodesYesterdayByClient uses deterministic Jakarta boundary at midnight WIB (17:00:00 UTC)', async () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date('2026-01-01T17:00:00.000Z'));
+
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  await getShortcodesYesterdayByClient('C1');
+
+  expect(mockQuery.mock.calls[1][1]).toEqual(['C1', '2026-01-01']);
 });
 
 test('getShortcodesTodayByClient returns empty array when no post exists today (no implicit fallback date)', async () => {
