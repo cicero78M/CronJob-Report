@@ -92,6 +92,28 @@ async function getPostsInAbsensiWindow(clientId, options = {}) {
   return getPostsTodayByClient(clientId, referenceDate);
 }
 
+async function getPostsForDailyKomentarNarrative(clientId, options = {}) {
+  const { referenceDate, logContext, useAttendanceWindow = false } = options;
+  const postsToday = await getPostsByClientOnJakartaDate(clientId, referenceDate);
+
+  if (!useAttendanceWindow) {
+    return { posts: postsToday, hasPostsToday: postsToday.length > 0 };
+  }
+
+  const postsWindow = await getPostsInAbsensiWindow(clientId, {
+    referenceDate,
+    logContext: {
+      ...(logContext || {}),
+      mode: "attendance_window",
+    },
+  });
+
+  return {
+    posts: postsWindow.length ? postsWindow : postsToday,
+    hasPostsToday: postsToday.length > 0,
+  };
+}
+
 // Dapatkan nama dan username tiktok client
 async function getClientInfo(client_id) {
   const res = await query(
@@ -234,7 +256,9 @@ export async function absensiKomentar(client_id, opts = {}) {
   } else {
     users = await getUsersByClient(clientFilter || client_id, roleFlag);
   }
-  const posts = await getPostsInAbsensiWindow(client_id, {
+  const { posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(client_id, {
+    referenceDate: opts?.referenceDate,
+    useAttendanceWindow: opts?.useAttendanceWindow,
     logContext: { scope: "absensi_komentar" },
   });
 
@@ -245,7 +269,7 @@ export async function absensiKomentar(client_id, opts = {}) {
   });
 
 
-  if (!posts.length)
+  if (!posts.length && !hasPostsToday)
     return `Tidak ada konten pada akun Official Tiktok *${clientNama}* hari ini.`;
 
   const userStats = {};
@@ -676,10 +700,10 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
   const clientNameUpper = String(clientName || targetClientId).toUpperCase();
-  const posts = await getPostsInAbsensiWindow(targetClientId, {
+  const { posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(targetClientId, {
     logContext: { scope: "absensi_ditbinmas_simple" },
   });
-  if (!posts.length)
+  if (!posts.length && !hasPostsToday)
     return `Tidak ada konten TikTok pada akun Official ${clientNameUpper} hari ini.`;
   const kontenLinks = posts.map(
     (p) => `https://www.tiktok.com/@${mainUsername}/video/${p.video_id}`
@@ -831,10 +855,10 @@ export async function absensiKomentarDitbinmasReport(clientId = "DITBINMAS") {
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
 
-  const posts = await getPostsInAbsensiWindow(targetClientId, {
+  const { posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(targetClientId, {
     logContext: { scope: "absensi_ditbinmas_report" },
   });
-  if (!posts.length)
+  if (!posts.length && !hasPostsToday)
     return `Tidak ada konten TikTok pada akun Official ${clientName.toUpperCase()} hari ini.`;
   const kontenLinks = posts.map(
     (p) => `https://www.tiktok.com/@${mainUsername}/video/${p.video_id}`
@@ -1366,8 +1390,9 @@ export async function absensiKomentarTiktokPerKonten(client_id, opts = {}) {
       ? "Direktorat"
       : "Polres";
   const users = await getUsersByClient(client_id);
-  const posts = await getPostsInAbsensiWindow(client_id, {
+  const { posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(client_id, {
     referenceDate: opts?.referenceDate,
+    useAttendanceWindow: opts?.useAttendanceWindow,
     logContext: { scope: "absensi_per_konten" },
   });
   sendDebug({
@@ -1376,7 +1401,7 @@ export async function absensiKomentarTiktokPerKonten(client_id, opts = {}) {
     client_id,
   });
 
-  if (!posts.length)
+  if (!posts.length && !hasPostsToday)
     return `Tidak ada konten TikTok untuk *${clientLabel}*: *${clientNama}* hari ini.`;
 
   const mode = (opts && opts.mode) ? String(opts.mode).toLowerCase() : "all";
