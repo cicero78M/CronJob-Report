@@ -2,8 +2,7 @@
 import { query } from '../repository/db.js';
 import { toJakartaDateKey } from '../utils/jakartaTime.js';
 
-function shiftJakartaDateKey(value, dayOffset) {
-  const dateKey = toJakartaDateKey(value);
+function shiftIsoDateKey(dateKey, dayOffset) {
   if (!dateKey) return null;
   const date = new Date(`${dateKey}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + dayOffset);
@@ -97,7 +96,8 @@ export async function getShortcodesTodayByClient(identifier) {
 }
 
 export async function getShortcodesYesterdayByClient(identifier) {
-  const yesterday = shiftJakartaDateKey(new Date(), -1);
+  const todayJakarta = toJakartaDateKey(new Date());
+  const yesterday = shiftIsoDateKey(todayJakarta, -1);
 
   const typeRes = await query(
     'SELECT client_type FROM clients WHERE LOWER(client_id) = LOWER($1)',
