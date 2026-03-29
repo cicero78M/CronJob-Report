@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { toJakartaDateKey } from '../src/utils/jakartaTime.js';
 
 const mockQuery = jest.fn();
 jest.unstable_mockModule('../src/repository/db.js', () => ({
@@ -8,12 +9,14 @@ jest.unstable_mockModule('../src/repository/db.js', () => ({
 let findByClientId;
 let getShortcodesTodayByClient;
 let getShortcodesYesterdayByClient;
+let getShortcodesByDateRange;
 let countPostsByClient;
 beforeAll(async () => {
   ({
     findByClientId,
     getShortcodesTodayByClient,
     getShortcodesYesterdayByClient,
+    getShortcodesByDateRange,
     countPostsByClient
   } = await import('../src/model/instaPostModel.js'));
 });
@@ -44,7 +47,7 @@ test('getShortcodesTodayByClient filters by client for non-direktorat', async ()
 test('getShortcodesTodayByClient uses role filter for directorate', async () => {
   mockQuery
     .mockResolvedValueOnce({ rows: [{ client_type: 'direktorat' }] })
-    .mockResolvedValueOnce({ rows: [] });
+    .mockResolvedValueOnce({ rows: [{ shortcode: 'role-sc' }] });
   await getShortcodesTodayByClient('DITA');
   const sql = mockQuery.mock.calls[1][0];
   expect(sql).toContain('insta_post_roles');
@@ -98,7 +101,7 @@ test('getShortcodesTodayByClient falls back to role when client not found', asyn
 test('getShortcodesTodayByClient orders by created_at and shortcode for role filter', async () => {
   mockQuery
     .mockResolvedValueOnce({ rows: [{ client_type: 'direktorat' }] })
-    .mockResolvedValueOnce({ rows: [] });
+    .mockResolvedValueOnce({ rows: [{ shortcode: 'role-sc' }] });
   await getShortcodesTodayByClient('DITA');
   const sql = mockQuery.mock.calls[1][0];
   expect(sql).toMatch(/ORDER BY\s+p\.created_at\s+ASC,\s+p\.shortcode\s+ASC/i);
@@ -122,6 +125,31 @@ test('getShortcodesYesterdayByClient uses role filter for directorate', async ()
   const sql = mockQuery.mock.calls[1][0];
   expect(sql).toContain('insta_post_roles');
   expect(sql).toContain('LOWER(pr.role_name) = LOWER($1)');
+});
+
+test('getShortcodesTodayByClient returns empty array when no post exists today (no implicit fallback date)', async () => {
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  const result = await getShortcodesTodayByClient('C1');
+
+  expect(result).toEqual([]);
+  expect(mockQuery).toHaveBeenCalledTimes(2);
+  expect(mockQuery.mock.calls[1][1]).toEqual(['C1', toJakartaDateKey(new Date())]);
+});
+
+test('getShortcodesByDateRange uses deterministic Jakarta date keys for SQL date filter', async () => {
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  await getShortcodesByDateRange('C1', '2026-01-01T23:30:00.000Z', '2026-01-03T01:00:00.000Z');
+
+  const sql = mockQuery.mock.calls[1][0];
+  const params = mockQuery.mock.calls[1][1];
+  expect(sql).toContain("(created_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN $2::date AND $3::date");
+  expect(params).toEqual(['C1', '2026-01-02', '2026-01-03']);
 });
 
 test('countPostsByClient filters by client_id when no scope supplied', async () => {
