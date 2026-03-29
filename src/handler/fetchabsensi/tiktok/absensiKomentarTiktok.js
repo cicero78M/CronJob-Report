@@ -1132,7 +1132,7 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
     let noTiktok = 0;
 
     users.forEach((u) => {
-      if (!u.insta || u.insta.trim() === "") {
+      if (!u.tiktok || u.tiktok.trim() === "") {
         noUname.push(u);
       }
       if (!u.tiktok || u.tiktok.trim() === "") {
@@ -1196,15 +1196,13 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
     }
 
     blockLines.push("");
-    blockLines.push(`Belum Input Sosial media : ${noUname.length}`);
+    blockLines.push(`Belum Input Username TikTok : ${noUname.length}`);
     if (noUname.length) {
       blockLines.push("");
       blockLines.push(
         ...noUname.map(
           (u) =>
-            `- ${formatNama(u)}, IG ${u.insta ? u.insta : "Kosong"}, Tiktok ${
-              u.tiktok ? u.tiktok : "Kosong"
-            }`
+            `- ${formatNama(u)}, TikTok ${u.tiktok ? u.tiktok : "Kosong"}`
         )
       );
     }
@@ -1243,13 +1241,10 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
       }
       if (noUname.length) {
         if (none.length) belumLines.push("");
-        belumLines.push(`Belum Input Sosial media : ${noUname.length}`);
+        belumLines.push(`Belum Input Username TikTok : ${noUname.length}`);
         belumLines.push(
           ...noUname.map(
-            (u) =>
-              `- ${formatNama(u)}, IG ${u.insta ? u.insta : "Kosong"}, Tiktok ${
-                u.tiktok ? u.tiktok : "Kosong"
-              }`
+            (u) => `- ${formatNama(u)}, TikTok ${u.tiktok ? u.tiktok : "Kosong"}`
           )
         );
       }
@@ -1298,7 +1293,7 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
     `- Melaksanakan lengkap : ${totals.sudah} pers\n` +
     `- Melaksanakan kurang lengkap : ${totals.kurang} pers\n` +
     `Belum melaksanakan : ${totals.belum} pers\n` +
-    `Belum Update Username Tiktok : ${totals.noTiktok} pers\n\n` +
+    `Belum Update Username TikTok : ${totals.noTiktok} pers\n\n` +
     `_Kesatuan  :  Jumlah user / Sudah komentar / Komentar kurang/ Belum komentar/ Belum input TikTok_\n` +
     `${perClientBlocks.join("\n\n")}` +
     `\n\nDistribusi komentar per konten:\n${komentarDistribusi}`;

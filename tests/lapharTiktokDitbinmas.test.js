@@ -89,6 +89,47 @@ test('returns empty-day message without top-bottom highlights when no tiktok con
   expect(result.narrative).toBeUndefined();
 });
 
+test('classifies missing username based on tiktok field, not insta field', async () => {
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([{ video_id: 'v1', caption: 'Konten tes' }]);
+  mockGetCommentsByVideoId.mockResolvedValue({ comments: [{ username: 'aktifTiktok' }] });
+  mockGetClientsByRole.mockResolvedValue([]);
+  mockGetUsersByDirektorat.mockResolvedValue([
+    {
+      user_id: '1',
+      client_id: 'DITBINMAS',
+      title: 'BRIPKA',
+      nama: 'User Insta Ada',
+      tiktok: '',
+      insta: '@insta_ada',
+      status: true,
+    },
+    {
+      user_id: '2',
+      client_id: 'DITBINMAS',
+      title: 'BRIPKA',
+      nama: 'User Tiktok Ada',
+      tiktok: 'aktifTiktok',
+      insta: '',
+      status: true,
+    },
+  ]);
+  mockQuery.mockResolvedValue({
+    rows: [{ nama: 'DITBINMAS', client_tiktok: '@ditbinmas', client_type: 'direktorat' }],
+  });
+
+  let lapharTiktokDitbinmas;
+  await jest.isolateModulesAsync(async () => {
+    ({ lapharTiktokDitbinmas } = await import('../src/handler/fetchabsensi/tiktok/absensiKomentarTiktok.js'));
+  });
+
+  const result = await lapharTiktokDitbinmas();
+
+  expect(result.text).toMatch(/\*DITBINMAS\* : 2 \/ 1 \/ 0 \/ 1 \/ 1 \/ 1/);
+  expect(result.text).toMatch(/Belum Input Username TikTok : 1/);
+  expect(result.text).toContain('User Insta Ada, TikTok Kosong');
+  expect(result.text).not.toContain('User Tiktok Ada, TikTok Kosong');
+});
+
 afterAll(() => {
   jest.resetModules();
 });
