@@ -2,6 +2,14 @@
 import { query } from '../repository/db.js';
 import { toJakartaDateKey } from '../utils/jakartaTime.js';
 
+function shiftJakartaDateKey(value, dayOffset) {
+  const dateKey = toJakartaDateKey(value);
+  if (!dateKey) return null;
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
 export async function upsertInstaPost(data) {
   // Pastikan field yang dipakai sesuai dengan kolom di DB
   const {
@@ -42,9 +50,7 @@ export async function findPostByShortcode(shortcode) {
 }
 
 export async function getShortcodesTodayByClient(identifier) {
-  const today = new Date().toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Jakarta'
-  });
+  const today = toJakartaDateKey(new Date());
 
   const typeRes = await query(
     'SELECT client_type FROM clients WHERE LOWER(client_id) = LOWER($1)',
@@ -91,11 +97,7 @@ export async function getShortcodesTodayByClient(identifier) {
 }
 
 export async function getShortcodesYesterdayByClient(identifier) {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  const yesterday = date.toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Jakarta'
-  });
+  const yesterday = shiftJakartaDateKey(new Date(), -1);
 
   const typeRes = await query(
     'SELECT client_type FROM clients WHERE LOWER(client_id) = LOWER($1)',
@@ -140,12 +142,8 @@ export async function getShortcodesByDateRange(identifier, startDate, endDate) {
     return [];
   }
 
-  const startStr = start.toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Jakarta'
-  });
-  const endStr = end.toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Jakarta'
-  });
+  const startStr = toJakartaDateKey(start);
+  const endStr = toJakartaDateKey(end);
 
   const [startBound, endBound] = startStr <= endStr ? [startStr, endStr] : [endStr, startStr];
 
