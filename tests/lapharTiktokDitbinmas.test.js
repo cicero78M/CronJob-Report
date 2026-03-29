@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 
 const mockQuery = jest.fn();
 const mockGetPostsTodayByClient = jest.fn();
+const mockGetPostsByClientOnJakartaDate = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockGetUsersByDirektorat = jest.fn();
 const mockGetClientsByRole = jest.fn();
@@ -10,6 +11,7 @@ const mockSendDebug = jest.fn();
 jest.unstable_mockModule('../src/db/index.js', () => ({ query: mockQuery }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
   getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockGetPostsByClientOnJakartaDate,
   findPostByVideoId: jest.fn(),
   deletePostByVideoId: jest.fn(),
 }));
@@ -31,7 +33,7 @@ beforeEach(() => {
 });
 
 test('builds analytical narrative with key metrics', async () => {
-  mockGetPostsTodayByClient.mockResolvedValue([
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([
     { video_id: 'v1', caption: 'Caption A unggulan' },
     { video_id: 'v2', caption: 'Caption B evaluasi' },
   ]);
@@ -68,6 +70,23 @@ test('builds analytical narrative with key metrics', async () => {
   expect(result.text).toMatch(/Distribusi komentar per konten:/);
   expect(result.text).toMatch(/1\. https:\/\/www\.tiktok\.com\/\@ditbinmas\/video\/v1 — 2 akun/);
   expect(result.narrative).toMatch(/DIREKTORAT BINMAS/);
+});
+
+test('returns empty-day message without top-bottom highlights when no tiktok content today', async () => {
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([]);
+  mockQuery.mockResolvedValue({
+    rows: [{ nama: 'Direktorat Binmas', client_tiktok: '@ditbinmas', client_type: 'direktorat' }],
+  });
+
+  let lapharTiktokDitbinmas;
+  await jest.isolateModulesAsync(async () => {
+    ({ lapharTiktokDitbinmas } = await import('../src/handler/fetchabsensi/tiktok/absensiKomentarTiktok.js'));
+  });
+
+  const result = await lapharTiktokDitbinmas();
+
+  expect(result.text).toBe('Tidak ada konten TikTok untuk DIREKTORAT BINMAS hari ini.');
+  expect(result.narrative).toBeUndefined();
 });
 
 afterAll(() => {
