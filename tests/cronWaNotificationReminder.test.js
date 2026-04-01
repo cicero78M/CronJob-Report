@@ -178,6 +178,36 @@ test('runCron includes TikTok incomplete section when same-day TikTok comment is
   );
 });
 
+test('runCron keeps TikTok reminder list for directorate users when TikTok post recap contains satker-owned posts', async () => {
+  mockGetActiveUsersWithWhatsapp.mockResolvedValue([
+    {
+      whatsapp: '081234567890',
+      wa_notification_opt_in: true,
+      client_id: 'DITBINMAS',
+      insta: 'user1',
+      tiktok: 'tt1',
+      nama: 'User Directorate',
+    },
+  ]);
+
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([
+    { video_id: '98765', client_id: 'SATKER_A' },
+  ]);
+  mockGetCommentsByVideoId.mockResolvedValue({ comments: [{ username: 'another-user' }] });
+
+  await runCron();
+
+  expect(mockSendWithClientFallback).toHaveBeenCalledWith(
+    expect.objectContaining({
+      chatId: '081234567890@c.us',
+      message: expect.stringContaining('Konten TikTok yang perlu diselesaikan:'),
+    })
+  );
+  expect(mockSendWithClientFallback.mock.calls[0][0].message).toContain(
+    'https://www.tiktok.com/@ditbinmas/video/98765'
+  );
+});
+
 test('runCron sends staged follow-ups for users still incomplete', async () => {
   mockGetActiveUsersWithWhatsapp.mockResolvedValue([
     {

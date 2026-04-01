@@ -1,6 +1,6 @@
 // src/model/tiktokPostModel.js
 import { query } from '../repository/db.js';
-import { getJakartaAttendanceWindow } from '../utils/jakartaTime.js';
+import { getJakartaAttendanceWindow, toJakartaDateKey } from '../utils/jakartaTime.js';
 
 function normalizeClientId(id) {
   return typeof id === "string" ? id.trim().toLowerCase() : id;
@@ -161,6 +161,56 @@ export async function getVideoIdsTodayByClient(client_id, referenceDate) {
  */
 export async function getPostsTodayByClient(client_id, referenceDate) {
   const normalizedId = normalizeClientId(client_id);
+  const dateKey = toJakartaDateKey(referenceDate || new Date());
+  const typeRes = await query(
+    'SELECT client_type FROM clients WHERE LOWER(TRIM(client_id)) = $1 LIMIT 1',
+    [normalizedId]
+  );
+
+  const clientType = typeRes.rows[0]?.client_type?.toLowerCase();
+  const isDitbinmas = normalizedId === 'ditbinmas';
+  const useRoleFilter =
+    typeRes.rows.length === 0 || (clientType === 'direktorat' && !isDitbinmas);
+
+  let rows = [];
+
+  if (useRoleFilter) {
+    const roleRes = await query(
+      `SELECT p.* FROM tiktok_post p
+       JOIN tiktok_post_roles pr ON pr.video_id = p.video_id
+       WHERE LOWER(TRIM(pr.role_name)) = LOWER($1)
+         AND ${jakartaDateCast("p.created_at")}::date = $2::date
+       ORDER BY p.created_at ASC, p.video_id ASC`,
+      [normalizedId, dateKey]
+    );
+    rows = roleRes.rows;
+  } else {
+    const directRes = await query(
+      `SELECT * FROM tiktok_post
+       WHERE LOWER(TRIM(client_id)) = $1
+         AND ${jakartaDateCast("created_at")}::date = $2::date
+       ORDER BY created_at ASC, video_id ASC`,
+      [normalizedId, dateKey]
+    );
+    rows = directRes.rows;
+  }
+
+  if (useRoleFilter && clientType === 'direktorat' && rows.length === 0) {
+    const fallbackRes = await query(
+      `SELECT * FROM tiktok_post
+       WHERE LOWER(TRIM(client_id)) = $1
+         AND ${jakartaDateCast("created_at")}::date = $2::date
+       ORDER BY created_at ASC, video_id ASC`,
+      [normalizedId, dateKey]
+    );
+    rows = fallbackRes.rows;
+  }
+
+  return rows;
+}
+
+export async function getPostsInAttendanceWindowByClient(client_id, referenceDate) {
+  const normalizedId = normalizeClientId(client_id);
   const attendanceWindow = getJakartaAttendanceWindow(referenceDate);
   const res = await query(
     `SELECT * FROM tiktok_post WHERE LOWER(TRIM(client_id)) = $1 AND ${jakartaDateCast(
@@ -182,22 +232,7 @@ export async function getPostsByClientOnJakartaDate(
   client_id,
   referenceDate = new Date()
 ) {
-  const normalizedId = normalizeClientId(client_id);
-  const baseDate =
-    referenceDate instanceof Date ? referenceDate : new Date(referenceDate);
-  const safeDate = Number.isNaN(baseDate.getTime()) ? new Date() : baseDate;
-  const dateKey = safeDate.toLocaleDateString("en-CA", {
-    timeZone: "Asia/Jakarta",
-  });
-
-  const res = await query(
-    `SELECT * FROM tiktok_post
-     WHERE LOWER(TRIM(client_id)) = $1
-       AND (created_at AT TIME ZONE 'Asia/Jakarta')::date = $2::date
-     ORDER BY created_at ASC, video_id ASC`,
-    [normalizedId, dateKey]
-  );
-  return res.rows;
+  return getPostsTodayByClient(client_id, referenceDate);
 }
 
 /**
