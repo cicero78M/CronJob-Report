@@ -3,6 +3,8 @@ import { jest } from '@jest/globals';
 const mockQuery = jest.fn();
 const mockGetUsersByDirektorat = jest.fn();
 const mockGetPostsTodayByClient = jest.fn();
+const mockGetPostsByClientOnJakartaDate = jest.fn();
+const mockGetPostsInAttendanceWindowByClient = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockSendDebug = jest.fn();
 
@@ -14,6 +16,8 @@ jest.unstable_mockModule('../src/model/userModel.js', () => ({
 }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
   getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockGetPostsByClientOnJakartaDate,
+  getPostsInAttendanceWindowByClient: mockGetPostsInAttendanceWindowByClient,
   findPostByVideoId: jest.fn(),
   deletePostByVideoId: jest.fn(),
 }));
@@ -30,6 +34,8 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([]);
+  mockGetPostsInAttendanceWindowByClient.mockResolvedValue([]);
 });
 
 test('aggregates directorate data per client', async () => {
@@ -42,6 +48,8 @@ test('aggregates directorate data per client', async () => {
     { user_id: 2, client_id: 'polres_b', tiktok: 'userb', status: true, exception: false },
   ]);
   mockGetPostsTodayByClient.mockResolvedValueOnce([{ video_id: 'v1' }]);
+  mockGetPostsByClientOnJakartaDate.mockResolvedValueOnce([{ video_id: 'v1' }]);
+  mockGetPostsInAttendanceWindowByClient.mockResolvedValueOnce([{ video_id: 'v1' }]);
   mockGetCommentsByVideoId.mockResolvedValueOnce({ comments: [{ username: 'usera' }] });
 
   const msg = await absensiKomentar('ditbinmas', { roleFlag: 'ditbinmas' });
@@ -62,6 +70,8 @@ test('sorts satker reports with Ditbinmas first and by percentage and count', as
     return { rows: [{ nama: cid, client_tiktok: '', client_type: 'org' }] };
   });
   mockGetPostsTodayByClient.mockResolvedValueOnce([{ video_id: 'v1' }]);
+  mockGetPostsByClientOnJakartaDate.mockResolvedValueOnce([{ video_id: 'v1' }]);
+  mockGetPostsInAttendanceWindowByClient.mockResolvedValueOnce([{ video_id: 'v1' }]);
 
   function createUsers(clientId, total) {
     const normalizedId = clientId.toLowerCase();

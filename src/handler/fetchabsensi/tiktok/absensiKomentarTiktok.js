@@ -6,7 +6,7 @@ import {
 } from "../../../model/userModel.js";
 import {
   getPostsByClientOnJakartaDate,
-  getPostsTodayByClient,
+  getPostsInAttendanceWindowByClient,
 } from "../../../model/tiktokPostModel.js";
 import { getCommentsByVideoId } from "../../../model/tiktokCommentModel.js";
 import { hariIndo } from "../../../utils/constants.js";
@@ -89,7 +89,7 @@ async function getPostsInAbsensiWindow(clientId, options = {}) {
     },
     client_id: clientId,
   });
-  return getPostsTodayByClient(clientId, referenceDate);
+  return getPostsInAttendanceWindowByClient(clientId, referenceDate);
 }
 
 async function getPostsForDailyKomentarNarrative(clientId, options = {}) {
