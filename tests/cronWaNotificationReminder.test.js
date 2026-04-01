@@ -7,7 +7,7 @@ const mockFormatToWhatsAppId = jest.fn((digits) => `${digits}@c.us`);
 const mockGetActiveUsersWithWhatsapp = jest.fn();
 const mockGetShortcodesTodayByClient = jest.fn();
 const mockGetLikesByShortcode = jest.fn();
-const mockGetPostsTodayByClient = jest.fn();
+const mockGetPostsByClientOnJakartaDate = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockFindClientById = jest.fn();
 const mockNormalizeInsta = jest.fn((username) => (username || '').toLowerCase());
@@ -44,7 +44,7 @@ jest.unstable_mockModule('../src/model/instaLikeModel.js', () => ({
 }));
 
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
-  getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockGetPostsByClientOnJakartaDate,
 }));
 
 jest.unstable_mockModule('../src/model/tiktokCommentModel.js', () => ({
@@ -91,7 +91,7 @@ beforeEach(async () => {
 
   mockGetShortcodesTodayByClient.mockResolvedValue([]);
   mockGetLikesByShortcode.mockResolvedValue([]);
-  mockGetPostsTodayByClient.mockResolvedValue([]);
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([]);
   mockGetCommentsByVideoId.mockResolvedValue({ comments: [] });
   mockFindClientById.mockResolvedValue({ client_tiktok: '@ditbinmas' });
 
@@ -146,10 +146,36 @@ test('runCron only sends reminders for DITBINMAS and BIDHUMAS users', async () =
   );
   expect(mockGetShortcodesTodayByClient).toHaveBeenCalledWith('DITBINMAS');
   expect(mockGetShortcodesTodayByClient).toHaveBeenCalledWith('BIDHUMAS');
-  expect(mockGetPostsTodayByClient).toHaveBeenCalledWith('DITBINMAS');
-  expect(mockGetPostsTodayByClient).toHaveBeenCalledWith('BIDHUMAS');
+  expect(mockGetPostsByClientOnJakartaDate).toHaveBeenCalledWith('DITBINMAS', expect.any(Date));
+  expect(mockGetPostsByClientOnJakartaDate).toHaveBeenCalledWith('BIDHUMAS', expect.any(Date));
   expect(mockFindClientById).toHaveBeenCalledWith('DITBINMAS');
   expect(mockFindClientById).toHaveBeenCalledWith('BIDHUMAS');
+});
+
+test('runCron includes TikTok incomplete section when same-day TikTok comment is missing', async () => {
+  mockGetActiveUsersWithWhatsapp.mockResolvedValue([
+    {
+      whatsapp: '081234567890',
+      wa_notification_opt_in: true,
+      client_id: 'DITBINMAS',
+      insta: 'user1',
+      tiktok: 'tt1',
+      nama: 'User Binmas',
+    },
+  ]);
+
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([{ video_id: '12345' }]);
+  mockGetCommentsByVideoId.mockResolvedValue({ comments: [{ username: 'other-user' }] });
+
+  await runCron();
+
+  expect(mockSendWithClientFallback).toHaveBeenCalledTimes(1);
+  expect(mockSendWithClientFallback).toHaveBeenCalledWith(
+    expect.objectContaining({
+      chatId: '081234567890@c.us',
+      message: expect.stringContaining('Konten TikTok yang perlu diselesaikan:'),
+    })
+  );
 });
 
 test('runCron sends staged follow-ups for users still incomplete', async () => {
