@@ -3,7 +3,7 @@ import { sendWithClientFallback, formatToWhatsAppId } from "../utils/waHelper.js
 import { getActiveUsersWithWhatsapp } from "../model/userModel.js";
 import { getShortcodesTodayByClient } from "../model/instaPostModel.js";
 import { getLikesByShortcode } from "../model/instaLikeModel.js";
-import { getPostsTodayByClient as getTiktokPostsToday } from "../model/tiktokPostModel.js";
+import { getPostsByClientOnJakartaDate } from "../model/tiktokPostModel.js";
 import { getCommentsByVideoId } from "../model/tiktokCommentModel.js";
 import { findClientById } from "../service/clientService.js";
 import { normalizeUsername as normalizeInsta } from "../utils/likesHelper.js";
@@ -135,7 +135,7 @@ async function getClientTaskRecap(clientId, cache) {
   }
 
   try {
-    recap.tiktokPosts = await getTiktokPostsToday(clientId);
+    recap.tiktokPosts = await getPostsByClientOnJakartaDate(clientId, new Date());
   } catch (error) {
     console.error("Failed to get TikTok posts for recap", error);
     recap.tiktokPosts = [];
