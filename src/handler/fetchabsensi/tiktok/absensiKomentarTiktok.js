@@ -158,11 +158,18 @@ const PRIORITY_NRP = "68020196";
 const PRIORITY_POSITION = 3;
 
 export async function collectKomentarRecap(clientId, opts = {}) {
-  const { selfOnly, clientFilter, referenceDate } = opts;
-  const posts = await getPostsInAbsensiWindow(clientId, {
+  const {
+    selfOnly,
+    clientFilter,
     referenceDate,
-    logContext: { scope: "collect_komentar_recap" },
-  });
+    useAttendanceWindow = false,
+  } = opts;
+  const posts = useAttendanceWindow
+    ? await getPostsInAbsensiWindow(clientId, {
+        referenceDate,
+        logContext: { scope: "collect_komentar_recap" },
+      })
+    : await getPostsByClientOnJakartaDate(clientId, referenceDate);
   const videoIds = posts.map((p) => p.video_id);
   const commentSets = [];
   const failedVideoIds = [];
