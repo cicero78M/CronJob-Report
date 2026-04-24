@@ -4,7 +4,8 @@ const mockQuery = jest.fn();
 const mockGetUsersByDirektorat = jest.fn();
 const mockGetClientsByRole = jest.fn();
 const mockGetUsersByClient = jest.fn();
-const mockGetPostsTodayByClient = jest.fn();
+const mockGetPostsByClientOnJakartaDate = jest.fn();
+const mockGetPostsInAttendanceWindowByClient = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockSendDebug = jest.fn();
 
@@ -15,7 +16,8 @@ jest.unstable_mockModule('../src/model/userModel.js', () => ({
   getUsersByClient: mockGetUsersByClient,
 }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
-  getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockGetPostsByClientOnJakartaDate,
+  getPostsInAttendanceWindowByClient: mockGetPostsInAttendanceWindowByClient,
   findPostByVideoId: jest.fn(),
   deletePostByVideoId: jest.fn(),
 }));
@@ -28,6 +30,7 @@ jest.unstable_mockModule('../src/utils/utilsHelper.js', () => ({
   groupByDivision: () => ({}),
   sortDivisionKeys: () => [],
   formatNama: () => '',
+  groupUsersByDivisionStatus: () => ({}),
 }));
 jest.unstable_mockModule('../src/utils/sqlPriority.js', () => ({
   getNamaPriorityIndex: () => 0,
@@ -38,14 +41,11 @@ jest.unstable_mockModule('../src/middleware/debugHandler.js', () => ({
 
 let collectKomentarRecap;
 
-const toJakartaDateInput = (date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
-
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
-test('collectKomentarRecap forwards Jakarta-normalized referenceDate to TikTok post query', async () => {
+test('collectKomentarRecap forwards referenceDate to Jakarta calendar-day post query', async () => {
   const originalTZ = process.env.TZ;
   process.env.TZ = 'UTC';
   mockQuery.mockResolvedValueOnce({
@@ -54,7 +54,7 @@ test('collectKomentarRecap forwards Jakarta-normalized referenceDate to TikTok p
   mockGetUsersByDirektorat.mockResolvedValue([]);
   mockGetClientsByRole.mockResolvedValue([]);
   mockGetUsersByClient.mockResolvedValue([]);
-  mockGetPostsTodayByClient.mockResolvedValue([{ video_id: 'VID-1' }]);
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([{ video_id: 'VID-1' }]);
   mockGetCommentsByVideoId.mockResolvedValue({ comments: [] });
 
   try {
@@ -65,15 +65,45 @@ test('collectKomentarRecap forwards Jakarta-normalized referenceDate to TikTok p
     });
 
     const referenceDate = new Date('2024-01-01T18:00:00.000Z');
-    const expectedDate = toJakartaDateInput(referenceDate);
-
     await collectKomentarRecap('polres_a', { selfOnly: true, referenceDate });
 
-    expect(mockGetPostsTodayByClient).toHaveBeenCalledWith(
+    expect(mockGetPostsByClientOnJakartaDate).toHaveBeenCalledWith(
       'polres_a',
-      expectedDate
+      referenceDate
     );
+    expect(mockGetPostsInAttendanceWindowByClient).not.toHaveBeenCalled();
   } finally {
     process.env.TZ = originalTZ;
   }
+});
+
+test('collectKomentarRecap can explicitly use attendance window query when requested', async () => {
+  mockQuery.mockResolvedValueOnce({
+    rows: [{ nama: 'POLRES A', client_tiktok: '@polresa', client_type: 'org' }],
+  });
+  mockGetUsersByDirektorat.mockResolvedValue([]);
+  mockGetClientsByRole.mockResolvedValue([]);
+  mockGetUsersByClient.mockResolvedValue([]);
+  mockGetPostsInAttendanceWindowByClient.mockResolvedValue([{ video_id: 'VID-2' }]);
+  mockGetCommentsByVideoId.mockResolvedValue({ comments: [] });
+
+  await jest.isolateModulesAsync(async () => {
+    ({ collectKomentarRecap } = await import(
+      '../src/handler/fetchabsensi/tiktok/absensiKomentarTiktok.js'
+    ));
+  });
+
+  const referenceDate = new Date('2024-01-01T18:00:00.000Z');
+
+  await collectKomentarRecap('polres_a', {
+    selfOnly: true,
+    referenceDate,
+    useAttendanceWindow: true,
+  });
+
+  expect(mockGetPostsInAttendanceWindowByClient).toHaveBeenCalledWith(
+    'polres_a',
+    referenceDate
+  );
+  expect(mockGetPostsByClientOnJakartaDate).not.toHaveBeenCalled();
 });
