@@ -11,9 +11,6 @@ let getVideoIdsTodayByClient;
 let getPostsInAttendanceWindowByClient;
 let countPostsByClient;
 
-const toJakartaDateInput = (date) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
-
 beforeAll(async () => {
   ({ getPostsTodayByClient, getVideoIdsTodayByClient, getPostsInAttendanceWindowByClient, countPostsByClient } = await import(
     '../src/model/tiktokPostModel.js'
@@ -28,27 +25,24 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-test('getPostsTodayByClient filters by Jakarta date and orders results', async () => {
+test('getPostsTodayByClient applies daily recap window (00:01 WIB until now) and orders results', async () => {
   jest.useFakeTimers().setSystemTime(new Date('2024-07-01T17:00:00.000Z'));
   mockQuery
     .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
     .mockResolvedValueOnce({ rows: [] });
 
-  const expectedDate = toJakartaDateInput(new Date('2024-07-01T17:00:00.000Z'));
-
   await getPostsTodayByClient('Client 1');
 
   expect(mockQuery).toHaveBeenNthCalledWith(
     2,
-    expect.stringMatching(/AT TIME ZONE 'UTC'\)\s*AT TIME ZONE 'Asia\/Jakarta'\)\:\:date = \$2\:\:date/i),
-    ['client 1', expectedDate]
+    expect.stringMatching(/AT TIME ZONE 'UTC'\)\s*AT TIME ZONE 'Asia\/Jakarta'\)\s+BETWEEN \$2::timestamp AND \$3::timestamp/i),
+    ['client 1', '2024-07-02 00:01:00', '2024-07-02 00:00:00']
   );
   expect(mockQuery.mock.calls[1][0]).toMatch(/ORDER BY\s+created_at\s+ASC,\s+video_id\s+ASC/i);
 });
 
 test('getPostsTodayByClient applies role query for direktorat and falls back to client_id when role result is empty', async () => {
   const referenceDate = new Date('2024-06-30T17:00:00.000Z');
-  const expectedDate = toJakartaDateInput(referenceDate);
 
   mockQuery
     .mockResolvedValueOnce({ rows: [{ client_type: 'direktorat' }] })
@@ -59,9 +53,24 @@ test('getPostsTodayByClient applies role query for direktorat and falls back to 
 
   expect(mockQuery).toHaveBeenCalledTimes(3);
   expect(mockQuery.mock.calls[1][0]).toContain('JOIN tiktok_post_roles pr ON pr.video_id = p.video_id');
-  expect(mockQuery.mock.calls[1][1]).toEqual(['ditlantas', expectedDate]);
+  expect(mockQuery.mock.calls[1][1]).toEqual(['ditlantas', '2024-07-01 00:01:00', '2024-07-01 00:00:00']);
   expect(mockQuery.mock.calls[2][0]).toContain('WHERE LOWER(TRIM(client_id)) = $1');
   expect(rows).toEqual([{ video_id: 'vid-fallback' }]);
+});
+
+test('getPostsTodayByClient uses execution time as daily window upper bound', async () => {
+  const referenceDate = new Date('2024-06-30T20:05:20.000Z'); // 2024-07-01 03:05:20 WIB
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  await getPostsTodayByClient('Client 5', referenceDate);
+
+  expect(mockQuery.mock.calls[1][1]).toEqual([
+    'client 5',
+    '2024-07-01 00:01:00',
+    '2024-07-01 03:05:20',
+  ]);
 });
 
 test('getVideoIdsTodayByClient applies Jakarta date filter for reference date', async () => {

@@ -200,6 +200,48 @@ export function getJakartaAttendanceWindow(referenceDate = new Date()) {
   };
 }
 
+export function getJakartaDailyRecapWindow(referenceDate = new Date()) {
+  const referenceDateKey = toJakartaDateKey(referenceDate);
+  if (!referenceDateKey) {
+    const fallbackStartJakarta = "1970-01-01 00:01:00";
+    const fallbackEndJakarta = "1970-01-01 00:01:00";
+    const fallbackStartUtc = new Date("1969-12-31T17:01:00.000Z");
+    const fallbackEndUtc = new Date("1969-12-31T17:01:00.000Z");
+    return {
+      referenceDateKey: "1970-01-01",
+      startJakarta: fallbackStartJakarta,
+      endJakarta: fallbackEndJakarta,
+      startJakartaIso: "1970-01-01T00:01:00+07:00",
+      endJakartaIso: "1970-01-01T00:01:00+07:00",
+      startUtcDate: fallbackStartUtc,
+      endUtcDate: fallbackEndUtc,
+      startUtcIso: fallbackStartUtc.toISOString(),
+      endUtcIso: fallbackEndUtc.toISOString(),
+    };
+  }
+
+  const referenceParts = getJakartaDateParts(referenceDate);
+  const endClock = referenceParts
+    ? `${referenceParts.hour}:${referenceParts.minute}:${referenceParts.second}`
+    : "00:01:00";
+  const startJakartaIso = `${referenceDateKey}T00:01:00${JAKARTA_UTC_OFFSET}`;
+  const endJakartaIso = `${referenceDateKey}T${endClock}${JAKARTA_UTC_OFFSET}`;
+  const startUtcDate = new Date(startJakartaIso);
+  const endUtcDate = new Date(endJakartaIso);
+
+  return {
+    referenceDateKey,
+    startJakarta: `${referenceDateKey} 00:01:00`,
+    endJakarta: `${referenceDateKey} ${endClock}`,
+    startJakartaIso,
+    endJakartaIso,
+    startUtcDate,
+    endUtcDate,
+    startUtcIso: startUtcDate.toISOString(),
+    endUtcIso: endUtcDate.toISOString(),
+  };
+}
+
 export function isWithinJakartaAttendanceWindow(value, referenceDate = new Date()) {
   const date = safeDate(value);
   if (!date) return false;
