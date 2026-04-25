@@ -21,7 +21,7 @@ function normalizeUtcCreatedAt(input) {
 }
 
 function jakartaDateCast(columnAlias = "created_at") {
-  return `(( ${columnAlias} AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Jakarta')`;
+  return `(${columnAlias} AT TIME ZONE 'Asia/Jakarta')`;
 }
 
 /**
@@ -69,7 +69,7 @@ export async function upsertTiktokPosts(client_id, posts) {
   for (const post of posts) {
     await query(
       `INSERT INTO tiktok_post (client_id, video_id, caption, like_count, comment_count, created_at)
-       VALUES ($1, $2, $3, $4, $5, (COALESCE($6::timestamptz, NOW()) AT TIME ZONE 'UTC'))
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()))
        ON CONFLICT (video_id) DO UPDATE
          SET client_id = EXCLUDED.client_id,
              caption = EXCLUDED.caption,
@@ -115,7 +115,7 @@ export async function upsertTiktokPostWithStatus({
 
   const res = await query(
     `INSERT INTO tiktok_post (client_id, video_id, caption, like_count, comment_count, created_at)
-     VALUES ($1, $2, $3, $4, $5, (COALESCE($6::timestamptz, NOW()) AT TIME ZONE 'UTC'))
+     VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()))
      ON CONFLICT (video_id) DO UPDATE
        SET client_id = EXCLUDED.client_id,
            caption = EXCLUDED.caption,
@@ -148,8 +148,8 @@ export async function getVideoIdsTodayByClient(client_id, referenceDate) {
   const res = await query(
     `SELECT video_id FROM tiktok_post
      WHERE LOWER(TRIM(client_id)) = $1
-     AND ${jakartaDateCast("created_at")} BETWEEN $2::timestamp AND $3::timestamp`,
-    [normalizedId, attendanceWindow.startJakarta, attendanceWindow.endJakarta]
+     AND created_at BETWEEN $2::timestamptz AND $3::timestamptz`,
+    [normalizedId, attendanceWindow.startUtcIso, attendanceWindow.endUtcIso]
   );
   return res.rows.map((r) => r.video_id);
 }
@@ -213,10 +213,8 @@ export async function getPostsInAttendanceWindowByClient(client_id, referenceDat
   const normalizedId = normalizeClientId(client_id);
   const attendanceWindow = getJakartaAttendanceWindow(referenceDate);
   const res = await query(
-    `SELECT * FROM tiktok_post WHERE LOWER(TRIM(client_id)) = $1 AND ${jakartaDateCast(
-      "created_at"
-    )} BETWEEN $2::timestamp AND $3::timestamp ORDER BY created_at ASC, video_id ASC`,
-    [normalizedId, attendanceWindow.startJakarta, attendanceWindow.endJakarta]
+    `SELECT * FROM tiktok_post WHERE LOWER(TRIM(client_id)) = $1 AND created_at BETWEEN $2::timestamptz AND $3::timestamptz ORDER BY created_at ASC, video_id ASC`,
+    [normalizedId, attendanceWindow.startUtcIso, attendanceWindow.endUtcIso]
   );
   return res.rows;
 }
