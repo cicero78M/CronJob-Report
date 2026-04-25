@@ -17,7 +17,10 @@ import {
   groupUsersByDivisionStatus,
 } from "../../../utils/utilsHelper.js";
 import { sendDebug } from "../../../middleware/debugHandler.js";
-import { getJakartaAttendanceWindow } from "../../../utils/jakartaTime.js";
+import {
+  getJakartaAttendanceWindow,
+  getJakartaDailyRecapWindow,
+} from "../../../utils/jakartaTime.js";
 import {
   prioritizeActiveUserAtPosition,
   sortUsersByPositionRankAndName,
@@ -94,6 +97,18 @@ async function getPostsInAbsensiWindow(clientId, options = {}) {
 
 async function getPostsForDailyKomentarNarrative(clientId, options = {}) {
   const { referenceDate, logContext, useAttendanceWindow = false } = options;
+  const dailyWindow = getJakartaDailyRecapWindow(referenceDate);
+  sendDebug({
+    tag: "ABSEN TTK",
+    msg: {
+      event: "daily_window_active",
+      start: dailyWindow.startJakartaIso,
+      end: dailyWindow.endJakartaIso,
+      referenceDate: dailyWindow.referenceDateKey,
+      ...(logContext || {}),
+    },
+    client_id: clientId,
+  });
   const postsToday = await getPostsByClientOnJakartaDate(clientId, referenceDate);
 
   if (!useAttendanceWindow) {
@@ -254,6 +269,8 @@ export async function absensiKomentar(client_id, opts = {}) {
   const clientInfo = await getClientInfo(client_id);
   const clientNama = clientInfo.nama;
   const tiktokUsername = clientInfo.tiktok;
+  const clientType = String(clientInfo.clientType || "").toLowerCase();
+  const forceDailyWindowForOrgOpr = ["org", "opr"].includes(clientType);
   const allowedRoles = ["ditbinmas", "ditlantas", "bidhumas"];
   let users;
   if (roleFlag && allowedRoles.includes(roleFlag.toLowerCase())) {
@@ -265,8 +282,17 @@ export async function absensiKomentar(client_id, opts = {}) {
   }
   const { posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(client_id, {
     referenceDate: opts?.referenceDate,
-    useAttendanceWindow: opts?.useAttendanceWindow,
-    logContext: { scope: "absensi_komentar" },
+    useAttendanceWindow: forceDailyWindowForOrgOpr
+      ? false
+      : opts?.useAttendanceWindow,
+    logContext: {
+      scope: "absensi_komentar",
+      mode: forceDailyWindowForOrgOpr
+        ? "daily_window_forced_org_opr"
+        : opts?.useAttendanceWindow
+          ? "attendance_window_fallback_enabled"
+          : "daily_window",
+    },
   });
 
   sendDebug({

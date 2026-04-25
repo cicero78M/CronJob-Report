@@ -3,7 +3,8 @@ import { jest } from '@jest/globals';
 const mockQuery = jest.fn();
 const mockGetUsersByClient = jest.fn();
 const mockGetUsersByDirektorat = jest.fn();
-const mockGetPostsTodayByClient = jest.fn();
+const mockGetPostsByClientOnJakartaDate = jest.fn();
+const mockGetPostsInAttendanceWindowByClient = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockSendDebug = jest.fn();
 
@@ -14,7 +15,8 @@ jest.unstable_mockModule('../src/model/userModel.js', () => ({
   getClientsByRole: jest.fn(),
 }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
-  getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockGetPostsByClientOnJakartaDate,
+  getPostsInAttendanceWindowByClient: mockGetPostsInAttendanceWindowByClient,
   findPostByVideoId: jest.fn(),
   deletePostByVideoId: jest.fn(),
 }));
@@ -39,10 +41,22 @@ beforeEach(() => {
 test('uses getUsersByDirektorat when roleFlag is a directorate', async () => {
   mockQuery.mockResolvedValueOnce({ rows: [{ nama: 'POLRES ABC', client_tiktok: '@abc', client_type: 'org' }] });
   mockGetUsersByDirektorat.mockResolvedValueOnce([]);
-  mockGetPostsTodayByClient.mockResolvedValueOnce([]);
+  mockGetPostsByClientOnJakartaDate.mockResolvedValueOnce([]);
 
   await absensiKomentar('POLRES', { roleFlag: 'ditbinmas' });
 
   expect(mockGetUsersByDirektorat).toHaveBeenCalledWith('ditbinmas');
   expect(mockGetUsersByClient).not.toHaveBeenCalled();
+});
+
+test('forces daily window for org/opr clients and never falls back to attendance window', async () => {
+  mockQuery.mockResolvedValueOnce({ rows: [{ nama: 'POLRES ABC', client_tiktok: '@abc', client_type: 'org' }] });
+  mockGetUsersByClient.mockResolvedValueOnce([]);
+  mockGetPostsByClientOnJakartaDate.mockResolvedValueOnce([]);
+  mockGetPostsInAttendanceWindowByClient.mockResolvedValueOnce([{ video_id: 'vid-1' }]);
+
+  await absensiKomentar('POLRES', { useAttendanceWindow: true });
+
+  expect(mockGetPostsByClientOnJakartaDate).toHaveBeenCalledTimes(1);
+  expect(mockGetPostsInAttendanceWindowByClient).not.toHaveBeenCalled();
 });

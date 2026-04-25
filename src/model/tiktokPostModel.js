@@ -1,6 +1,9 @@
 // src/model/tiktokPostModel.js
 import { query } from '../repository/db.js';
-import { getJakartaAttendanceWindow, toJakartaDateKey } from '../utils/jakartaTime.js';
+import {
+  getJakartaAttendanceWindow,
+  getJakartaDailyRecapWindow,
+} from '../utils/jakartaTime.js';
 
 function normalizeClientId(id) {
   return typeof id === "string" ? id.trim().toLowerCase() : id;
@@ -161,7 +164,7 @@ export async function getVideoIdsTodayByClient(client_id, referenceDate) {
  */
 export async function getPostsTodayByClient(client_id, referenceDate) {
   const normalizedId = normalizeClientId(client_id);
-  const dateKey = toJakartaDateKey(referenceDate || new Date());
+  const dailyWindow = getJakartaDailyRecapWindow(referenceDate || new Date());
   const typeRes = await query(
     'SELECT client_type FROM clients WHERE LOWER(TRIM(client_id)) = $1 LIMIT 1',
     [normalizedId]
@@ -179,18 +182,18 @@ export async function getPostsTodayByClient(client_id, referenceDate) {
       `SELECT p.* FROM tiktok_post p
        JOIN tiktok_post_roles pr ON pr.video_id = p.video_id
        WHERE LOWER(TRIM(pr.role_name)) = LOWER($1)
-         AND ${jakartaDateCast("p.created_at")}::date = $2::date
+         AND ${jakartaDateCast("p.created_at")} BETWEEN $2::timestamp AND $3::timestamp
        ORDER BY p.created_at ASC, p.video_id ASC`,
-      [normalizedId, dateKey]
+      [normalizedId, dailyWindow.startJakarta, dailyWindow.endJakarta]
     );
     rows = roleRes.rows;
   } else {
     const directRes = await query(
       `SELECT * FROM tiktok_post
        WHERE LOWER(TRIM(client_id)) = $1
-         AND ${jakartaDateCast("created_at")}::date = $2::date
+         AND ${jakartaDateCast("created_at")} BETWEEN $2::timestamp AND $3::timestamp
        ORDER BY created_at ASC, video_id ASC`,
-      [normalizedId, dateKey]
+      [normalizedId, dailyWindow.startJakarta, dailyWindow.endJakarta]
     );
     rows = directRes.rows;
   }
@@ -199,9 +202,9 @@ export async function getPostsTodayByClient(client_id, referenceDate) {
     const fallbackRes = await query(
       `SELECT * FROM tiktok_post
        WHERE LOWER(TRIM(client_id)) = $1
-         AND ${jakartaDateCast("created_at")}::date = $2::date
+         AND ${jakartaDateCast("created_at")} BETWEEN $2::timestamp AND $3::timestamp
        ORDER BY created_at ASC, video_id ASC`,
-      [normalizedId, dateKey]
+      [normalizedId, dailyWindow.startJakarta, dailyWindow.endJakarta]
     );
     rows = fallbackRes.rows;
   }
