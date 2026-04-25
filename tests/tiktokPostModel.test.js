@@ -40,7 +40,7 @@ test('getPostsTodayByClient filters by Jakarta date and orders results', async (
 
   expect(mockQuery).toHaveBeenNthCalledWith(
     2,
-    expect.stringMatching(/AT TIME ZONE 'UTC'\)\s*AT TIME ZONE 'Asia\/Jakarta'\)\:\:date = \$2\:\:date/i),
+    expect.stringMatching(/AT TIME ZONE 'Asia\/Jakarta'\)\:\:date = \$2\:\:date/i),
     ['client 1', expectedDate]
   );
   expect(mockQuery.mock.calls[1][0]).toMatch(/ORDER BY\s+created_at\s+ASC,\s+video_id\s+ASC/i);
@@ -70,7 +70,7 @@ test('getVideoIdsTodayByClient applies Jakarta date filter for reference date', 
 
   await getVideoIdsTodayByClient('Client 3', referenceDate);
 
-  expect(mockQuery.mock.calls[0][0]).toMatch(/BETWEEN \$2::timestamp AND \$3::timestamp/i);
+  expect(mockQuery.mock.calls[0][0]).toMatch(/BETWEEN \$2::timestamptz AND \$3::timestamptz/i);
   expect(mockQuery.mock.calls[0][1][0]).toBe('client 3');
 });
 
@@ -79,7 +79,7 @@ test('getPostsInAttendanceWindowByClient keeps attendance window filtering for o
 
   await getPostsInAttendanceWindowByClient('Client 9', new Date('2024-05-10T18:30:00.000Z'));
 
-  expect(mockQuery.mock.calls[0][0]).toMatch(/BETWEEN \$2::timestamp AND \$3::timestamp/i);
+  expect(mockQuery.mock.calls[0][0]).toMatch(/BETWEEN \$2::timestamptz AND \$3::timestamptz/i);
   expect(mockQuery.mock.calls[0][1][0]).toBe('client 9');
 });
 
@@ -144,6 +144,36 @@ test('getVideoIdsTodayByClient treats late-night UTC as same Jakarta day', async
   await getVideoIdsTodayByClient('Client 4', nearMidnightUtc);
 
   const [, start, end] = mockQuery.mock.calls[0][1];
-  expect(start).toContain('17:00:00');
-  expect(end).toContain('16:59:59');
+  expect(start).toMatch(/T10:00:00\.000Z$/);
+  expect(end).toMatch(/T09:59:59\.000Z$/);
+});
+
+test('getPostsTodayByClient keeps calendar-day contract: H-1 17:01 WIB excluded from recap H', async () => {
+  const referenceDate = new Date('2024-05-11T05:00:00.000Z'); // 12:00 WIB
+  const expectedDate = toJakartaDateInput(referenceDate);
+
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  await getPostsTodayByClient('Client 7', referenceDate);
+
+  const sql = mockQuery.mock.calls[1][0];
+  const params = mockQuery.mock.calls[1][1];
+  expect(sql).toContain("AT TIME ZONE 'Asia/Jakarta'");
+  expect(params[1]).toBe(expectedDate);
+});
+
+test('getPostsTodayByClient includes H 00:01 WIB in recap H via Jakarta date key', async () => {
+  const referenceDate = new Date('2024-05-11T00:01:00+07:00');
+  const expectedDate = '2024-05-11';
+
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
+    .mockResolvedValueOnce({ rows: [] });
+
+  await getPostsTodayByClient('Client 8', referenceDate);
+
+  const params = mockQuery.mock.calls[1][1];
+  expect(params[1]).toBe(expectedDate);
 });
