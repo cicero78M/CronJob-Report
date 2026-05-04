@@ -993,23 +993,34 @@ export class WAClient extends EventEmitter {
    * Used for BAD_SESSION recovery - removes corrupted auth state
    */
   async _clearAuthSession() {
-    const sessionPath = path.join(this.config.authPath, `session-${this.config.clientId}`);
-    
+    // Baileys multi-file auth path: <authPath>/<clientId>
+    const baileysSessionPath = path.join(this.config.authPath, this.config.clientId);
+    // Legacy whatsapp-web.js path: <authPath>/session-<clientId>
+    const legacySessionPath = path.join(this.config.authPath, `session-${this.config.clientId}`);
+
+    const sessionPaths = [baileysSessionPath, legacySessionPath];
+    let removedAnySession = false;
+
     try {
-      console.log(`[${this.config.clientId}] Clearing auth session at: ${sessionPath}`);
-      
-      // Check if session exists
-      try {
-        await fs.access(sessionPath);
-      } catch {
-        // Session folder doesn't exist
-        console.log(`[${this.config.clientId}] Session folder does not exist, nothing to clear`);
-        return;
+      for (const sessionPath of sessionPaths) {
+        console.log(`[${this.config.clientId}] Clearing auth session at: ${sessionPath}`);
+
+        try {
+          await fs.access(sessionPath);
+        } catch {
+          continue;
+        }
+
+        await fs.rm(sessionPath, { recursive: true, force: true });
+        removedAnySession = true;
+        console.log(`[${this.config.clientId}] Removed auth session folder: ${sessionPath}`);
       }
-      
-      // Remove the session folder recursively
-      await fs.rm(sessionPath, { recursive: true, force: true });
-      console.log(`[${this.config.clientId}] Auth session cleared successfully`);
+
+      if (!removedAnySession) {
+        console.log(`[${this.config.clientId}] Session folder does not exist, nothing to clear`);
+      } else {
+        console.log(`[${this.config.clientId}] Auth session cleared successfully`);
+      }
     } catch (error) {
       console.error(`[${this.config.clientId}] Failed to clear auth session:`, error);
       throw error;
