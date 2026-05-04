@@ -877,9 +877,13 @@ export async function fetchPendingTasksForToday(user) {
 
   try {
     const clientRes = await query(
-      "SELECT LOWER(client_type) AS client_type FROM clients WHERE LOWER(client_id) = LOWER($1)",
+      "SELECT LOWER(client_type) AS client_type, client_status FROM clients WHERE LOWER(client_id) = LOWER($1)",
       [user.client_id]
     );
+    const clientStatus = clientRes.rows[0]?.client_status;
+    if (clientStatus !== true) {
+      return { posts: [], pending: [], error: null };
+    }
     const clientType = clientRes.rows[0]?.client_type;
     const params = [];
     let joinClause = "";
