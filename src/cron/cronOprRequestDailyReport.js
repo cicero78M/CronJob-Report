@@ -61,6 +61,14 @@ function getOperatorRecipient(client) {
  * Send report to operator
  */
 async function sendReportToOperator(client, reportMessage) {
+  if (client?.client_status !== true) {
+    sendDebug({
+      tag: CRON_TAG,
+      msg: `[${client?.client_id || 'UNKNOWN'}] Skip kirim laporan: client_status=${String(client?.client_status)}`,
+    });
+    return false;
+  }
+
   const operatorWA = getOperatorRecipient(client);
   
   if (!operatorWA) {
@@ -91,6 +99,14 @@ async function sendReportToOperator(client, reportMessage) {
  * Process daily reports for a single client
  */
 async function processClientReports(client) {
+  if (client?.client_status !== true) {
+    sendDebug({
+      tag: CRON_TAG,
+      msg: `[${client?.client_id || 'UNKNOWN'}] Skip proses laporan: client_status=${String(client?.client_status)}`,
+    });
+    return;
+  }
+
   sendDebug({
     tag: CRON_TAG,
     msg: `[${client.client_id}] Memproses laporan harian untuk ${client.nama}`,
