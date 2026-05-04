@@ -15,6 +15,7 @@ import { acquireDistributedLock } from '../service/distributedLockService.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
 const BIDHUMAS_CLIENT_ID = 'BIDHUMAS';
+const BIDHUMAS_REPORT_ENABLED = false;
 export const JOB_KEY = './src/cron/cronDirRequestCustomSequence.js';
 export const BIDHUMAS_2030_JOB_KEY = `${JOB_KEY}#bidhumas-20-30`;
 export const DITBINMAS_RECAP_AND_CUSTOM_JOB_KEY = `${JOB_KEY}#ditbinmas-recap-and-custom`;
@@ -261,6 +262,13 @@ async function executeMenuActions({
 export async function runBidhumasMenuSequence({
   label = 'Menu 6, 9, 28, & 29 BIDHUMAS',
 } = {}) {
+  if (!BIDHUMAS_REPORT_ENABLED) {
+    const disabledMsg = 'Sekuens BIDHUMAS nonaktif sementara (manual disable).';
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: disabledMsg });
+    await logToAdmins(disabledMsg);
+    return { fetchStatus: 'skipped (removed)', sendStatus: disabledMsg };
+  }
+
   let fetchStatus = 'skipped (removed)';
   let sendStatus = 'pending';
 

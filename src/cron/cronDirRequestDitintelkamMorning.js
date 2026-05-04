@@ -20,6 +20,7 @@ const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const CRON_LABEL = 'CRON DIRREQ DITINTELKAM 07:10';
 const DEFAULT_MENUS = ['1'];
 const NIGHT_MENUS = ['1', '2', '3'];
+const DITINTELKAM_REPORT_ENABLED = false;
 
 const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
@@ -126,6 +127,13 @@ async function executeMenusForRecipient(chatId, menus) {
 }
 
 async function runCronWithMenus(menus, runLabel) {
+  if (!DITINTELKAM_REPORT_ENABLED) {
+    const skipMsg = `Cron DITINTELKAM ${runLabel} nonaktif sementara (manual disable).`;
+    sendDebug({ tag: CRON_LABEL, msg: skipMsg });
+    await logToAdmins(skipMsg);
+    return;
+  }
+
   const distributedLock = await acquireDistributedLock({
     key: `${DISTRIBUTED_LOCK_KEY}:${runLabel}`,
     ttlSeconds: LOCK_TTL_SECONDS,
