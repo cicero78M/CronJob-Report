@@ -118,6 +118,20 @@ export class WAClient extends EventEmitter {
   }
 
   /**
+   * Log QR code in a PM2-friendly way.
+   * qrcode-terminal writes directly to stdout and can be swallowed in some PM2 setups.
+   */
+  _logQrCode(qr) {
+    qrcode.generate(qr, { small: true }, (qrAscii) => {
+      console.log(`[${this.config.clientId}] QR_CODE_START`);
+      qrAscii.split('\n').forEach((line) => {
+        console.log(`[${this.config.clientId}] ${line}`);
+      });
+      console.log(`[${this.config.clientId}] QR_CODE_END`);
+    });
+  }
+
+  /**
    * Initialize the WhatsApp client with Baileys
    */
   async initialize() {
@@ -272,7 +286,7 @@ export class WAClient extends EventEmitter {
       // Handle QR code display
       if (qr) {
         console.log(`[${this.config.clientId}] QR Code received - Please scan within ${this.config.qrTimeout / 1000}s`);
-        qrcode.generate(qr, { small: true });
+        this._logQrCode(qr);
         this.qrScanned = false;
         this.emit('qr', qr);
       }
