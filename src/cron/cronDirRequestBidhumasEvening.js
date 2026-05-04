@@ -18,6 +18,7 @@ export const JOB_KEY = './src/cron/cronDirRequestBidhumasEvening.js';
 const DISTRIBUTED_LOCK_KEY = 'cron:dirrequest:bidhumas-evening';
 const CRON_MAX_RUN_MINUTES = 60;
 const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
+const BIDHUMAS_REPORT_ENABLED = false;
 
 function logInvalidRecipient(value) {
   console.warn('[SKIP WA] invalid recipient', value);
@@ -135,6 +136,13 @@ async function executeBidhumasMenus(recipients) {
 }
 
 export async function runCron() {
+  if (!BIDHUMAS_REPORT_ENABLED) {
+    const skipMsg = 'Cron BIDHUMAS nonaktif sementara (manual disable).';
+    sendDebug({ tag: CRON_LABEL, msg: skipMsg });
+    await logToAdmins(skipMsg);
+    return;
+  }
+
   const distributedLock = await acquireDistributedLock({
     key: DISTRIBUTED_LOCK_KEY,
     ttlSeconds: LOCK_TTL_SECONDS,

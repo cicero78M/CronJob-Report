@@ -20,6 +20,7 @@ const CRON_MAX_RUN_MINUTES = 60;
 const LOCK_TTL_SECONDS = (CRON_MAX_RUN_MINUTES + 5) * 60;
 const CRON_LABEL = 'CRON DIRREQ DITINTELKAM RUTIN';
 const MENUS = ['6', '9'];
+const DITINTELKAM_REPORT_ENABLED = false;
 
 const { primaryClient, reportClient, fallbackClients: waFallbackClients } = getDirectorateWaRoute();
 
@@ -157,6 +158,13 @@ async function executeMenus(recipients) {
 }
 
 export async function runCron() {
+  if (!DITINTELKAM_REPORT_ENABLED) {
+    const skipMsg = 'Cron DITINTELKAM rutin nonaktif sementara (manual disable).';
+    sendDebug({ tag: CRON_LABEL, msg: skipMsg });
+    await logToAdmins(skipMsg);
+    return;
+  }
+
   const distributedLock = await acquireDistributedLock({
     key: DISTRIBUTED_LOCK_KEY,
     ttlSeconds: LOCK_TTL_SECONDS,
