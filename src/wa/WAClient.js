@@ -74,6 +74,9 @@ class WAClientConfig {
     // Option to enable automatic recovery from BAD_SESSION errors
     // When enabled, the client will clear the session and attempt to reinitialize
     this.enableBadSessionRecovery = options.enableBadSessionRecovery !== false; // default true
+    // Option to enable automatic recovery from LOGGED_OUT errors
+    // When enabled, the client will clear the session and reinitialize for fresh QR pairing
+    this.enableLoggedOutRecovery = options.enableLoggedOutRecovery !== false; // default true
   }
 }
 
@@ -348,6 +351,9 @@ export class WAClient extends EventEmitter {
         if (reason === 'BAD_SESSION' && this.config.enableBadSessionRecovery) {
           console.log(`[${this.config.clientId}] BAD_SESSION detected - attempting automatic recovery`);
           this._handleBadSessionRecovery();
+        } else if (reason === 'LOGGED_OUT' && this.config.enableLoggedOutRecovery) {
+          console.log(`[${this.config.clientId}] LOGGED_OUT detected - attempting automatic recovery`);
+          this._handleLoggedOutRecovery();
         } else if (shouldReconnect) {
           // Attempt to reconnect for retriable disconnect reasons
           this._handleReconnection(reason);
@@ -676,6 +682,51 @@ export class WAClient extends EventEmitter {
     } catch (error) {
       console.error(`[${this.config.clientId}] Error during BAD_SESSION recovery:`, error);
       this.emit('bad_session_recovery_failed', error);
+    }
+  }
+
+  /**
+   * Handle LOGGED_OUT recovery
+   * Clears the auth session and reinitializes so the operator can re-scan QR
+   */
+  async _handleLoggedOutRecovery() {
+    try {
+      console.log(`[${this.config.clientId}] Starting LOGGED_OUT recovery process`);
+
+      if (this.socket) {
+        try {
+          this.socket.end();
+          this.socket = null;
+        } catch (err) {
+          console.warn(`[${this.config.clientId}] Error closing socket during LOGGED_OUT recovery:`, err);
+        }
+      }
+
+      await this._clearAuthSession();
+
+      this.isReady = false;
+      this.isInitializing = false;
+      this.authenticated = false;
+      this.qrScanned = false;
+      this.reconnectAttempts = 0;
+      this.initRetries = 0;
+
+      const delay = 5000;
+      console.log(`[${this.config.clientId}] Will reinitialize after LOGGED_OUT in ${delay}ms`);
+
+      this.reconnectTimer = setTimeout(async () => {
+        try {
+          console.log(`[${this.config.clientId}] Reinitializing after LOGGED_OUT recovery`);
+          await this.initialize();
+          console.log(`[${this.config.clientId}] LOGGED_OUT recovery completed - please scan QR code if prompted`);
+        } catch (error) {
+          console.error(`[${this.config.clientId}] LOGGED_OUT recovery failed:`, error);
+          this.emit('logged_out_recovery_failed', error);
+        }
+      }, delay);
+    } catch (error) {
+      console.error(`[${this.config.clientId}] Error during LOGGED_OUT recovery:`, error);
+      this.emit('logged_out_recovery_failed', error);
     }
   }
 
