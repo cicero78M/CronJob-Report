@@ -351,6 +351,20 @@ test('getClientsByRole filters by client id', async () => {
   expect(params).toEqual(['operator', 'c1']);
 });
 
+test('getClientsByRole filters dashboard clients by regional id when requested', async () => {
+  mockQuery.mockResolvedValueOnce({ rows: [{ client_id: 'polres_a' }] });
+
+  const clients = await getClientsByRole('ditbinmas', null, 'JATIM');
+
+  expect(clients).toEqual(['polres_a']);
+  const [sql, params] = mockQuery.mock.calls[0];
+  expect(sql).toContain(
+    'JOIN clients c ON LOWER(c.client_id) = LOWER(duc.client_id)'
+  );
+  expect(sql).toContain('UPPER(c.regional_id) = UPPER($2)');
+  expect(params).toEqual(['ditbinmas', 'JATIM']);
+});
+
 test('getUserRoles returns list of role names', async () => {
   mockQuery.mockResolvedValueOnce({ rows: [{ role_name: 'operator' }, { role_name: 'ditlantas' }] });
   const roles = await getUserRoles('123');

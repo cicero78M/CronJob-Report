@@ -132,13 +132,14 @@ async function getPostsForDailyKomentarNarrative(clientId, options = {}) {
 // Dapatkan nama dan username tiktok client
 async function getClientInfo(client_id) {
   const res = await query(
-    "SELECT nama, client_tiktok, client_type FROM clients WHERE LOWER(client_id) = LOWER($1) LIMIT 1",
+    "SELECT nama, client_tiktok, client_type, regional_id FROM clients WHERE LOWER(client_id) = LOWER($1) LIMIT 1",
     [client_id]
   );
   return {
     nama: res.rows[0]?.nama || client_id,
     tiktok: (res.rows[0]?.client_tiktok || "").replace(/^@/, "") || "username",
     clientType: res.rows[0]?.client_type || null,
+    regionalId: res.rows[0]?.regional_id || null,
   };
 }
 
@@ -1080,7 +1081,11 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const filename = `Absensi_All_Engagement_Tiktok_${hari}_${dateSafe}_${timeSafe}.txt`;
   const filenameBelum = `Absensi_Belum_Engagement_Tiktok_${hari}_${dateSafe}_${timeSafe}.txt`;
 
-  const { tiktok: mainUsername, nama: clientName } = await getClientInfo(clientId);
+  const {
+    tiktok: mainUsername,
+    nama: clientName,
+    regionalId,
+  } = await getClientInfo(clientId);
   const clientNameUpper = String(clientName || clientId || roleName).toUpperCase();
 
   const posts = await getPostsByClientOnJakartaDate(roleName, now);
@@ -1123,15 +1128,21 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   }
 
   const { getClientsByRole } = await import("../../../model/userModel.js");
-  const polresIds = (
-    await getClientsByRole(roleName)
-  )
+  const roleClients = regionalId
+    ? await getClientsByRole(roleName, null, regionalId)
+    : await getClientsByRole(roleName);
+  const polresIds = roleClients
     .map((c) => c.toUpperCase())
     .filter((cid) => cid !== clientNameUpper);
   const clientIds = [clientNameUpper, ...polresIds];
   const allUsers = (
     await getUsersByDirektorat(roleName, clientIds)
-  ).filter((u) => u.status === true);
+  ).filter((u) => {
+    if (u.status !== true) return false;
+    if (!regionalId) return true;
+    return String(u.regional_id || "").trim().toUpperCase() ===
+      String(regionalId).trim().toUpperCase();
+  });
 
   const usersByClient = {};
   clientIds.forEach((cid) => (usersByClient[cid] = []));

@@ -12,6 +12,7 @@ jest.unstable_mockModule('../src/db/index.js', () => ({ query: mockQuery }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
   getPostsTodayByClient: mockGetPostsTodayByClient,
   getPostsByClientOnJakartaDate: mockGetPostsByClientOnJakartaDate,
+  getPostsInAttendanceWindowByClient: jest.fn(),
   findPostByVideoId: jest.fn(),
   deletePostByVideoId: jest.fn(),
 }));

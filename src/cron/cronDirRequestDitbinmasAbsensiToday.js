@@ -8,7 +8,7 @@ import { getDirectorateWaRoute } from './waClientRouting.js';
 import { delayAfterSend } from './dirRequestThrottle.js';
 
 const DITBINMAS_CLIENT_ID = 'DITBINMAS';
-const TARGET_RECIPIENT = '081331780006';
+const TARGET_RECIPIENT = '082140665933';
 export const JOB_KEY = './src/cron/cronDirRequestDitbinmasAbsensiToday.js';
 const CRON_LABEL = 'CRON DIRREQ DITBINMAS 18:27';
 const ACTIONS = ['5', '6', '9', '10'];

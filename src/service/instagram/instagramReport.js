@@ -18,7 +18,7 @@ export async function getClientInfo(clientId) {
   let res = { rows: [] };
   try {
     res = await query(
-      "SELECT nama, client_type FROM clients WHERE LOWER(client_id) = LOWER($1) LIMIT 1",
+      "SELECT nama, client_type, regional_id FROM clients WHERE LOWER(client_id) = LOWER($1) LIMIT 1",
       [clientId]
     );
   } catch (error) {
@@ -27,6 +27,7 @@ export async function getClientInfo(clientId) {
   const info = {
     nama: res.rows[0]?.nama || clientId,
     clientType: res.rows[0]?.client_type || null,
+    regionalId: res.rows[0]?.regional_id || null,
   };
   if (process.env.NODE_ENV !== "test") {
     clientInfoCache.set(key, info);
@@ -43,8 +44,9 @@ export async function fetchDitbinmasData(clientId = "DITBINMAS") {
   );
   const likesSets = await getLikesSets(shortcodes);
   const likesCounts = likesSets.map((set) => set.size);
+  const { regionalId } = await getClientInfo(directorateId);
   const { polresIds: allIds, usersByClient } =
-    await groupUsersByClientDivision(roleName);
+    await groupUsersByClientDivision(roleName, { regionalId });
   const polresIds = allIds
     .map((cid) => cid.toUpperCase())
     .filter((cid) => cid !== directorateId);
@@ -592,4 +594,3 @@ export async function lapharDitbinmas(clientId = "DITBINMAS") {
     textBelum,
   };
 }
-

@@ -41,4 +41,27 @@ describe('groupUsersByClientDivision', () => {
     expect(result.usersByClient.POLRES_SHADOW).toHaveLength(1);
     expect(result.usersByClientDiv.POLRES_SHADOW['SAT BINMAS']).toHaveLength(1);
   });
+
+  test('membatasi client dashboard dan user pada regional yang diminta', async () => {
+    mockGetClientsByRole.mockResolvedValue(['polres_a']);
+    mockGetUsersByDirektorat.mockResolvedValue([
+      { client_id: 'polres_a', regional_id: 'JATIM', status: true },
+      { client_id: 'karawang', regional_id: 'JABAR', status: true },
+      { client_id: 'tanpa_regional', regional_id: null, status: true },
+    ]);
+
+    const result = await groupUsersByClientDivision('ditbinmas', {
+      regionalId: 'JATIM',
+    });
+
+    expect(mockGetClientsByRole).toHaveBeenCalledWith(
+      'ditbinmas',
+      null,
+      'JATIM'
+    );
+    expect(result.polresIds).toEqual(['POLRES_A']);
+    expect(result.usersByClient).toEqual({
+      POLRES_A: [expect.objectContaining({ client_id: 'polres_a' })],
+    });
+  });
 });

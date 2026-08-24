@@ -83,7 +83,7 @@ describe('engagementRankingExcelService', () => {
 
     mockFindClientById.mockImplementation(async (cid) => {
       const map = {
-        ditbinmas: { nama: 'Direktorat Binmas', client_type: 'direktorat' },
+        ditbinmas: { nama: 'Direktorat Binmas', client_type: 'direktorat', regional_id: 'JATIM' },
         polres_a: { nama: 'Polres A', client_type: 'org' },
         polres_b: { nama: 'Polres B', client_type: 'org' },
       };
@@ -130,7 +130,9 @@ describe('engagementRankingExcelService', () => {
   test('collectEngagementRanking aggregates stats per satker', async () => {
     const result = await collectEngagementRanking('DITBINMAS', 'ditbinmas');
 
-    expect(mockGroupUsersByClientDivision).toHaveBeenCalledWith('ditbinmas');
+    expect(mockGroupUsersByClientDivision).toHaveBeenCalledWith('ditbinmas', {
+      regionalId: 'JATIM',
+    });
     expect(mockGetShortcodesByDateRange).toHaveBeenCalledWith(
       'ditbinmas',
       expect.any(String),

@@ -325,7 +325,10 @@ export async function collectEngagementRanking(
   }
 
   const roleName = (roleFlag || normalizedClientId).toLowerCase();
-  const { polresIds, usersByClient } = await groupUsersByClientDivision(roleName);
+  const regionalId = String(client.regional_id || "").trim() || undefined;
+  const { polresIds, usersByClient } = await groupUsersByClientDivision(roleName, {
+    regionalId,
+  });
 
   const periodInfo = resolvePeriodRange(options.period, options);
 

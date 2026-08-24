@@ -193,12 +193,16 @@ async function buildClientFilter(
 // ========== QUERY DATABASE ==========
 
 // Ambil daftar client_id berdasarkan role_name
-export async function getClientsByRole(roleName, clientId = null) {
+export async function getClientsByRole(roleName, clientId = null, regionalId = null) {
   const params = [roleName];
   let sql = `SELECT DISTINCT LOWER(duc.client_id) AS client_id
      FROM dashboard_user du
      JOIN roles r ON du.role_id = r.role_id
-     JOIN dashboard_user_clients duc ON du.dashboard_user_id = duc.dashboard_user_id
+     JOIN dashboard_user_clients duc ON du.dashboard_user_id = duc.dashboard_user_id${
+       regionalId
+         ? '\n     JOIN clients c ON LOWER(c.client_id) = LOWER(duc.client_id)'
+         : ''
+     }
      WHERE LOWER(r.role_name) = LOWER($1)`;
   if (clientId) {
     if (Array.isArray(clientId)) {
@@ -208,6 +212,11 @@ export async function getClientsByRole(roleName, clientId = null) {
       sql += ` AND LOWER(duc.client_id) = LOWER($2)`;
       params.push(clientId.toLowerCase());
     }
+  }
+  if (regionalId) {
+    const regionalPlaceholder = `$${params.length + 1}`;
+    sql += ` AND UPPER(c.regional_id) = UPPER(${regionalPlaceholder})`;
+    params.push(String(regionalId).trim());
   }
   const { rows } = await query(sql, params);
   return rows.map((r) => r.client_id);

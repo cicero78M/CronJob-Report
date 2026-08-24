@@ -20,7 +20,7 @@ export async function getLikesSets(shortcodes) {
 }
 
 export async function groupUsersByClientDivision(roleName, opts = {}) {
-  const { clientFilter, selfOnly } = opts;
+  const { clientFilter, selfOnly, regionalId } = opts;
   let polresIds;
   let allUsers;
 
@@ -36,13 +36,18 @@ export async function groupUsersByClientDivision(roleName, opts = {}) {
       await getUsersByDirektorat(roleName, clientFilter)
     ).filter((u) => u.status === true);
   } else {
-    const dashboardPolres = await getClientsByRole(roleName);
+    const dashboardPolres = regionalId
+      ? await getClientsByRole(roleName, null, regionalId)
+      : await getClientsByRole(roleName);
     const polresSet = new Set(
       dashboardPolres.map((c) => String(c || "").toUpperCase()).filter(Boolean)
     );
-    allUsers = (await getUsersByDirektorat(roleName)).filter(
-      (u) => u.status === true
-    );
+    allUsers = (await getUsersByDirektorat(roleName)).filter((u) => {
+      if (u.status !== true) return false;
+      if (!regionalId) return true;
+      return String(u.regional_id || "").trim().toUpperCase() ===
+        String(regionalId).trim().toUpperCase();
+    });
     allUsers.forEach((u) => {
       const cid = String(u.client_id || "").toUpperCase();
       if (cid) {
@@ -66,4 +71,3 @@ export async function groupUsersByClientDivision(roleName, opts = {}) {
 
   return { polresIds, usersByClient, usersByClientDiv };
 }
-
