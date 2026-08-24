@@ -61,6 +61,8 @@ async function tableExists(tableName) {
 
 async function deleteShortcodes(shortcodesToDelete, clientId = null) {
   if (!shortcodesToDelete.length) return;
+  // Tugas rutin boleh dihapus saat tidak lagi ada pada hasil sinkronisasi.
+  // Arsip pelaksanaan di link_report sengaja tidak dihapus.
   // ig_ext_posts rows cascade when insta_post entries are deleted
   const todayJakarta = toJakartaDateKey(new Date());
   let sql =

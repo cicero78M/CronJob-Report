@@ -86,6 +86,7 @@ export async function generateDailyAmplificationReport(clientId) {
   );
   
   let msg = `${salam}\n\n`;
+  msg += `*LAPORAN AMPLIFIKASI REGULER*\n`;
   msg += `Mohon Ijin Melaporkan Pelaksanaan Tugas Amplifikasi *${clientName}* pada hari :\n`;
   msg += `Hari : ${hari}\n`;
   msg += `Tanggal : ${tanggal}\n`;
@@ -109,6 +110,75 @@ export async function generateDailyAmplificationReport(clientId) {
   msg += `\n\nYoutube (${list.youtube.length}):\n${list.youtube.length > 0 ? list.youtube.join('\n') : '-'}`;
   
   return msg.trim();
+}
+
+/**
+ * Generate daily special amplification report. This intentionally uses only
+ * the special task/report tables so routine and special reports never mix.
+ */
+export async function generateDailySpecialAmplificationReport(clientId) {
+  const { getReportsTodayByClient } = await import('../model/linkReportKhususModel.js');
+  const { getShortcodesTodayByClient } = await import('../model/instaPostKhususModel.js');
+
+  const reports = await getReportsTodayByClient(clientId, 'operator');
+  const operatorIds = await getOperatorUserIds(clientId);
+  if (!operatorIds.size) return null;
+
+  const filteredReports = reports.filter((report) => operatorIds.has(report.user_id));
+  if (!filteredReports.length) return null;
+
+  const shortcodes = await getShortcodesTodayByClient(clientId);
+  const list = {
+    facebook: [],
+    instagram: [],
+    twitter: [],
+    tiktok: [],
+    youtube: [],
+  };
+  const users = new Set();
+
+  filteredReports.forEach((report) => {
+    users.add(report.user_id);
+    if (report.facebook_link) list.facebook.push(report.facebook_link);
+    if (report.instagram_link) list.instagram.push(report.instagram_link);
+    if (report.twitter_link) list.twitter.push(report.twitter_link);
+    if (report.tiktok_link) list.tiktok.push(report.tiktok_link);
+    if (report.youtube_link) list.youtube.push(report.youtube_link);
+  });
+
+  const totalLinks = Object.values(list).reduce((total, links) => total + links.length, 0);
+  const now = new Date();
+  const dateOptions = { timeZone: 'Asia/Jakarta' };
+  const dayName = now.toLocaleDateString('id-ID', { ...dateOptions, weekday: 'long' });
+  const dateLabel = now.toLocaleDateString('id-ID', dateOptions);
+  const timeLabel = now.toLocaleTimeString('id-ID', { ...dateOptions, hour12: false });
+  const { rows: nameRows } = await query(
+    'SELECT nama FROM clients WHERE client_id=$1 LIMIT 1',
+    [clientId]
+  );
+  const clientName = nameRows[0]?.nama || clientId;
+  const contentLinks = shortcodes.map((shortcode) =>
+    `https://www.instagram.com/p/${shortcode}`
+  );
+
+  let message = `${getGreeting()}\n\n`;
+  message += `*LAPORAN AMPLIFIKASI KHUSUS*\n`;
+  message += `Mohon Ijin Melaporkan Pelaksanaan Tugas Amplifikasi Khusus *${clientName}* pada hari :\n`;
+  message += `Hari : ${dayName}\n`;
+  message += `Tanggal : ${dateLabel}\n`;
+  message += `Pukul : ${timeLabel}\n\n`;
+  message += `Jumlah Konten Tugas Khusus : ${shortcodes.length}\n`;
+  message += contentLinks.length ? `${contentLinks.join('\n')}\n\n` : '-\n\n';
+  message += `Jumlah Personil yang melaksanakan : ${users.size}\n`;
+  message += `Jumlah Total Link dari 5 Platform Sosial Media : ${totalLinks}\n\n`;
+  message += `Link Sebagai Berikut :\n`;
+  message += `Facebook (${list.facebook.length}):\n${list.facebook.join('\n') || '-'}`;
+  message += `\n\nInstagram (${list.instagram.length}):\n${list.instagram.join('\n') || '-'}`;
+  message += `\n\nTwitter (${list.twitter.length}):\n${list.twitter.join('\n') || '-'}`;
+  message += `\n\nTikTok (${list.tiktok.length}):\n${list.tiktok.join('\n') || '-'}`;
+  message += `\n\nYoutube (${list.youtube.length}):\n${list.youtube.join('\n') || '-'}`;
+
+  return message.trim();
 }
 
 /**
@@ -178,6 +248,7 @@ export async function generateYesterdayAmplificationReport(clientId) {
   );
   
   let msg = `${salam}\n\n`;
+  msg += `*LAPORAN AMPLIFIKASI REGULER - KEMARIN*\n`;
   msg += `Mohon Ijin Melaporkan Pelaksanaan Tugas Amplifikasi *${clientName}* pada hari :\n`;
   msg += `Hari : ${hari}\n`;
   msg += `Tanggal : ${tanggal}\n`;

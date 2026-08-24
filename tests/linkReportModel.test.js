@@ -114,7 +114,8 @@ test('getLinkReports joins with insta_post', async () => {
   );
   expect(mockQuery).toHaveBeenNthCalledWith(
     2,
-    expect.stringContaining('SELECT COUNT(*)::int AS count FROM link_report')
+    expect.stringContaining('SELECT COUNT(*)::int AS count FROM link_report'),
+    []
   );
 });
 
@@ -128,7 +129,7 @@ test('findLinkReportByShortcode joins with insta_post', async () => {
   );
 });
 
-test('getReportsTodayByClient joins insta_post and filters by date', async () => {
+test('getReportsTodayByClient keeps reports visible after task deletion', async () => {
   mockQuery
     .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
     .mockResolvedValueOnce({ rows: [{ shortcode: 'x' }] });
@@ -140,13 +141,12 @@ test('getReportsTodayByClient joins insta_post and filters by date', async () =>
     ['POLRES']
   );
   const sql = mockQuery.mock.calls[1][0];
-  expect(sql).toContain('JOIN insta_post p ON p.shortcode = r.shortcode');
+  expect(sql).not.toContain('JOIN insta_post p ON p.shortcode = r.shortcode');
   expect(sql).toContain('JOIN "user" u ON u.user_id = r.user_id');
-  expect(sql).toContain("p.created_at::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date");
-  expect(sql).toContain("r.created_at::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date");
+  expect(sql).toContain("(r.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date");
 });
 
-test('getReportsYesterdayByClient joins insta_post and filters by date', async () => {
+test('getReportsYesterdayByClient keeps reports visible after task deletion', async () => {
   mockQuery
     .mockResolvedValueOnce({ rows: [{ client_type: 'instansi' }] })
     .mockResolvedValueOnce({ rows: [{ shortcode: 'y' }] });
@@ -158,10 +158,9 @@ test('getReportsYesterdayByClient joins insta_post and filters by date', async (
     ['POLRES']
   );
   const sql = mockQuery.mock.calls[1][0];
-  expect(sql).toContain('JOIN insta_post p ON p.shortcode = r.shortcode');
+  expect(sql).not.toContain('JOIN insta_post p ON p.shortcode = r.shortcode');
   expect(sql).toContain('JOIN "user" u ON u.user_id = r.user_id');
-  expect(sql).toContain("p.created_at::date = (NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 day')::date");
-  expect(sql).toContain("r.created_at::date = (NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 day')::date");
+  expect(sql).toContain("(r.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 day')::date");
 });
 
 test('getReportsTodayByShortcode filters by client and shortcode', async () => {

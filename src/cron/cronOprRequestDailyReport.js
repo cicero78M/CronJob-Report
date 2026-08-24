@@ -7,6 +7,7 @@ import { getOperatorWaRoute } from './waClientRouting.js';
 import { findAllActiveOrgAmplifyClients } from '../model/clientModel.js';
 import {
   generateDailyAmplificationReport,
+  generateDailySpecialAmplificationReport,
   generateYesterdayAmplificationReport,
 } from '../service/oprReportService.js';
 import { normalizeUserWhatsAppId, minPhoneDigitLength } from '../utils/waHelper.js';
@@ -112,38 +113,35 @@ async function processClientReports(client) {
     msg: `[${client.client_id}] Memproses laporan harian untuk ${client.nama}`,
   });
   
-  try {
-    // Generate Laporan Tugas Rutin No 1 (Today's report)
-    const todayReport = await generateDailyAmplificationReport(client.client_id);
-    
-    if (todayReport) {
-      await sendReportToOperator(client, todayReport);
-      // Add small delay between messages
-      await new Promise((resolve) => setTimeout(resolve, MESSAGE_DELAY_MS));
-    } else {
+  const generateAndSend = async (label, generator, { delayAfter = false } = {}) => {
+    try {
+      const report = await generator(client.client_id);
+      if (!report) {
+        sendDebug({ tag: CRON_TAG, msg: `[${client.client_id}] Tidak ada data ${label}` });
+        return;
+      }
+      await sendReportToOperator(client, report);
+      if (delayAfter) {
+        await new Promise((resolve) => setTimeout(resolve, MESSAGE_DELAY_MS));
+      }
+    } catch (err) {
+      // Setiap jenis laporan independen: kegagalan satu laporan tidak boleh
+      // menghentikan pengiriman jenis laporan berikutnya.
       sendDebug({
         tag: CRON_TAG,
-        msg: `[${client.client_id}] Tidak ada data laporan hari ini`,
+        msg: `[${client.client_id}] Gagal memproses ${label}: ${err.message || err}`,
       });
     }
-    
-    // Generate Laporan Tugas Rutin No 2 (Yesterday's report)
-    const yesterdayReport = await generateYesterdayAmplificationReport(client.client_id);
-    
-    if (yesterdayReport) {
-      await sendReportToOperator(client, yesterdayReport);
-    } else {
-      sendDebug({
-        tag: CRON_TAG,
-        msg: `[${client.client_id}] Tidak ada data laporan kemarin`,
-      });
-    }
-  } catch (err) {
-    sendDebug({
-      tag: CRON_TAG,
-      msg: `[${client.client_id}] Gagal memproses laporan: ${err.message || err}`,
-    });
-  }
+  };
+
+  await generateAndSend('laporan reguler hari ini', generateDailyAmplificationReport, {
+    delayAfter: true,
+  });
+  await generateAndSend('laporan khusus hari ini', generateDailySpecialAmplificationReport, {
+    delayAfter: true,
+  });
+  // Pertahankan laporan rutin kemarin sebagai proses bisnis yang sudah ada.
+  await generateAndSend('laporan reguler kemarin', generateYesterdayAmplificationReport);
 }
 
 /**

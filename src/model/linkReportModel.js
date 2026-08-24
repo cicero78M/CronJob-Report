@@ -161,8 +161,9 @@ export async function getReportsTodayByClient(client_id) {
     [client_id]
   );
   const clientType = typeRes.rows[0]?.client_type;
-  let joinClause =
-    'JOIN insta_post p ON p.shortcode = r.shortcode JOIN "user" u ON u.user_id = r.user_id';
+  // Laporan reguler tetap menjadi arsip mandiri ketika tugas rutin disinkronkan
+  // dan post induknya dihapus. Jangan inner join ke insta_post di rekap laporan.
+  let joinClause = 'JOIN "user" u ON u.user_id = r.user_id';
   let whereClause = 'u.client_id = $1';
   if (clientType === 'direktorat') {
     joinClause +=
@@ -172,7 +173,6 @@ export async function getReportsTodayByClient(client_id) {
   const res = await query(
     `SELECT r.* FROM link_report r ${joinClause}
      WHERE ${whereClause} AND (r.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date
-       AND (p.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta')::date
      ORDER BY r.created_at ASC`,
     [client_id]
   );
@@ -185,8 +185,9 @@ export async function getReportsYesterdayByClient(client_id) {
     [client_id]
   );
   const clientType = typeRes.rows[0]?.client_type;
-  let joinClause =
-    'JOIN insta_post p ON p.shortcode = r.shortcode JOIN "user" u ON u.user_id = r.user_id';
+  // Gunakan tanggal laporan, bukan keberadaan post, agar arsip laporan tidak
+  // hilang dari rekap setelah sinkronisasi menghapus tugas rutin.
+  let joinClause = 'JOIN "user" u ON u.user_id = r.user_id';
   let whereClause = 'u.client_id = $1';
   if (clientType === 'direktorat') {
     joinClause +=
@@ -196,7 +197,6 @@ export async function getReportsYesterdayByClient(client_id) {
   const res = await query(
     `SELECT r.* FROM link_report r ${joinClause}
      WHERE ${whereClause} AND (r.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 day')::date
-       AND (p.created_at AT TIME ZONE 'Asia/Jakarta')::date = (NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 day')::date
      ORDER BY r.created_at ASC`,
     [client_id]
   );
