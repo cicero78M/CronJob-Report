@@ -14,7 +14,7 @@ import { normalizeUserWhatsAppId, minPhoneDigitLength } from '../utils/waHelper.
 import { acquireDistributedLock } from '../service/distributedLockService.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestDailyReport.js';
-const CRON_EXPRESSION = '7 21 * * *'; // Every day at 22:30 PM Jakarta time
+const CRON_EXPRESSION = '7 21 * * *'; // Every day at 21:07 Jakarta time
 const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
 const CRON_TAG = 'CRON OPRREQUEST DAILY REPORT';
 const DISTRIBUTED_LOCK_KEY = 'cron:oprrequest:daily-report';

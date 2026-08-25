@@ -42,8 +42,8 @@ test('getPostsByClientAndDateRange supports start and end dates', async () => {
     endDate: '2024-01-31',
   });
   const sql = mockQuery.mock.calls[0][0];
-  expect(sql).toContain('created_at::date >= $2');
-  expect(sql).toContain('created_at::date <= $3');
+  expect(sql).toContain("(created_at AT TIME ZONE 'Asia/Jakarta')::date >= $2::date");
+  expect(sql).toContain("(created_at AT TIME ZONE 'Asia/Jakarta')::date <= $3::date");
   expect(mockQuery.mock.calls[0][1]).toEqual([
     'c1',
     '2024-01-01',
