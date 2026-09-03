@@ -30,6 +30,16 @@ const JAKARTA_TIMEZONE = "Asia/Jakarta";
 
 const jakartaDateFormatter = new Intl.DateTimeFormat("id-ID", {
   timeZone: JAKARTA_TIMEZONE,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+const jakartaLongDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: JAKARTA_TIMEZONE,
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
 });
 
 const jakartaTimeFormatter = new Intl.DateTimeFormat("id-ID", {
@@ -727,18 +737,37 @@ export async function absensiKomentar(client_id, opts = {}) {
   return msg.trim();
 }
 
-export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
+export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS", options = {}) {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
-  const { hari, tanggal, jam } = getJakartaNowParts();
+  const period = options?.period === "monthly" ? "monthly" : "daily";
+  const referenceDate = options?.referenceDate ? new Date(options.referenceDate) : new Date();
+  const { hari } = getJakartaNowParts(referenceDate);
+  const periodeTanggal = jakartaLongDateFormatter.format(referenceDate);
+  const monthLabel = new Intl.DateTimeFormat("id-ID", {
+    timeZone: JAKARTA_TIMEZONE,
+    month: "long",
+    year: "numeric",
+  }).format(referenceDate);
 
   const { tiktok: mainUsername, nama: clientName } = await getClientInfo(targetClientId);
   const clientNameUpper = String(clientName || targetClientId).toUpperCase();
-  const { posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(targetClientId, {
-    logContext: { scope: "absensi_ditbinmas_simple" },
-  });
+  let posts;
+  let hasPostsToday = false;
+  if (period === "monthly") {
+    const { getPostsByClientAndDateRange } = await import("../../../model/tiktokPostModel.js");
+    const year = Number(new Intl.DateTimeFormat("en", { timeZone: JAKARTA_TIMEZONE, year: "numeric" }).format(referenceDate));
+    const month = Number(new Intl.DateTimeFormat("en", { timeZone: JAKARTA_TIMEZONE, month: "numeric" }).format(referenceDate));
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 0));
+    posts = await getPostsByClientAndDateRange(targetClientId, start, end);
+  } else {
+    ({ posts, hasPostsToday } = await getPostsForDailyKomentarNarrative(targetClientId, {
+      logContext: { scope: "absensi_ditbinmas_simple" },
+    }));
+  }
   if (!posts.length && !hasPostsToday)
-    return `Tidak ada konten TikTok pada akun Official ${clientNameUpper} hari ini.`;
+    return `Tidak ada konten TikTok pada akun Official ${clientNameUpper} untuk periode ${period === "monthly" ? `Bulan ${monthLabel}` : "hari ini"}.`;
   const kontenLinks = posts.map(
     (p) => `https://www.tiktok.com/@${mainUsername}/video/${p.video_id}`
   );
@@ -786,7 +815,7 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
 
   allUsers.forEach((u) => {
     if (!u.tiktok || u.tiktok.trim() === "") {
-      categorizedUsers.tanpaUsername.push(u);
+      categorizedUsers.tanpaUsername.push({ ...u, count: 0 });
       return;
     }
     const uname = normalizeUsername(u.tiktok);
@@ -795,11 +824,11 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
       if (set.has(uname)) count += 1;
     });
     if (count === posts.length) {
-      categorizedUsers.lengkap.push(u);
+      categorizedUsers.lengkap.push({ ...u, count });
     } else if (count > 0) {
-      categorizedUsers.kurang.push(u);
+      categorizedUsers.kurang.push({ ...u, count });
     } else {
-      categorizedUsers.belum.push(u);
+      categorizedUsers.belum.push({ ...u, count });
     }
   });
 
@@ -856,18 +885,28 @@ export async function absensiKomentarDitbinmasSimple(clientId = "DITBINMAS") {
       if (!users.length) {
         return `${header}\n-`;
       }
-      const list = users.map((u) => `- ${formatNama(u)}`).join("\n");
+      const list = users
+        .map((u) => `- ${formatNama(u)} (${Number(u?.count) || 0}/${posts.length})`)
+        .join("\n");
       return `${header}\n${list}`;
     })
     .join("\n\n");
+  const contentLinksSection =
+    period === "daily"
+      ? `*Daftar Link Konten:*\n${kontenLinks.join("\n")}\n\n`
+      : "\n";
 
   let msg =
-    `Mohon ijin Komandan,\n\n` +
-    `📋 Rekap Komentar TikTok (Simple)\n` +
-    `*${clientName.toUpperCase()}*\n` +
-    `${hari}, ${tanggal}\nJam: ${jam}\n\n` +
+    `*LAPORAN ${period === "monthly" ? "BULANAN" : "HARIAN"} ABSENSI MEDIA SOSIAL*\n` +
+    `*DIREKTORAT BINMAS POLDA JAWA TIMUR*\n` +
+    `📋 *Absensi Engagement Personil Direktorat Binmas*\n` +
+    `🏢 Satuan: Ditbinmas Polda Jawa Timur\n` +
+    `📱 Platform: TikTok\n` +
+    `📝 Aktivitas: Komentar\n` +
+    `🗓️ Periode: ${period === "monthly" ? `Bulan ${monthLabel}` : `${hari}, ${periodeTanggal}`}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
     `*Jumlah Konten:* ${posts.length}\n` +
-    `*Daftar Link Konten:*\n${kontenLinks.join("\n")}\n\n` +
+    contentLinksSection +
     `*Jumlah Total Personil:* ${totals.total} pers\n` +
     `✅ *Melaksanakan Lengkap :* ${totals.lengkap} pers\n` +
     `⚠️ *Melaksanakan Kurang :* ${totals.kurang} pers\n` +
@@ -1073,6 +1112,7 @@ export async function absensiKomentarDitbinmasReport(clientId = "DITBINMAS") {
 
 export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const roleName = String(clientId || "DITBINMAS").toLowerCase();
+  const directorateId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const now = new Date();
   const { hari, tanggal, jam } = getJakartaNowParts(now);
   const dateKey = jakartaDateKeyFormatter.format(now);
@@ -1133,8 +1173,8 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
     : await getClientsByRole(roleName);
   const polresIds = roleClients
     .map((c) => c.toUpperCase())
-    .filter((cid) => cid !== clientNameUpper);
-  const clientIds = [clientNameUpper, ...polresIds];
+    .filter((cid) => cid !== directorateId && cid !== clientNameUpper);
+  const clientIds = [directorateId, ...polresIds];
   const allUsers = (
     await getUsersByDirektorat(roleName, clientIds)
   ).filter((u) => {
@@ -1321,14 +1361,14 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   }
 
   perClientStats.sort((a, b) => {
-    if (a.cid === clientNameUpper) return -1;
-    if (b.cid === clientNameUpper) return 1;
+    if (a.cid === directorateId) return -1;
+    if (b.cid === directorateId) return 1;
     if (a.comments !== b.comments) return b.comments - a.comments;
     return a.name.localeCompare(b.name);
   });
 
   const perClientBlocks = perClientStats.map((p) => p.block);
-  const satkerStats = perClientStats.filter((p) => p.cid !== clientNameUpper);
+  const satkerStats = perClientStats.filter((p) => p.cid !== directorateId);
   const fmtNum = (n) => n.toLocaleString("id-ID");
 
   const contentStats = kontenLinks.map((link, idx) => {
@@ -1369,8 +1409,6 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
   const satkerRank = [...satkerStats].sort(
     (a, b) => b.comments - a.comments || a.name.localeCompare(b.name)
   );
-  const topFiveSatker = satkerRank.slice(0, 5);
-  const bottomFiveSatker = [...satkerRank].reverse().slice(0, 5);
   const formatSatkerList = (arr) =>
     arr.length
       ? arr
@@ -1379,20 +1417,27 @@ export async function lapharTiktokDitbinmas(clientId = "DITBINMAS") {
       : "-";
 
   let narrative =
-    `Mohon Ijin Komandan, rekap singkat komentar TikTok hari ${hari}, ${tanggal} pukul ${jam} WIB.\n\n` +
-    `🎵 TikTok (${clientNameUpper})\n` +
-    `Top 5 Komentar:\n${formatSatkerList(topFiveSatker)}\n\n` +
-    `Bottom 5 Komentar:\n${formatSatkerList(bottomFiveSatker)}`;
+    `*LAPORAN HARIAN MEDIA SOSIAL*\n` +
+    `*DIREKTORAT BINMAS POLDA JAWA TIMUR*\n` +
+    `📋 *Peringkat Pelaksanaan Komentar TikTok Polres Jajaran*\n` +
+    `🏢 Satuan: Ditbinmas Polda Jawa Timur\n` +
+    `📱 Platform: TikTok\n` +
+    `📝 Aktivitas: Likes dan Komentar\n` +
+    `📊 Indikator Peringkat: Jumlah Likes dan Komentar\n` +
+    `🗓️ Periode: ${hari}, ${tanggal}\n` +
+    `🕘 Waktu: ${jam} WIB\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Urutan pelaksanaan tugas berdasarkan jumlah komentar:\n${formatSatkerList(satkerRank)}`;
 
   const rankingData = {
     generatedDate: tanggal,
     generatedDateKey: dateKey,
     metricLabel: "komentar",
-    top: topFiveSatker.map((satker) => ({
+    top: satkerRank.slice(0, 5).map((satker) => ({
       name: satker.name,
       score: satker.comments,
     })),
-    bottom: bottomFiveSatker.map((satker) => ({
+    bottom: [...satkerRank].reverse().slice(0, 5).map((satker) => ({
       name: satker.name,
       score: satker.comments,
     })),

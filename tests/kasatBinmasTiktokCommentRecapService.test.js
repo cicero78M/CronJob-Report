@@ -7,6 +7,8 @@ const mockFindUserById = jest.fn();
 const mockGetRekapKomentarByClient = jest.fn();
 const mockGetCommentsByVideoId = jest.fn();
 const mockGetPostsTodayByClient = jest.fn();
+const mockFindAllOrgClients = jest.fn();
+const mockUnused = jest.fn();
 
 const toJakartaDateInput = (date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(date);
@@ -14,6 +16,8 @@ const toJakartaDateInput = (date) =>
 jest.unstable_mockModule('../src/model/userModel.js', () => ({
   getUsersByClient: mockGetUsersByClient,
   findUserById: mockFindUserById,
+  getUsersByDirektorat: mockUnused,
+  getClientsByRole: mockUnused,
 }));
 
 jest.unstable_mockModule('../src/model/tiktokCommentModel.js', () => ({
@@ -23,6 +27,11 @@ jest.unstable_mockModule('../src/model/tiktokCommentModel.js', () => ({
 
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
   getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockUnused,
+  getPostsInAttendanceWindowByClient: mockUnused,
+}));
+jest.unstable_mockModule('../src/model/clientModel.js', () => ({
+  findAllOrgClients: mockFindAllOrgClients,
 }));
 
 let generateKasatBinmasTiktokCommentRecap;
@@ -35,6 +44,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFindAllOrgClients.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -95,9 +105,11 @@ test('menyusun ringkasan absensi komentar TikTok untuk Kasat Binmas', async () =
     undefined,
     'ditbinmas'
   );
-  expect(summary).toContain('📋 *Absensi Komentar TikTok Kasat Binmas*');
+  expect(summary).toContain('📋 *Absensi Engagement Kasat Binmas*');
+  expect(summary).toContain('📱 Platform: TikTok');
+  expect(summary).toContain('📝 Aktivitas: Likes dan Komentar');
   expect(summary).toContain('Total konten periode: 3 video');
-  expect(summary).toContain('Total Kasat Binmas: 2 pers');
+  expect(summary).toContain('Kasat Binmas dengan akun aktif: 2 pers');
   expect(summary).toContain('Lengkap: 1/2 pers');
   expect(summary).toContain('Sebagian: 0/2 pers');
   expect(summary).toContain('Belum komentar: 0/2 pers');
@@ -105,6 +117,26 @@ test('menyusun ringkasan absensi komentar TikTok untuk Kasat Binmas', async () =
   expect(summary).toMatch(/Alpha/);
   expect(summary).not.toMatch(/Charlie/);
   expect(summary).not.toMatch(/Delta/);
+});
+
+test('menampilkan nama Polres ketika tidak ada Kasat Binmas aktif', async () => {
+  mockFindAllOrgClients.mockResolvedValue([
+    { client_id: 'POLRESA', nama: 'Polres A', regional_id: 'JATIM' },
+    { client_id: 'POLRESB', nama: 'Polres B', regional_id: 'JATIM' },
+  ]);
+  mockGetUsersByClient.mockResolvedValue([
+    { user_id: '1', nama: 'Alpha', jabatan: 'Kasat Binmas', client_id: 'POLRESA', client_name: 'Polres A', tiktok: '@alpha' },
+  ]);
+  mockGetRekapKomentarByClient.mockResolvedValue([
+    { user_id: '1', jumlah_komentar: 1, total_konten: 1 },
+  ]);
+
+  const summary = await generateKasatBinmasTiktokCommentRecap({ period: 'daily' });
+
+  expect(summary).toContain('Total Polres jajaran: 2');
+  expect(summary).toContain('Kasat Binmas dengan akun aktif: 1 pers');
+  expect(summary).toContain('Belum tersedia akun aktif Kasat Binmas: 1 Polres');
+  expect(summary).toContain('POLRES B — Belum tersedia akun aktif Kasat Binmas');
 });
 
 test('periode harian memakai tanggal WIB agar tidak bergeser oleh zona waktu server', async () => {
@@ -248,7 +280,7 @@ test('mengembalikan pesan ketika tidak ada Kasat Binmas', async () => {
 
   const summary = await generateKasatBinmasTiktokCommentRecap();
 
-  expect(summary).toContain('tidak ditemukan data Kasat Binmas');
+  expect(summary).toContain('belum tersedia akun aktif Kasat Binmas');
   expect(mockGetRekapKomentarByClient).not.toHaveBeenCalled();
 });
 

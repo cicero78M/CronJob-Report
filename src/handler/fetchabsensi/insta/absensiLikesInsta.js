@@ -488,17 +488,36 @@ export async function rekapLikesIG(client_id) {
   return msg.trim();
 }
 
-export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
+export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS", options = {}) {
   const targetClientId = String(clientId || "DITBINMAS").trim().toUpperCase();
   const roleName = targetClientId.toLowerCase();
-  const now = getJakartaNow();
+  const period = options?.period === "monthly" ? "monthly" : "daily";
+  const now = options?.referenceDate ? new Date(options.referenceDate) : getJakartaNow();
   const hari = hariIndo[getJakartaDayIndex(now) ?? now.getDay()];
-  const tanggal = formatJakartaDate(now);
-  const jam = formatJakartaTime(now);
+  const tanggal = formatJakartaDate(now, { month: "long" });
+  const monthKey = now.toLocaleDateString("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const monthLabel = now.toLocaleDateString("id-ID", {
+    timeZone: "Asia/Jakarta",
+    month: "long",
+    year: "numeric",
+  });
 
   let shortcodes;
   try {
-    shortcodes = await getShortcodesTodayByClient(targetClientId);
+    if (period === "monthly") {
+      const { getPostsByFilters } = await import("../../../model/instaPostModel.js");
+      const posts = await getPostsByFilters(targetClientId, {
+        periode: "bulanan",
+        tanggal: monthKey,
+      });
+      shortcodes = posts.map((post) => post.shortcode).filter(Boolean);
+    } else {
+      shortcodes = await getShortcodesTodayByClient(targetClientId);
+    }
   } catch (error) {
     console.error(error);
     return "Maaf, gagal mengambil data konten Instagram.";
@@ -506,7 +525,7 @@ export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
   const { nama: clientName } = await getClientInfo(targetClientId);
 
   if (!shortcodes.length)
-    return `*Belum ada konten Instagram terbaru pada akun official ${clientName.toUpperCase()} pada hari ini.*`;
+    return `*Belum ada konten Instagram pada akun official ${clientName.toUpperCase()} untuk periode ${period === "monthly" ? `Bulan ${monthLabel}` : "hari ini"}.*`;
 
   const kontenLinks = shortcodes.map((sc) => `https://www.instagram.com/p/${sc}`);
   let likesSets;
@@ -584,19 +603,28 @@ export async function absensiLikesDitbinmasSimple(clientId = "DITBINMAS") {
       if (!users.length) {
         return `${header}\n-`;
       }
-      const list = users.map((u) => `- ${formatNama(u)}`).join("\n");
+      const list = users
+        .map((u) => `- ${formatNama(u)} (${Number(u?.count) || 0}/${shortcodes.length})`)
+        .join("\n");
       return `${header}\n${list}`;
     })
     .join("\n\n");
+  const contentLinksSection =
+    period === "daily"
+      ? `*Daftar Link Konten:*\n${kontenLinks.join("\n")}\n\n`
+      : "\n";
 
   let msg =
-    `Mohon ijin Komandan,\n\n` +
-    `📋 Rekap Akumulasi Likes Instagram (Simple)\n` +
-    `*${clientName.toUpperCase()}*\n` +
-    `${hari}, ${tanggal}\n` +
-    `Jam: ${jam}\n\n` +
+    `*LAPORAN ${period === "monthly" ? "BULANAN" : "HARIAN"} ABSENSI MEDIA SOSIAL*\n` +
+    `*DIREKTORAT BINMAS POLDA JAWA TIMUR*\n` +
+    `📋 *Absensi Engagement Personil Direktorat Binmas*\n` +
+    `🏢 Satuan: Ditbinmas Polda Jawa Timur\n` +
+    `📱 Platform: Instagram\n` +
+    `📝 Aktivitas: Likes dan Komentar\n` +
+    `🗓️ Periode: ${period === "monthly" ? `Bulan ${monthLabel}` : `${hari}, ${tanggal}`}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
     `*Jumlah Konten:* ${shortcodes.length}\n` +
-    `*Daftar Link Konten:*\n${kontenLinks.join("\n")}\n\n` +
+    contentLinksSection +
     `*Jumlah Total Personil:* ${totals.total} pers\n` +
     `✅ *Melaksanakan Lengkap :* ${totals.lengkap} pers\n` +
     `⚠️ *Melaksanakan Kurang :* ${totals.kurang} pers\n` +

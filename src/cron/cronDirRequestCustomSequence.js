@@ -526,6 +526,44 @@ export async function runDitbinmasSuperAdminDailyRecap(referenceDate = new Date(
   return status;
 }
 
+export async function runDitbinmasSuperAdminMonthlyRecap(referenceDate = new Date()) {
+  const label = 'Ditbinmas super admin (6,9,34,35 bulanan)';
+  sendDebug({
+    tag: 'CRON DIRREQ CUSTOM',
+    msg: 'Mulai cron Ditbinmas super admin bulanan (menu 6/9/34/35)',
+  });
+  await logToAdmins('Mulai cron Ditbinmas super admin bulanan (menu 6/9/34/35)');
+
+  let status = 'pending';
+
+  try {
+    const ditbinmasClient = await findClientById(DITBINMAS_CLIENT_ID);
+    const recipients = getSuperAdminRecipients(ditbinmasClient);
+    const actions = [
+      { action: '6', context: { period: 'monthly', referenceDate } },
+      { action: '9', context: { period: 'monthly', referenceDate } },
+      { action: '34', context: { period: 'monthly', referenceDate } },
+      { action: '35', context: { period: 'monthly', referenceDate } },
+    ];
+
+    status = await executeMenuActions({
+      clientId: DITBINMAS_CLIENT_ID,
+      actions,
+      recipients,
+      label,
+      roleFlag: DITBINMAS_CLIENT_ID,
+      userClientId: DITBINMAS_CLIENT_ID,
+    });
+    await logToAdmins(`Selesai cron Ditbinmas super admin bulanan: ${status}`);
+  } catch (err) {
+    status = `gagal menjalankan cron Ditbinmas super admin bulanan: ${err.message || err}`;
+    sendDebug({ tag: 'CRON DIRREQ CUSTOM', msg: status });
+    await logToAdmins(status);
+  }
+
+  return status;
+}
+
 export async function runDitbinmasOperatorDailyReport(referenceDate = new Date()) {
   const label = 'Ditbinmas operator (menu 30 harian)';
   sendDebug({

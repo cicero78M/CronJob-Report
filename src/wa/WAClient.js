@@ -68,11 +68,13 @@ class WAClientConfig {
     this.maxInitRetries = parseInt(options.maxInitRetries, 10) || 3;
     this.initRetryDelay = parseInt(options.initRetryDelay, 10) || 10000; // 10 seconds
     this.qrTimeout = parseInt(options.qrTimeout, 10) || 120000; // 2 minutes for QR scan
+    this.pairingPhoneNumber = String(options.pairingPhoneNumber || '').replace(/\D/g, '');
     this.logLevel = options.logLevel || 'error'; // Baileys logging level
     // Option to suppress non-critical Baileys session errors (Bad MAC, SessionError)
     this.suppressSessionErrors = options.suppressSessionErrors !== false; // default true
-    // Option to enable automatic recovery from BAD_SESSION errors
-    // When enabled, the client will clear the session and attempt to reinitialize
+    // Option to enable automatic recovery from BAD_SESSION errors.
+    // Recovery is deliberately non-destructive: preserve auth and reconnect.
+    // Auth deletion must remain an explicit operator action.
     this.enableBadSessionRecovery = options.enableBadSessionRecovery !== false; // default true
     // Option to enable automatic recovery from LOGGED_OUT errors
     // When enabled, the client will clear the session and reinitialize for fresh QR pairing
@@ -102,6 +104,8 @@ export class WAClient extends EventEmitter {
     this.lastError = null;
     this.qrTimeoutTimer = null;
     this.reconnectTimer = null;
+    this.recoveryInFlight = false;
+    this.pairingCodeRequested = false;
     // Message store for decryption - keeps last 100 messages per chat
     this.messageStore = new Map();
     this.maxMessagesPerChat = 100;
@@ -146,6 +150,12 @@ export class WAClient extends EventEmitter {
     }
 
     this.isInitializing = true;
+    // A reconnect callback may be the caller. Clear its handle now so a
+    // different recovery path cannot mistake it for pending work.
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     console.log(`[${this.config.clientId}] Initializing WhatsApp client with Baileys (attempt ${this.initRetries + 1}/${this.config.maxInitRetries + 1})...`);
 
     try {
@@ -165,6 +175,7 @@ export class WAClient extends EventEmitter {
       const { state, saveCreds } = await useMultiFileAuthState(authPath);
       this.authState = state;
       this.saveCreds = saveCreds;
+      this.pairingCodeRequested = false;
 
       // Fetch latest Baileys version for compatibility
       const { version } = await fetchLatestBaileysVersion();
@@ -234,9 +245,12 @@ export class WAClient extends EventEmitter {
       });
 
       // Set up event handlers
-      this._setupEventHandlers();
+      this._setupEventHandlers(this.socket);
 
       // Set up QR timeout if no authentication session exists
+      if (this.qrTimeoutTimer) {
+        clearTimeout(this.qrTimeoutTimer);
+      }
       this.qrTimeoutTimer = setTimeout(() => {
         if (!this.authenticated && !this.isReady) {
           console.warn(`[${this.config.clientId}] QR code scan timeout after ${this.config.qrTimeout}ms`);
@@ -245,7 +259,6 @@ export class WAClient extends EventEmitter {
       }, this.config.qrTimeout);
 
       console.log(`[${this.config.clientId}] Client socket created successfully`);
-      this.initRetries = 0; // Reset retry counter on success
       this.lastError = null;
     } catch (error) {
       console.error(`[${this.config.clientId}] Initialization error:`, error);
@@ -275,12 +288,38 @@ export class WAClient extends EventEmitter {
   }
 
   /**
+   * Request a WhatsApp linking code for the configured phone number.
+   * The number must use international format without a leading plus sign.
+   */
+  async _requestPairingCode() {
+    const phoneNumber = this.config.pairingPhoneNumber;
+    if (!/^\d{8,15}$/.test(phoneNumber)) {
+      throw new Error('Pairing phone must contain 8-15 digits in international format (example: 628123456789)');
+    }
+    if (!this.socket || this.authState?.creds?.registered) {
+      return null;
+    }
+
+    this.pairingCodeRequested = true;
+    const code = await this.socket.requestPairingCode(phoneNumber);
+    const formattedCode = String(code).match(/.{1,4}/g)?.join('-') || String(code);
+    console.log(`[${this.config.clientId}] PHONE_PAIRING_CODE_START`);
+    console.log(`[${this.config.clientId}] ${formattedCode}`);
+    console.log(`[${this.config.clientId}] PHONE_PAIRING_CODE_END`);
+    console.log(`[${this.config.clientId}] Enter this code in WhatsApp > Linked devices > Link with phone number`);
+    this.emit('pairing_code', code);
+    return code;
+  }
+
+  /**
    * Set up event handlers for the Baileys socket
    * Maps Baileys events to maintain compatibility with previous interface
    */
-  _setupEventHandlers() {
+  _setupEventHandlers(socket) {
     // Connection state updates - handles QR, authentication, ready state
-    this.socket.ev.on('connection.update', (update) => {
+    socket.ev.on('connection.update', (update) => {
+      // Ignore late events emitted by a socket that has already been replaced.
+      if (this.socket !== socket) return;
       const { connection, qr, lastDisconnect } = update;
 
       // Handle QR code display
@@ -289,6 +328,14 @@ export class WAClient extends EventEmitter {
         this._logQrCode(qr);
         this.qrScanned = false;
         this.emit('qr', qr);
+
+        if (this.config.pairingPhoneNumber && !this.pairingCodeRequested) {
+          this._requestPairingCode().catch((error) => {
+            this.pairingCodeRequested = false;
+            this.lastError = error;
+            console.error(`[${this.config.clientId}] Failed to request phone pairing code:`, error.message);
+          });
+        }
       }
 
       // Handle connection opened (ready state)
@@ -300,6 +347,8 @@ export class WAClient extends EventEmitter {
         this.qrScanned = true;
         this.reconnectAttempts = 0;
         this.initRetries = 0;
+        this.pairingCodeRequested = false;
+        this.recoveryInFlight = false;
         
         // Clear QR timeout
         if (this.qrTimeoutTimer) {
@@ -317,6 +366,10 @@ export class WAClient extends EventEmitter {
         this.isReady = false;
         this.isInitializing = false;
         this.authenticated = false;
+        if (this.qrTimeoutTimer) {
+          clearTimeout(this.qrTimeoutTimer);
+          this.qrTimeoutTimer = null;
+        }
 
         // Determine disconnect reason with comprehensive mapping
         const statusCode = lastDisconnect?.error?.output?.statusCode;
@@ -361,9 +414,10 @@ export class WAClient extends EventEmitter {
 
         this.emit('disconnected', reason);
         
-        // Special handling for BAD_SESSION with recovery enabled
+        // BAD_SESSION can be emitted for transient stream/ack failures. Treat it
+        // like the operator client's reconnectable failures and preserve auth.
         if (reason === 'BAD_SESSION' && this.config.enableBadSessionRecovery) {
-          console.log(`[${this.config.clientId}] BAD_SESSION detected - attempting automatic recovery`);
+          console.log(`[${this.config.clientId}] BAD_SESSION detected - reconnecting with preserved auth`);
           this._handleBadSessionRecovery();
         } else if (reason === 'LOGGED_OUT' && this.config.enableLoggedOutRecovery) {
           console.log(`[${this.config.clientId}] LOGGED_OUT detected - attempting automatic recovery`);
@@ -384,14 +438,17 @@ export class WAClient extends EventEmitter {
     });
 
     // Credentials update - must save to persist authentication
-    this.socket.ev.on('creds.update', () => {
-      if (this.saveCreds) {
-        this.saveCreds();
+    const saveSocketCreds = this.saveCreds;
+    socket.ev.on('creds.update', () => {
+      // Never let a replaced socket persist credentials through the save
+      // callback belonging to the new socket/auth state.
+      if (this.socket === socket && saveSocketCreds) {
+        saveSocketCreds();
       }
     });
 
     // Incoming messages
-    this.socket.ev.on('messages.upsert', ({ messages, type }) => {
+    socket.ev.on('messages.upsert', ({ messages, type }) => {
       for (const msg of messages) {
         try {
           // Store message for future decryption needs
@@ -448,7 +505,7 @@ export class WAClient extends EventEmitter {
     });
 
     // Message updates (status changes, reactions, etc.)
-    this.socket.ev.on('messages.update', (updates) => {
+    socket.ev.on('messages.update', (updates) => {
       // Handle message status updates if needed
       // This can be used for message delivery/read receipts
       for (const update of updates) {
@@ -460,7 +517,7 @@ export class WAClient extends EventEmitter {
 
     // Handle messaging history sync events
     // This is important for managing session state during history sync
-    this.socket.ev.on('messaging-history.set', ({ chats, messages, isLatest }) => {
+    socket.ev.on('messaging-history.set', ({ chats, messages, isLatest }) => {
       try {
         console.log(`[${this.config.clientId}] Messaging history sync: ${messages.length} messages, ${chats.length} chats, isLatest: ${isLatest}`);
         
@@ -627,8 +684,7 @@ export class WAClient extends EventEmitter {
       'UNPAIRED', 
       'FORBIDDEN',
       'MULTIDEVICE_MISMATCH',
-      'CONNECTION_REPLACED',
-      'BAD_SESSION'
+      'CONNECTION_REPLACED'
     ];
     
     if (noReconnectReasons.includes(reason) || this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -641,7 +697,7 @@ export class WAClient extends EventEmitter {
     
     console.log(`[${this.config.clientId}] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
     
-    this.reconnectTimer = setTimeout(async () => {
+    this._scheduleReconnect(async () => {
       try {
         await this.initialize();
       } catch (error) {
@@ -650,13 +706,29 @@ export class WAClient extends EventEmitter {
     }, delay);
   }
 
+  _scheduleReconnect(callback, delay) {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+    }
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      await callback();
+    }, delay);
+  }
+
   /**
-   * Handle BAD_SESSION recovery
-   * Clears the corrupted session and attempts to reinitialize
+   * Handle BAD_SESSION recovery without deleting authentication state.
+   * A single stream/ack failure is not sufficient evidence that credentials
+   * are irrecoverably corrupt. This mirrors the stable operator reconnect path.
    */
   async _handleBadSessionRecovery() {
+    if (this.recoveryInFlight) {
+      console.log(`[${this.config.clientId}] Recovery already in-flight, ignoring duplicate BAD_SESSION`);
+      return;
+    }
+    this.recoveryInFlight = true;
     try {
-      console.log(`[${this.config.clientId}] Starting BAD_SESSION recovery process`);
+      console.log(`[${this.config.clientId}] Starting non-destructive BAD_SESSION recovery`);
       
       // First, clean up the current connection
       if (this.socket) {
@@ -668,32 +740,45 @@ export class WAClient extends EventEmitter {
         }
       }
       
-      // Clear the corrupted auth session
-      await this._clearAuthSession();
-      
       // Reset initialization state
       this.isReady = false;
       this.isInitializing = false;
       this.authenticated = false;
       this.qrScanned = false;
-      this.reconnectAttempts = 0;
       this.initRetries = 0;
+
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        const error = new Error(
+          `[${this.config.clientId}] BAD_SESSION recovery stopped after ${this.maxReconnectAttempts} attempts; auth was preserved for manual diagnosis`
+        );
+        this.lastError = error;
+        this.recoveryInFlight = false;
+        console.error(error.message);
+        this.emit('bad_session_recovery_failed', error);
+        return;
+      }
+
+      this.reconnectAttempts++;
+      const delay = this.reconnectDelay * (2 ** (this.reconnectAttempts - 1));
+      console.log(
+        `[${this.config.clientId}] Reinitializing with preserved auth in ${delay}ms ` +
+        `(attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+      );
       
-      // Wait a bit before reinitializing to avoid immediate reconnect
-      const delay = 5000; // 5 seconds
-      console.log(`[${this.config.clientId}] Will reinitialize with cleared session in ${delay}ms`);
-      
-      this.reconnectTimer = setTimeout(async () => {
+      this._scheduleReconnect(async () => {
         try {
           console.log(`[${this.config.clientId}] Reinitializing after BAD_SESSION recovery`);
           await this.initialize();
-          console.log(`[${this.config.clientId}] BAD_SESSION recovery completed - please scan QR code if prompted`);
+          console.log(`[${this.config.clientId}] BAD_SESSION reconnect initialized with auth preserved`);
         } catch (error) {
           console.error(`[${this.config.clientId}] BAD_SESSION recovery failed:`, error);
           this.emit('bad_session_recovery_failed', error);
+        } finally {
+          this.recoveryInFlight = false;
         }
       }, delay);
     } catch (error) {
+      this.recoveryInFlight = false;
       console.error(`[${this.config.clientId}] Error during BAD_SESSION recovery:`, error);
       this.emit('bad_session_recovery_failed', error);
     }
@@ -701,9 +786,16 @@ export class WAClient extends EventEmitter {
 
   /**
    * Handle LOGGED_OUT recovery
-   * Clears the auth session and reinitializes so the operator can re-scan QR
+   * Clears an authenticated session only after WhatsApp explicitly logs it
+   * out. An unregistered/pending pairing session is preserved so repeated
+   * connection failures cannot continually erase an in-progress link.
    */
   async _handleLoggedOutRecovery() {
+    if (this.recoveryInFlight) {
+      console.log(`[${this.config.clientId}] Recovery already in-flight, ignoring duplicate LOGGED_OUT`);
+      return;
+    }
+    this.recoveryInFlight = true;
     try {
       console.log(`[${this.config.clientId}] Starting LOGGED_OUT recovery process`);
 
@@ -716,7 +808,13 @@ export class WAClient extends EventEmitter {
         }
       }
 
-      await this._clearAuthSession();
+      const wasRegistered = this.authState?.creds?.registered === true;
+      if (wasRegistered) {
+        console.log(`[${this.config.clientId}] Confirmed registered session was logged out; clearing auth for explicit re-pairing`);
+        await this._clearAuthSession();
+      } else {
+        console.log(`[${this.config.clientId}] Pending pairing session is not registered; preserving auth state`);
+      }
 
       this.isReady = false;
       this.isInitializing = false;
@@ -728,7 +826,7 @@ export class WAClient extends EventEmitter {
       const delay = 5000;
       console.log(`[${this.config.clientId}] Will reinitialize after LOGGED_OUT in ${delay}ms`);
 
-      this.reconnectTimer = setTimeout(async () => {
+      this._scheduleReconnect(async () => {
         try {
           console.log(`[${this.config.clientId}] Reinitializing after LOGGED_OUT recovery`);
           await this.initialize();
@@ -736,9 +834,12 @@ export class WAClient extends EventEmitter {
         } catch (error) {
           console.error(`[${this.config.clientId}] LOGGED_OUT recovery failed:`, error);
           this.emit('logged_out_recovery_failed', error);
+        } finally {
+          this.recoveryInFlight = false;
         }
       }, delay);
     } catch (error) {
+      this.recoveryInFlight = false;
       console.error(`[${this.config.clientId}] Error during LOGGED_OUT recovery:`, error);
       this.emit('logged_out_recovery_failed', error);
     }
@@ -753,8 +854,9 @@ export class WAClient extends EventEmitter {
     
     try {
       if (this.socket) {
-        this.socket.end();
+        const timedOutSocket = this.socket;
         this.socket = null;
+        timedOutSocket.end();
       }
     } catch (err) {
       console.error(`[${this.config.clientId}] Error cleaning up on timeout:`, err);
@@ -766,7 +868,7 @@ export class WAClient extends EventEmitter {
       const delay = this.config.initRetryDelay * Math.pow(2, this.initRetries - 1);
       console.log(`[${this.config.clientId}] Retrying after timeout in ${delay}ms...`);
       
-      this.reconnectTimer = setTimeout(async () => {
+      this._scheduleReconnect(async () => {
         try {
           await this.initialize();
         } catch (error) {
@@ -778,6 +880,7 @@ export class WAClient extends EventEmitter {
       console.error(`[${this.config.clientId}] Maximum retries exceeded after ${reason}`);
       const timeoutError = new Error(`[${this.config.clientId}] ${reason}: Maximum retries (${this.config.maxInitRetries}) exceeded`);
       this.lastError = timeoutError;
+      this.qrTimeoutTimer = null;
       this.emit('init_failed', timeoutError);
     }
   }
@@ -959,6 +1062,7 @@ export class WAClient extends EventEmitter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.recoveryInFlight = false;
     
     // Clear message store to free memory
     if (this.messageStore) {
@@ -1090,13 +1194,13 @@ export class WAClient extends EventEmitter {
       const onDisconnected = (reason) => {
         // Terminal disconnect reasons that should not be retried
         const terminalReasons = [
-          'LOGGED_OUT',
           'UNPAIRED',
           'FORBIDDEN',
           'MULTIDEVICE_MISMATCH',
-          'CONNECTION_REPLACED',
-          'BAD_SESSION'
+          'CONNECTION_REPLACED'
         ];
+        if (!this.config.enableLoggedOutRecovery) terminalReasons.push('LOGGED_OUT');
+        if (!this.config.enableBadSessionRecovery) terminalReasons.push('BAD_SESSION');
         
         if (terminalReasons.includes(reason)) {
           console.error(`[${this.config.clientId}] Terminal disconnect: ${reason}`);

@@ -27,6 +27,8 @@ export const env = cleanEnv(process.env, {
   GATEWAY_WHATSAPP_ADMIN: str({ default: '' }),
   DIRECTORATE_WA_SESSION_NAME: str({ default: '' }),
   OPERATOR_WA_SESSION_NAME: str({ default: '' }),
+  DIRECTORATE_WA_PAIRING_PHONE: str({ default: '' }),
+  OPERATOR_WA_PAIRING_PHONE: str({ default: '' }),
   APP_SESSION_NAME: str({ default: '' }),
   GATEWAY_WA_CLIENT_ID: str({ default: 'wa-gateway' }),
   WA_AUTH_DATA_PATH: str({ default: '' }),

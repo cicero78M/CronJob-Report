@@ -65,8 +65,12 @@ test('builds analytical narrative with key metrics', async () => {
 
   const result = await lapharTiktokDitbinmas();
 
-  expect(result.narrative).toMatch(/Top 5 Komentar/);
-  expect(result.narrative).toMatch(/Bottom 5 Komentar/);
+  expect(result.narrative).toMatch(/Urutan pelaksanaan tugas berdasarkan jumlah komentar/);
+  expect(result.narrative).toMatch(/LAPORAN HARIAN MEDIA SOSIAL/);
+  expect(result.narrative).toMatch(/Platform: TikTok/);
+  expect(result.narrative).toMatch(/Aktivitas: Likes dan Komentar/);
+  expect(result.narrative).toMatch(/Indikator Peringkat: Jumlah Likes dan Komentar/);
+  expect(result.narrative).not.toMatch(/Top 5|Bottom 5/);
   expect(result.narrative).toMatch(/POLRES A/);
   expect(result.text).toMatch(/Distribusi komentar per konten:/);
   expect(result.text).toMatch(/1\. https:\/\/www\.tiktok\.com\/\@ditbinmas\/video\/v1 — 2 akun/);

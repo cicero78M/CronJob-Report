@@ -52,9 +52,12 @@ test('orders clients by likes with ditbinmas first and returns narrative', async
 
   const result = await lapharDitbinmas();
 
-  expect(result.narrative).toMatch(/Mohon Ijin Komandan/);
-  expect(result.narrative).toMatch(/Top 5 Likes/);
-  expect(result.narrative).toMatch(/Bottom 5 Likes/);
+  expect(result.narrative).toMatch(/LAPORAN HARIAN MEDIA SOSIAL/);
+  expect(result.narrative).toMatch(/Platform: Instagram/);
+  expect(result.narrative).toMatch(/Aktivitas: Likes dan Komentar/);
+  expect(result.narrative).toMatch(/Indikator Peringkat: Jumlah Likes dan Komentar/);
+  expect(result.narrative).toMatch(/Urutan pelaksanaan tugas berdasarkan jumlah likes/);
+  expect(result.narrative).not.toMatch(/Top 5|Bottom 5/);
   const idxDit = result.text.indexOf('DIREKTORAT BINMAS');
   const idxA = result.text.indexOf('POLRES A');
   const idxB = result.text.indexOf('POLRES B');

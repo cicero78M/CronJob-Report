@@ -22,11 +22,14 @@ This guide helps troubleshoot common WhatsApp connection issues in the Cicero V2
 
 **Automatic Recovery (Enabled by Default):**
 
-The system now automatically recovers from BAD_SESSION errors by:
-1. Detecting the BAD_SESSION disconnect
-2. Clearing the corrupted session folder
-3. Reinitializing the client with fresh authentication
-4. Prompting for QR code scan to re-authenticate
+The system automatically recovers from BAD_SESSION errors by preserving the
+existing auth state and performing bounded reconnect attempts. It does not
+delete the session automatically; session reset and re-pairing are explicit
+operator actions.
+1. Detecting the BAD_SESSION disconnect.
+2. Closing only the failed socket.
+3. Reinitializing with the existing authentication files.
+4. Retrying with exponential backoff, up to the configured limit.
 
 **Configuration:**
 ```bash
@@ -39,13 +42,11 @@ WA_ENABLE_BAD_SESSION_RECOVERY=false
 
 **What Happens During Recovery:**
 ```
-[wa-direktorat] BAD_SESSION detected - attempting automatic recovery
-[wa-direktorat] Starting BAD_SESSION recovery process
-[wa-direktorat] Clearing auth session at: /path/to/baileys_auth/session-wa-direktorat
-[wa-direktorat] Auth session cleared successfully
-[wa-direktorat] Will reinitialize with cleared session in 5000ms
+[wa-direktorat] BAD_SESSION detected - reconnecting with preserved auth
+[wa-direktorat] Starting non-destructive BAD_SESSION recovery
+[wa-direktorat] Reinitializing with preserved auth in 5000ms (attempt 1/5)
 [wa-direktorat] Reinitializing after BAD_SESSION recovery
-[wa-direktorat] BAD_SESSION recovery completed - please scan QR code if prompted
+[wa-direktorat] BAD_SESSION reconnect initialized with auth preserved
 ```
 
 **Manual Recovery (if automatic recovery is disabled):**

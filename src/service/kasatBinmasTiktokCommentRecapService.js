@@ -1,10 +1,9 @@
-import { getUsersByClient } from "../model/userModel.js";
 import { getCommentsByVideoId } from "../model/tiktokCommentModel.js";
 import { getPostsTodayByClient } from "../model/tiktokPostModel.js";
 import { getRekapKomentarByClient } from "../model/tiktokCommentModel.js";
 import { formatNama } from "../utils/utilsHelper.js";
-import { matchesKasatBinmasJabatan } from "./kasatkerAttendanceService.js";
-import { formatJakartaDate, toJakartaDateKey } from "../utils/jakartaTime.js";
+import { buildKasatBinmasRoster } from "./kasatBinmasRosterService.js";
+import { toJakartaDateKey } from "../utils/jakartaTime.js";
 import {
   extractUsernamesFromComments,
   normalizeUsername,
@@ -18,6 +17,7 @@ const STATUS_SECTIONS = [
   { key: "sebagian", icon: "🟡", label: "Sebagian (belum semua konten)" },
   { key: "belum", icon: "❌", label: "Belum komentar" },
   { key: "noUsername", icon: "⚠️❌", label: "Belum update akun TikTok" },
+  { key: "noActiveAccount", icon: "🚫", label: "Belum tersedia akun aktif Kasat Binmas" },
 ];
 
 const PANGKAT_ORDER = [
@@ -78,18 +78,20 @@ function toDateInput(date) {
 
 function formatDateLong(date) {
   const jakartaDate = date instanceof Date ? date : toJakartaDate(date);
-  return formatJakartaDate(jakartaDate, {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
     day: "2-digit",
     month: "long",
     year: "numeric",
-  });
+  }).format(jakartaDate);
 }
 
 function formatDayLabel(date) {
   const jakartaDate = date instanceof Date ? date : toJakartaDate(date);
-  const weekday = formatJakartaDate(jakartaDate, {
+  const weekday = new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
     weekday: "long",
-  });
+  }).format(jakartaDate);
   return `${weekday}, ${formatDateLong(jakartaDate)}`;
 }
 
@@ -121,10 +123,11 @@ function describePeriod(period = "daily", referenceDate) {
     };
   }
   if (period === "monthly") {
-    const label = formatJakartaDate(today, {
+    const label = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
       month: "long",
       year: "numeric",
-    });
+    }).format(today);
     const zoned = today instanceof Date ? today : toJakartaDate(today);
     return {
       periode: "bulanan",
@@ -153,8 +156,12 @@ function sortKasatEntries(entries) {
     const rankDiff = rankWeight(a.user?.title) - rankWeight(b.user?.title);
     if (rankDiff !== 0) return rankDiff;
 
-    const nameA = formatNama(a.user) || "";
-    const nameB = formatNama(b.user) || "";
+    const nameA = a.user
+      ? formatNama(a.user)
+      : String(a.client?.nama || a.client?.client_id || "");
+    const nameB = b.user
+      ? formatNama(b.user)
+      : String(b.client?.nama || b.client?.client_id || "");
     return nameA.localeCompare(nameB, "id-ID", { sensitivity: "base" });
   });
 }
@@ -244,12 +251,11 @@ export async function generateKasatBinmasTiktokCommentRecap({
 } = {}) {
   const periodInfo = describePeriod(period, referenceDate);
 
-  const users = await getUsersByClient(DITBINMAS_CLIENT_ID, TARGET_ROLE);
-  const kasatUsers = (users || []).filter((user) => matchesKasatBinmasJabatan(user?.jabatan));
+  const roster = await buildKasatBinmasRoster();
+  const kasatUsers = roster.activeKasatUsers;
 
-  if (!kasatUsers.length) {
-    const totalUsers = users?.length || 0;
-    return `Dari ${totalUsers} user aktif ${DITBINMAS_CLIENT_ID} (${TARGET_ROLE}), tidak ditemukan data Kasat Binmas.`;
+  if (!kasatUsers.length && roster.totalPolres === 0) {
+    return `Dari ${roster.totalPolres} Polres jajaran, belum tersedia akun aktif Kasat Binmas.`;
   }
 
   const recapRows = await getRekapKomentarByClient(
@@ -296,13 +302,14 @@ export async function generateKasatBinmasTiktokCommentRecap({
     }
   }
 
-  const grouped = { lengkap: [], sebagian: [], belum: [], noUsername: [] };
+  const grouped = { lengkap: [], sebagian: [], belum: [], noUsername: [], noActiveAccount: [] };
   const totals = {
     total: kasatUsers.length,
     lengkap: 0,
     sebagian: 0,
     belum: 0,
     noUsername: 0,
+    noActiveAccount: roster.missingPolres.length,
   };
 
   kasatUsers.forEach((user) => {
@@ -319,6 +326,8 @@ export async function generateKasatBinmasTiktokCommentRecap({
     totals[key] += 1;
     grouped[key].push({ user, count });
   });
+  totals.total = roster.totalPolres;
+  grouped.noActiveAccount = roster.missingPolres.map((client) => ({ client }));
 
   const sectionsText = STATUS_SECTIONS.map(({ key, icon, label }) => {
     const entries = sortKasatEntries(grouped[key] || []);
@@ -326,9 +335,13 @@ export async function generateKasatBinmasTiktokCommentRecap({
     if (!entries.length) {
       return header;
     }
-    const lines = entries.map(
-      (entry, idx) => `   ${formatEntryLine(entry, idx + 1, totalKonten)}`
-    );
+    const lines = entries.map((entry, idx) => {
+      if (key === "noActiveAccount") {
+        const polres = String(entry.client?.nama || entry.client?.client_id || "Polres tidak diketahui").toUpperCase();
+        return `   ${idx + 1}. ${polres} — Belum tersedia akun aktif Kasat Binmas`;
+      }
+      return `   ${formatEntryLine(entry, idx + 1, totalKonten)}`;
+    });
     return [header, ...lines].join("\n");
   });
 
@@ -346,18 +359,26 @@ export async function generateKasatBinmasTiktokCommentRecap({
       : "";
 
   const summaryLines = [
-    "📋 *Absensi Komentar TikTok Kasat Binmas*",
+    `*LAPORAN ${periodInfo.periode === "bulanan" ? "BULANAN" : periodInfo.periode === "mingguan" ? "MINGGUAN" : "HARIAN"} ABSENSI MEDIA SOSIAL*`,
+    "*KASAT BINMAS JAJARAN POLDA JAWA TIMUR*",
     "",
+    "📋 *Absensi Engagement Kasat Binmas*",
+    "🏢 Satuan: Ditbinmas Polda Jawa Timur",
+    "📱 Platform: TikTok",
+    "📝 Aktivitas: Likes dan Komentar",
     `🗓️ Periode: ${periodInfo.label}`,
+    "━━━━━━━━━━━━━━━━━━━━",
     warningMessage,
     "",
     "*Ringkasan:*",
     `- ${totalKontenLine}`,
-    `- Total Kasat Binmas: ${totals.total} pers`,
+    `- Total Polres jajaran: ${roster.totalPolres}`,
+    `- Kasat Binmas dengan akun aktif: ${roster.totalActiveKasat} pers`,
     `- Lengkap: ${totals.lengkap}/${totals.total} pers`,
     `- Sebagian: ${totals.sebagian}/${totals.total} pers`,
     `- Belum komentar: ${totals.belum}/${totals.total} pers`,
     `- Belum update akun TikTok: ${totals.noUsername} pers`,
+    `- Belum tersedia akun aktif Kasat Binmas: ${totals.noActiveAccount} Polres`,
     noKontenNote ? `- ${noKontenNote}` : "",
   ];
 

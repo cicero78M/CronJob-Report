@@ -1,6 +1,8 @@
 import { getUsersByClient } from "../model/userModel.js";
 import { findAllOrgClients } from "../model/clientModel.js";
 import { formatNama } from "../utils/utilsHelper.js";
+import { matchesKasatBinmasJabatan } from "./kasatBinmasMatcher.js";
+export { matchesKasatBinmasJabatan } from "./kasatBinmasMatcher.js";
 
 const DITBINMAS_CLIENT_ID = "DITBINMAS";
 const TARGET_ROLE = "ditbinmas";
@@ -21,53 +23,9 @@ const PANGKAT_ORDER = [
   "BRIPDA",
 ];
 
-const REGION_KEYWORDS = [
-  "POLRES",
-  "POLDA",
-  "POLRESTA",
-  "POLTABES",
-  "POLSEK",
-  "KOTA",
-  "KAB",
-  "KABUPATEN",
-  "RESORT",
-  "WILAYAH",
-];
-const REGION_REGEX = new RegExp(`\\b(${REGION_KEYWORDS.join("|")})\\b`, "g");
-const KASAT_BINMAS_REGEX = /^KASAT\s*BINMAS\b/;
-
 function rankWeight(rank) {
   const idx = PANGKAT_ORDER.indexOf(String(rank || "").toUpperCase());
   return idx === -1 ? PANGKAT_ORDER.length : idx;
-}
-
-function sanitizeJabatanText(jabatan = "") {
-  if (!jabatan) {
-    return "";
-  }
-
-  return jabatan
-    .toString()
-    .replace(/[.,/:;\\-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .toUpperCase()
-    .replace(REGION_REGEX, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function matchesKasatBinmasJabatan(jabatan) {
-  const sanitized = sanitizeJabatanText(jabatan);
-  if (!sanitized) {
-    return false;
-  }
-
-  const normalized = sanitized.replace(/\s+/g, " ");
-  if (!normalized.startsWith("KASAT")) {
-    return false;
-  }
-
-  return KASAT_BINMAS_REGEX.test(normalized);
 }
 
 function formatAccountStatus(user) {

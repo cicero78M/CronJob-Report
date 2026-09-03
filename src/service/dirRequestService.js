@@ -647,16 +647,16 @@ async function absensiLikesDitbinmas(clientId) {
   return await absensiLikesDitbinmasReport(clientId);
 }
 
-async function absensiLikesDitbinmasSimple(clientId) {
-  return await absensiLikesDitbinmasSimpleReport(clientId);
+async function absensiLikesDitbinmasSimple(clientId, options) {
+  return await absensiLikesDitbinmasSimpleReport(clientId, options);
 }
 
 async function absensiKomentarTiktok(clientId, roleFlag) {
   return await absensiKomentar(clientId, { roleFlag });
 }
 
-async function absensiKomentarDitbinmasSimple(clientId) {
-  return await absensiKomentarDitbinmasSimpleReport(clientId);
+async function absensiKomentarDitbinmasSimple(clientId, options) {
+  return await absensiKomentarDitbinmasSimpleReport(clientId, options);
 }
 
 async function absensiKomentarDitbinmas(clientId) {
@@ -728,7 +728,7 @@ async function performAction(
       msg = await absensiLikesDitbinmas(attendanceClientId);
       break;
     case "6":
-      msg = await absensiLikesDitbinmasSimple(attendanceClientId);
+      msg = await absensiLikesDitbinmasSimple(attendanceClientId, context);
       break;
     case "7": {
       const opts = { mode: "all", roleFlag: normalizedRoleFlag };
@@ -739,7 +739,7 @@ async function performAction(
       msg = await absensiKomentarTiktok(attendanceClientId, normalizedRoleFlag);
       break;
     case "9":
-      msg = await absensiKomentarDitbinmasSimple(attendanceClientId);
+      msg = await absensiKomentarDitbinmasSimple(attendanceClientId, context);
       break;
     case "10":
       msg = await absensiKomentarDitbinmas(attendanceClientId);
@@ -801,10 +801,11 @@ async function performAction(
         lapharDitbinmas(clientId || DITBINMAS_CLIENT_ID),
         lapharTiktokDitbinmas(clientId || DITBINMAS_CLIENT_ID),
       ]);
-      const intro = `📋 *Laporan Harian Sosmed ${(clientId || DITBINMAS_CLIENT_ID).toUpperCase()}*`;
       const igNarrative = igLaphar?.narrative || igLaphar?.text || "-";
       const ttNarrative = ttLaphar?.narrative || ttLaphar?.text || "-";
-      msg = [intro, "", igNarrative, "", ttNarrative].join("\n");
+      // Menu 21 is intentionally delivered as two independent WhatsApp
+      // reports so a failure or delay on one platform does not hide the other.
+      msg = [igNarrative, ttNarrative];
       break;
     }
     case "22": {
@@ -877,6 +878,7 @@ async function performAction(
     case "34": {
       msg = await generateKasatBinmasLikesRecap({
         period: menuPeriod,
+        referenceDate: resolveBaseDate(context?.referenceDate),
       });
       break;
     }
@@ -890,13 +892,19 @@ async function performAction(
     default:
       msg = "Menu tidak dikenal.";
   }
-  const normalizedMsg = typeof msg === "string" ? msg.trim() : "";
-  if (!normalizedMsg) {
+  const normalizedMessages = (Array.isArray(msg) ? msg : [msg])
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!normalizedMessages.length) {
     return;
   }
 
-  await sendMenuMessage(waClient, chatId, normalizedMsg, fallbackPayload);
+  for (const normalizedMsg of normalizedMessages) {
+    await sendMenuMessage(waClient, chatId, normalizedMsg, fallbackPayload);
+  }
   if (action === "12" || action === "14" || action === "16") {
+    const normalizedMsg = normalizedMessages[0];
     if (Array.isArray(fallbackClients) && fallbackClients.length) {
       await sendWithClientFallback({
         chatId: dirRequestGroup,

@@ -2,7 +2,7 @@
  * Test: WhatsApp Client BAD_SESSION Recovery
  * 
  * Verifies that the WAClient properly handles BAD_SESSION disconnects
- * by automatically clearing the corrupted session and reinitializing.
+ * by preserving authentication state and reinitializing with backoff.
  */
 
 import { jest } from '@jest/globals';
@@ -94,7 +94,7 @@ describe('WAClient BAD_SESSION recovery', () => {
     jest.clearAllTimers();
   });
 
-  test('should automatically recover from BAD_SESSION by clearing session and reinitializing', async () => {
+  test('should automatically recover from BAD_SESSION without clearing auth', async () => {
     jest.useFakeTimers();
     
     const client = new WAClient({
@@ -108,7 +108,7 @@ describe('WAClient BAD_SESSION recovery', () => {
     const initializeSpy = jest.spyOn(client, 'initialize');
     initializeSpy.mockResolvedValue();
     
-    // Mock _clearAuthSession
+    // Auth reset must never be part of automatic BAD_SESSION recovery.
     const clearAuthSpy = jest.spyOn(client, '_clearAuthSession');
     clearAuthSpy.mockResolvedValue();
     
@@ -120,8 +120,7 @@ describe('WAClient BAD_SESSION recovery', () => {
     await Promise.resolve();
     await Promise.resolve();
     
-    // Verify session cleanup was called
-    expect(clearAuthSpy).toHaveBeenCalled();
+    expect(clearAuthSpy).not.toHaveBeenCalled();
     
     // Verify reinitialization was attempted
     expect(initializeSpy).toHaveBeenCalled();
@@ -211,7 +210,7 @@ describe('WAClient BAD_SESSION recovery', () => {
     jest.useRealTimers();
   }, 10000);
 
-  test('should handle session cleanup error gracefully', async () => {
+  test('should stop after bounded retries while preserving auth', async () => {
     const client = new WAClient({
       clientId: 'test-client',
       authPath: '/tmp/test-auth',
@@ -219,11 +218,8 @@ describe('WAClient BAD_SESSION recovery', () => {
       enableBadSessionRecovery: true
     });
     
-    // Mock _clearAuthSession to fail
+    client.reconnectAttempts = client.maxReconnectAttempts;
     const clearAuthSpy = jest.spyOn(client, '_clearAuthSession');
-    clearAuthSpy.mockRejectedValue(new Error('Permission denied'));
-    
-    // Set up event listener
     const recoveryFailedHandler = jest.fn();
     client.on('bad_session_recovery_failed', recoveryFailedHandler);
     
@@ -234,14 +230,62 @@ describe('WAClient BAD_SESSION recovery', () => {
     await Promise.resolve();
     await Promise.resolve();
     
-    // Verify cleanup was attempted
-    expect(clearAuthSpy).toHaveBeenCalled();
-    
-    // Verify recovery failed event was emitted
+    expect(clearAuthSpy).not.toHaveBeenCalled();
     expect(recoveryFailedHandler).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Permission denied'
+        message: expect.stringContaining('auth was preserved')
       })
     );
   }, 10000);
+
+  test('should ignore duplicate recovery while one recovery is in-flight', async () => {
+    jest.useFakeTimers();
+    const client = new WAClient({
+      clientId: 'test-client',
+      authPath: '/tmp/test-auth',
+      enableBadSessionRecovery: true
+    });
+    const clearAuthSpy = jest.spyOn(client, '_clearAuthSession').mockResolvedValue();
+    jest.spyOn(client, 'initialize').mockResolvedValue();
+
+    await Promise.all([
+      client._handleBadSessionRecovery(),
+      client._handleBadSessionRecovery()
+    ]);
+
+    expect(clearAuthSpy).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(5000);
+    await Promise.resolve();
+    jest.useRealTimers();
+  });
+
+  test('should preserve an unregistered pairing session after LOGGED_OUT', async () => {
+    jest.useFakeTimers();
+    const client = new WAClient({ clientId: 'test-client', authPath: '/tmp/test-auth' });
+    client.authState = { creds: { registered: false } };
+    const clearAuthSpy = jest.spyOn(client, '_clearAuthSession').mockResolvedValue();
+    jest.spyOn(client, 'initialize').mockResolvedValue();
+
+    await client._handleLoggedOutRecovery();
+
+    expect(clearAuthSpy).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(5000);
+    await Promise.resolve();
+    jest.useRealTimers();
+  });
+
+  test('should clear a confirmed registered session after LOGGED_OUT', async () => {
+    jest.useFakeTimers();
+    const client = new WAClient({ clientId: 'test-client', authPath: '/tmp/test-auth' });
+    client.authState = { creds: { registered: true } };
+    const clearAuthSpy = jest.spyOn(client, '_clearAuthSession').mockResolvedValue();
+    jest.spyOn(client, 'initialize').mockResolvedValue();
+
+    await client._handleLoggedOutRecovery();
+
+    expect(clearAuthSpy).toHaveBeenCalledTimes(1);
+    jest.advanceTimersByTime(5000);
+    await Promise.resolve();
+    jest.useRealTimers();
+  });
 });

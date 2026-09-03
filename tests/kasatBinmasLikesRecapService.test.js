@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 let generateKasatBinmasLikesRecap;
 let mockGetRekapLikesByClient;
 let mockGetUsersByClient;
+let mockFindAllOrgClients;
 
 const extractSectionEntries = (narrative, label) => {
   const start = narrative.indexOf(label);
@@ -20,12 +21,16 @@ describe('generateKasatBinmasLikesRecap', () => {
     jest.resetModules();
     mockGetRekapLikesByClient = jest.fn();
     mockGetUsersByClient = jest.fn();
+    mockFindAllOrgClients = jest.fn().mockResolvedValue([]);
 
     jest.unstable_mockModule('../src/model/instaLikeModel.js', () => ({
       getRekapLikesByClient: mockGetRekapLikesByClient,
     }));
     jest.unstable_mockModule('../src/model/userModel.js', () => ({
       getUsersByClient: mockGetUsersByClient,
+    }));
+    jest.unstable_mockModule('../src/model/clientModel.js', () => ({
+      findAllOrgClients: mockFindAllOrgClients,
     }));
     jest.unstable_mockModule('../src/utils/utilsHelper.js', () => ({
       formatNama: (user) => user?.nama || '',
@@ -92,7 +97,8 @@ describe('generateKasatBinmasLikesRecap', () => {
       '2024-05-21',
       undefined,
       undefined,
-      'ditbinmas'
+      'ditbinmas',
+      expect.objectContaining({ taskScope: 'hybrid' })
     );
     expect(narrative).toContain('Total konten periode ini: 3');
     expect(narrative).toContain('✅ Lengkap: 1 pers');
@@ -106,8 +112,29 @@ describe('generateKasatBinmasLikesRecap', () => {
 
     const narrative = await generateKasatBinmasLikesRecap();
 
-    expect(narrative).toContain('tidak ditemukan data Kasat Binmas');
+    expect(narrative).toContain('belum tersedia akun aktif Kasat Binmas');
     expect(mockGetRekapLikesByClient).not.toHaveBeenCalled();
+  });
+
+  test('menampilkan nama Polres ketika tidak ada Kasat Binmas aktif', async () => {
+    mockFindAllOrgClients.mockResolvedValue([
+      { client_id: 'POLRESA', nama: 'Polres A', regional_id: 'JATIM' },
+      { client_id: 'POLRESB', nama: 'Polres B', regional_id: 'JATIM' },
+    ]);
+    mockGetUsersByClient.mockResolvedValue([
+      { user_id: '1', client_id: 'POLRESA', client_name: 'Polres A', jabatan: 'Kasat Binmas', nama: 'Alpha', insta: 'alpha' },
+    ]);
+    mockGetRekapLikesByClient.mockResolvedValue({
+      rows: [{ user_id: '1', jumlah_like: 1 }],
+      totalKonten: 1,
+    });
+
+    const narrative = await generateKasatBinmasLikesRecap({ period: 'daily' });
+
+    expect(narrative).toContain('Total Polres jajaran: 2');
+    expect(narrative).toContain('Kasat Binmas dengan akun aktif: 1 pers');
+    expect(narrative).toContain('Belum tersedia akun aktif Kasat Binmas: 1 Polres');
+    expect(narrative).toContain('POLRES B — Belum tersedia akun aktif Kasat Binmas');
   });
 
   test('menghasilkan pesan khusus ketika tidak ada konten', async () => {
@@ -182,11 +209,12 @@ describe('generateKasatBinmasLikesRecap', () => {
 
     expect(mockGetRekapLikesByClient).toHaveBeenCalledWith(
       'DITBINMAS',
-      'harian',
+      'mingguan',
       undefined,
       '2024-05-20',
       '2024-05-26',
-      'ditbinmas'
+      'ditbinmas',
+      expect.objectContaining({ taskScope: 'hybrid' })
     );
   });
 

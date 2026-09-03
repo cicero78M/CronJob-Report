@@ -268,8 +268,19 @@ test('absensiLikesDitbinmasSimple keeps Jakarta date/time even when server TZ is
 
   try {
     const msg = await absensiLikesDitbinmasSimple();
-    expect(msg).toContain('Rabu, 1/1/2025');
-    expect(msg).toContain('Jam: 17.15.00');
+    expect(msg).toContain(
+      '*LAPORAN HARIAN ABSENSI MEDIA SOSIAL*\n' +
+        '*DIREKTORAT BINMAS POLDA JAWA TIMUR*\n' +
+        '📋 *Absensi Engagement Personil Direktorat Binmas*\n' +
+        '🏢 Satuan: Ditbinmas Polda Jawa Timur\n' +
+        '📱 Platform: Instagram\n' +
+        '📝 Aktivitas: Likes dan Komentar\n' +
+        '🗓️ Periode: Rabu, 01 Januari 2025\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n\n' +
+        '*Jumlah Konten:* 1\n' +
+        '*Daftar Link Konten:*'
+    );
+    expect(msg).toContain('- Bripka User 1 (1/1)');
   } finally {
     jest.useRealTimers();
     process.env.TZ = originalTZ;

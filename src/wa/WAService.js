@@ -36,13 +36,19 @@ export class WAService {
     }
 
     const config = {
-      clientId,
+      // Registry key and persisted session id are separate concerns. The map
+      // remains keyed by the stable logical name while auth uses the explicit
+      // configured session id.
+      clientId: options.clientId || clientId,
       authPath: options.authPath || env.WA_AUTH_DATA_PATH || path.join(os.homedir(), '.cicero', 'baileys_auth'),
       // Baileys-specific options
       logLevel: options.logLevel || 'error',
       maxInitRetries: options.maxInitRetries || env.WA_INIT_MAX_RETRIES,
       initRetryDelay: options.initRetryDelay || env.WA_INIT_RETRY_DELAY_MS,
-      qrTimeout: options.qrTimeout || env.WA_QR_TIMEOUT_MS
+      qrTimeout: options.qrTimeout || env.WA_QR_TIMEOUT_MS,
+      pairingPhoneNumber: options.pairingPhoneNumber || '',
+      enableBadSessionRecovery: options.enableBadSessionRecovery,
+      enableLoggedOutRecovery: options.enableLoggedOutRecovery
     };
 
     const client = new WAClient(config);

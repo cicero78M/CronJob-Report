@@ -144,7 +144,7 @@ describe('waService initialization timing', () => {
     expect(waService.createClient).toHaveBeenCalledTimes(2);
     
     // Verify wa-client configuration (updated for Baileys)
-    expect(waService.createClient).toHaveBeenNthCalledWith(1, 'wa-client', 
+    expect(waService.createClient).toHaveBeenNthCalledWith(1, 'wa-direktorat',
       expect.objectContaining({
         clientId: env.APP_SESSION_NAME || 'wa-admin',
         authPath: env.WA_AUTH_DATA_PATH,
@@ -156,7 +156,7 @@ describe('waService initialization timing', () => {
     );
     
     // Verify wa-gateway configuration (updated for Baileys)
-    expect(waService.createClient).toHaveBeenNthCalledWith(2, 'wa-gateway',
+    expect(waService.createClient).toHaveBeenNthCalledWith(2, 'wa-operator',
       expect.objectContaining({
         clientId: env.GATEWAY_WA_CLIENT_ID || 'wa-gateway-prod',
         authPath: env.WA_AUTH_DATA_PATH,

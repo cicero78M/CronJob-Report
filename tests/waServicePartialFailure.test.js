@@ -39,11 +39,11 @@ describe('waService partial failure handling', () => {
     // Create mock service that returns different clients
     const mockWAService = {
       createClient: jest.fn((clientId) => {
-        return clientId === 'wa-client' ? mockWAClientReady : mockWAGatewayFailed;
+        return clientId === 'wa-direktorat' ? mockWAClientReady : mockWAGatewayFailed;
       }),
       initializeClient: jest.fn().mockResolvedValue(undefined),
       getClient: jest.fn((clientId) => {
-        return clientId === 'wa-client' ? mockWAClientReady : mockWAGatewayFailed;
+        return clientId === 'wa-direktorat' ? mockWAClientReady : mockWAGatewayFailed;
       }),
       waitForAllReady: jest.fn().mockResolvedValue([
         { clientId: 'wa-client', status: 'success', ready: true },
@@ -122,7 +122,7 @@ describe('waService partial failure handling', () => {
     
     // wa-gateway is not ready and should throw error
     expect(waGatewayClient.isReady).toBe(false);
-    await expect(waGatewayClient.sendMessage('test', 'test message')).rejects.toThrow('Client wa-gateway is not ready');
+    await expect(waGatewayClient.sendMessage('test', 'test message')).rejects.toThrow('Client wa-operator is not ready');
   });
 
   test('service should fail only if NO clients are ready', async () => {

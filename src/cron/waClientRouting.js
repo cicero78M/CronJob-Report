@@ -4,8 +4,8 @@ const DIRECTORATE_ROUTE = Object.freeze({
   primaryClient: waClient,
   reportClient: waClient,
   fallbackClients: [
-    { client: waClient, label: 'WA' },
-    { client: waGatewayClient, label: 'WA-GATEWAY' },
+    { client: waClient, label: 'WA-DIREKTORAT' },
+    { client: waGatewayClient, label: 'WA-OPERATOR' },
   ],
 });
 
@@ -13,8 +13,8 @@ const OPERATOR_ROUTE = Object.freeze({
   primaryClient: waGatewayClient,
   reportClient: waGatewayClient,
   fallbackClients: [
-    { client: waGatewayClient, label: 'WA-GATEWAY' },
-    { client: waClient, label: 'WA' },
+    { client: waGatewayClient, label: 'WA-OPERATOR' },
+    { client: waClient, label: 'WA-DIREKTORAT' },
   ],
 });
 

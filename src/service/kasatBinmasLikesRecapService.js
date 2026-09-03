@@ -1,8 +1,7 @@
 import { getRekapLikesByClient } from "../model/instaLikeModel.js";
-import { getUsersByClient } from "../model/userModel.js";
 import { formatNama } from "../utils/utilsHelper.js";
-import { matchesKasatBinmasJabatan } from "./kasatkerAttendanceService.js";
-import { formatJakartaDate, getJakartaDayIndex, toJakartaDateKey } from "../utils/jakartaTime.js";
+import { buildKasatBinmasRoster } from "./kasatBinmasRosterService.js";
+import { formatJakartaDate, formatJakartaLocale, getJakartaDayIndex, toJakartaDateKey } from "../utils/jakartaTime.js";
 import { 
   getPositionIndex, 
   getRankIndex 
@@ -17,6 +16,7 @@ const STATUS_SECTIONS = [
   { key: "kurang", icon: "⚠️", label: "Melaksanakan Sebagian" },
   { key: "belum", icon: "❌", label: "Belum Melaksanakan" },
   { key: "noUsername", icon: "⚠️❌", label: "Belum Update Username Instagram" },
+  { key: "noActiveAccount", icon: "🚫", label: "Belum Tersedia Akun Aktif Kasat Binmas" },
 ];
 
 function toDateInput(date) {
@@ -32,8 +32,12 @@ function formatDateLong(date) {
 }
 
 function formatDayLabel(date) {
-  const weekday = formatJakartaDate(date, { weekday: "long" });
-  return `${weekday}, ${formatDateLong(date)}`;
+  return formatJakartaLocale(date, "id-ID", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function resolveWeeklyRange(baseDate = new Date()) {
@@ -65,10 +69,11 @@ export function describeKasatBinmasLikesPeriod(period = "daily", referenceDate) 
     };
   }
   if (period === "monthly") {
-    const label = formatJakartaDate(today, {
+    const label = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
       month: "long",
       year: "numeric",
-    });
+    }).format(today);
     return {
       type: "bulanan",
       label: `Bulan ${label}`,
@@ -122,6 +127,11 @@ function groupKasatByStatus(kasatList, likeCounts, totalKonten) {
   return { totals, grouped };
 }
 
+function formatMissingPolres(client) {
+  const polres = String(client?.nama || client?.client_id || "Polres tidak diketahui").toUpperCase();
+  return `${polres} — Belum tersedia akun aktif Kasat Binmas`;
+}
+
 function sortKasatList(entries) {
   return entries.slice().sort((a, b) => {
     const countDiff = (b.count || 0) - (a.count || 0);
@@ -154,14 +164,11 @@ export async function generateKasatBinmasLikesRecap({
 } = {}) {
   const periodInfo = describeKasatBinmasLikesPeriod(period, referenceDate);
 
-  const users = await getUsersByClient(DITBINMAS_CLIENT_ID, TARGET_ROLE);
-  const kasatUsers = (users || []).filter((user) =>
-    matchesKasatBinmasJabatan(user?.jabatan)
-  );
+  const roster = await buildKasatBinmasRoster();
+  const kasatUsers = roster.activeKasatUsers;
 
-  if (!kasatUsers.length) {
-    const totalUsers = users?.length || 0;
-    return `Dari ${totalUsers} user aktif ${DITBINMAS_CLIENT_ID} (${TARGET_ROLE}), tidak ditemukan data Kasat Binmas.`;
+  if (!kasatUsers.length && roster.totalPolres === 0) {
+    return `Dari ${roster.totalPolres} Polres jajaran, belum tersedia akun aktif Kasat Binmas.`;
   }
 
   const { rows, totalKonten: totalKontenRaw } = await getRekapLikesByClient(
@@ -186,8 +193,15 @@ export async function generateKasatBinmasLikesRecap({
 
   if (totalKonten === 0) {
     return [
-      "📋 *Absensi Likes Kasat Binmas*",
-      `Periode: ${periodInfo.label}`,
+      `*LAPORAN ${periodInfo.type === "bulanan" ? "BULANAN" : periodInfo.type === "mingguan" ? "MINGGUAN" : "HARIAN"} ABSENSI MEDIA SOSIAL*`,
+      "*KASAT BINMAS JAJARAN POLDA JAWA TIMUR*",
+      "",
+      "📋 *Absensi Engagement Kasat Binmas*",
+      "🏢 Satuan: Ditbinmas Polda Jawa Timur",
+      "📱 Platform: Instagram",
+      "📝 Aktivitas: Likes dan Komentar",
+      `🗓️ Periode: ${periodInfo.label}`,
+      "━━━━━━━━━━━━━━━━━━━━",
       "",
       "Belum ada konten Instagram Ditbinmas pada periode ini untuk diabsen.",
     ]
@@ -196,6 +210,9 @@ export async function generateKasatBinmasLikesRecap({
   }
 
   const { totals, grouped } = groupKasatByStatus(kasatUsers, likeCounts, totalKonten);
+  totals.total = roster.totalPolres;
+  totals.noActiveAccount = roster.missingPolres.length;
+  grouped.noActiveAccount = roster.missingPolres.map((client) => ({ client }));
 
   const sectionsText = STATUS_SECTIONS.map(({ key, icon, label }) => {
     const entries = sortKasatList(grouped[key] || []);
@@ -206,24 +223,32 @@ export async function generateKasatBinmasLikesRecap({
     const list = entries
       .map(
         (entry, idx) =>
-          `  ${idx + 1}. ${formatUserEntry(entry.user, entry.count, totalKonten)}`
+          `  ${idx + 1}. ${key === "noActiveAccount" ? formatMissingPolres(entry.client) : formatUserEntry(entry.user, entry.count, totalKonten)}`
       )
       .join("\n");
     return `${header}\n${list}`;
   }).join("\n\n");
 
   const summaryLines = [
-    "📋 *Absensi Likes Kasat Binmas*",
+    `*LAPORAN ${periodInfo.type === "bulanan" ? "BULANAN" : periodInfo.type === "mingguan" ? "MINGGUAN" : "HARIAN"} ABSENSI MEDIA SOSIAL*`,
+    "*KASAT BINMAS JAJARAN POLDA JAWA TIMUR*",
     "",
+    "📋 *Absensi Engagement Kasat Binmas*",
+    "🏢 Satuan: Ditbinmas Polda Jawa Timur",
+    "📱 Platform: Instagram",
+    "📝 Aktivitas: Likes dan Komentar",
     `🗓️ Periode: ${periodInfo.label}`,
+    "━━━━━━━━━━━━━━━━━━━━",
     `📈 Total konten periode ini: ${totalKonten}`,
-    `👥 Total Kasat Binmas: ${totals.total} pers`,
+    `🏢 Total Polres jajaran: ${roster.totalPolres}`,
+    `👥 Kasat Binmas dengan akun aktif: ${roster.totalActiveKasat} pers`,
     "",
     "📊 Distribusi Status:",
     `  ✅ Lengkap: ${totals.lengkap} pers`,
     `  ⚠️ Sebagian: ${totals.kurang} pers`,
     `  ❌ Belum: ${totals.belum} pers`,
     `  ⚠️❌ Belum update username IG: ${totals.noUsername} pers`,
+    `  🚫 Belum tersedia akun aktif Kasat Binmas: ${totals.noActiveAccount} Polres`,
     "",
     sectionsText,
   ];

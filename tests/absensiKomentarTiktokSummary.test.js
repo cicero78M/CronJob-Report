@@ -14,7 +14,8 @@ jest.unstable_mockModule('../src/model/userModel.js', () => ({
   getClientsByRole: jest.fn(),
 }));
 jest.unstable_mockModule('../src/model/tiktokPostModel.js', () => ({
-  getPostsTodayByClient: mockGetPostsTodayByClient,
+  getPostsByClientOnJakartaDate: mockGetPostsTodayByClient,
+  getPostsInAttendanceWindowByClient: mockGetPostsTodayByClient,
   findPostByVideoId: jest.fn(),
   deletePostByVideoId: jest.fn(),
 }));
@@ -115,8 +116,19 @@ test('absensiKomentarDitbinmasSimple keeps Jakarta date/time when server TZ is U
 
   try {
     const message = await absensiKomentarDitbinmasSimple();
-    expect(message).toContain('Rabu, 1/1/2025');
-    expect(message).toContain('Jam: 17.15.00');
+    expect(message).toContain(
+      '*LAPORAN HARIAN ABSENSI MEDIA SOSIAL*\n' +
+        '*DIREKTORAT BINMAS POLDA JAWA TIMUR*\n' +
+        '📋 *Absensi Engagement Personil Direktorat Binmas*\n' +
+        '🏢 Satuan: Ditbinmas Polda Jawa Timur\n' +
+        '📱 Platform: TikTok\n' +
+        '📝 Aktivitas: Komentar\n' +
+        '🗓️ Periode: Rabu, 01 Januari 2025\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n\n' +
+        '*Jumlah Konten:* 1\n' +
+        '*Daftar Link Konten:*'
+    );
+    expect(message).toContain('- AKP Personel 1 (1/1)');
   } finally {
     jest.useRealTimers();
     process.env.TZ = originalTZ;

@@ -117,7 +117,7 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
     await expect(readyPromise).resolves.toBe(true);
   });
 
-  test('waitForReady should reject on terminal disconnect (LOGGED_OUT)', async () => {
+  test('waitForReady should continue while LOGGED_OUT automatic recovery is enabled', async () => {
     const client = new WAClient({
       clientId: 'test-client',
       authPath: '/tmp/test-auth',
@@ -136,8 +136,8 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
     // Simulate LOGGED_OUT disconnect (terminal)
     client.emit('disconnected', 'LOGGED_OUT');
     
-    // The promise should reject immediately for terminal disconnects
-    await expect(readyPromise).rejects.toThrow('Disconnected while waiting for ready (terminal): LOGGED_OUT');
+    setTimeout(() => client.emit('ready'), 100);
+    await expect(readyPromise).resolves.toBe(true);
   });
 
   test('waitForReady should handle multiple reconnectable disconnects', async () => {
@@ -186,7 +186,8 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
     const client = new WAClient({
       clientId: 'test-client',
       authPath: '/tmp/test-auth',
-      qrTimeout: 5000
+      qrTimeout: 5000,
+      enableBadSessionRecovery: false
     });
     
     // Initialize the client
@@ -225,7 +226,9 @@ describe('WAClient RESTART_REQUIRED disconnect handling', () => {
       const client = new WAClient({
         clientId: `test-client-${reason}`,
         authPath: '/tmp/test-auth',
-        qrTimeout: 5000
+        qrTimeout: 5000,
+        enableLoggedOutRecovery: false,
+        enableBadSessionRecovery: false
       });
       
       // Initialize the client

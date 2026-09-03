@@ -51,10 +51,12 @@ function scheduleCronBucket(client, bucketKey, label) {
     activateBucket();
   });
 
-  // Since initializeWAService() already waits for clients to be ready,
-  // we can activate the bucket immediately without waiting again
-  console.log(`[CRON] ${label} client confirmed ready`);
-  activateBucket();
+  if (client.isReady) {
+    console.log(`[CRON] ${label} client confirmed ready`);
+    activateBucket();
+  } else {
+    console.warn(`[CRON] ${label} client not ready; bucket will activate on recovery`);
+  }
 }
 
 // Initialize WhatsApp clients with new architecture
@@ -71,19 +73,14 @@ async function initializeApp() {
       .then(activated => logBucketStatus('Always', activated))
       .catch(err => console.error('[CRON] Failed to activate always cron bucket', err));
 
-    // Schedule cron buckets only if clients are ready
-    if (waClient.isReady) {
-      scheduleCronBucket(waClient, 'direktorat', 'WA direktorat');
-    } else {
-      console.warn('[APP] wa-direktorat session is not ready, skipping direktorat cron bucket scheduling');
-    }
+    // Always attach ready listeners. A client that recovers after partial
+    // startup must be able to activate its own bucket without a PM2 restart.
+    scheduleCronBucket(waClient, 'direktorat', 'WA direktorat');
+    scheduleCronBucket(waGatewayClient, 'operatorPolres', 'WA operator polres');
 
-    if (waGatewayClient.isReady) {
-      scheduleCronBucket(waGatewayClient, 'operatorPolres', 'WA operator polres');
-      registerDirRequestCrons(waClient);
-    } else {
-      console.warn('[APP] wa-operator session is not ready, skipping operator cron registration');
-    }
+    // These schedules send through wa-direktorat and must not depend on the
+    // unrelated operator client being ready during startup.
+    registerDirRequestCrons(waClient);
 
     // Start OTP worker
     await startOtpWorker().catch(err => console.error('[OTP] worker error', err));

@@ -522,8 +522,6 @@ export function formatDitbinmasNarrative(stats) {
   const sortedSatkers = [...satkerStats].sort(
     (a, b) => b.likes - a.likes || a.name.localeCompare(b.name)
   );
-  const topFive = sortedSatkers.slice(0, 5);
-  const bottomFive = [...sortedSatkers].reverse().slice(0, 5);
   const formatList = (arr) =>
     arr.length
       ? arr
@@ -532,10 +530,17 @@ export function formatDitbinmasNarrative(stats) {
       : "-";
 
   return (
-    `Mohon Ijin Komandan, rekap singkat likes Instagram hari ${hari}, ${tanggal} pukul ${jam} WIB.\n\n` +
-    `📸 Instagram\n` +
-    `Top 5 Likes:\n${formatList(topFive)}\n\n` +
-    `Bottom 5 Likes:\n${formatList(bottomFive)}`
+    `*LAPORAN HARIAN MEDIA SOSIAL*\n` +
+    `*DIREKTORAT BINMAS POLDA JAWA TIMUR*\n` +
+    `📋 *Peringkat Pelaksanaan Likes Instagram Polres Jajaran*\n` +
+    `🏢 Satuan: Ditbinmas Polda Jawa Timur\n` +
+    `📱 Platform: Instagram\n` +
+    `📝 Aktivitas: Likes dan Komentar\n` +
+    `📊 Indikator Peringkat: Jumlah Likes dan Komentar\n` +
+    `🗓️ Periode: ${hari}, ${tanggal}\n` +
+    `🕘 Waktu: ${jam} WIB\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `Urutan pelaksanaan tugas berdasarkan jumlah likes:\n${formatList(sortedSatkers)}`
   );
 }
 

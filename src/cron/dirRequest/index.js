@@ -14,6 +14,10 @@ import {
   JOB_KEY as DITBINMAS_SUPER_ADMIN_DAILY_JOB_KEY,
 } from '../cronDirRequestDitbinmasSuperAdminDaily.js';
 import {
+  runCron as runDitbinmasSuperAdminMonthly,
+  JOB_KEY as DITBINMAS_SUPER_ADMIN_MONTHLY_JOB_KEY,
+} from '../cronDirRequestDitbinmasSuperAdminMonthly.js';
+import {
   runCron as runDitbinmasOperatorDaily,
   JOB_KEY as DITBINMAS_OPERATOR_DAILY_JOB_KEY,
 } from '../cronDirRequestDitbinmasOperatorDaily.js';
@@ -78,10 +82,10 @@ const dirRequestCrons = [
       { cronExpression: '15 22 * * *', handler: () => runBidhumasEvening(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
-  // Ditbinmas group recap at 15:10 and 18:14
+  // Ditbinmas group recap at 15:11, 18:11, and 20:55 WIB
   {
     jobKey: DITBINMAS_GROUP_RECAP_JOB_KEY,
-    description: 'Send Ditbinmas group recap for menu 21/22/28/29 (today).',
+    description: 'Send complete daily Instagram and TikTok execution rankings to the Ditbinmas group (menu 21).',
     schedules: [
       { cronExpression: '11 15 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
       { cronExpression: '11 18 * * *', handler: () => runDitbinmasGroupRecap(), options: DEFAULT_CRON_OPTIONS },
@@ -95,6 +99,16 @@ const dirRequestCrons = [
       'Send Ditbinmas super admin daily recap (menus 6/9/34/35) with today period only.',
     schedules: [
       { cronExpression: '45 20 * * *', handler: () => runDitbinmasSuperAdminDaily(), options: DEFAULT_CRON_OPTIONS },
+    ],
+  },
+  // Runs on dates that can be month-end; the handler verifies the actual
+  // last calendar day in Asia/Jakarta before sending.
+  {
+    jobKey: DITBINMAS_SUPER_ADMIN_MONTHLY_JOB_KEY,
+    description:
+      'Send Ditbinmas monthly reports (menus 6/9/34/35) on the final day of each month at 22:00 WIB.',
+    schedules: [
+      { cronExpression: '0 22 28-31 * *', handler: () => runDitbinmasSuperAdminMonthly(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditbinmas operator daily recap at 18:12

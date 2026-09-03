@@ -13,6 +13,20 @@ import { env } from '../config/env.js';
 let initPromise = null;
 let _waClient = null;
 let _waGatewayClient = null;
+const STARTUP_READY_WAIT_CAP_MS = 30000;
+
+function snapshotClientReadiness() {
+  return ['wa-direktorat', 'wa-operator'].map((clientId) => {
+    const client = waService.getClient(clientId);
+    const ready = Boolean(client?.isReady);
+    return {
+      clientId,
+      status: ready ? 'success' : 'failed',
+      ready,
+      ...(ready ? {} : { error: 'startup readiness wait capped; recovery continues in background' })
+    };
+  });
+}
 
 // Initialize function that is called from app.js
 export async function initializeWAService() {
@@ -33,6 +47,7 @@ export async function initializeWAService() {
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
         qrTimeout: env.WA_QR_TIMEOUT_MS,
+        pairingPhoneNumber: env.DIRECTORATE_WA_PAIRING_PHONE,
         enableBadSessionRecovery: env.WA_ENABLE_BAD_SESSION_RECOVERY
       });
 
@@ -47,6 +62,7 @@ export async function initializeWAService() {
         maxInitRetries: env.WA_INIT_MAX_RETRIES,
         initRetryDelay: env.WA_INIT_RETRY_DELAY_MS,
         qrTimeout: env.WA_QR_TIMEOUT_MS,
+        pairingPhoneNumber: env.OPERATOR_WA_PAIRING_PHONE,
         enableBadSessionRecovery: env.WA_ENABLE_BAD_SESSION_RECOVERY
       });
 
@@ -60,8 +76,21 @@ export async function initializeWAService() {
       // Wait for clients to be ready with extended timeout (5 minutes)
       // This ensures WhatsApp Web authentication completes before proceeding
       console.log('[waService] Waiting for clients to be ready...');
-      const readyTimeout = 300000; // 5 minutes for QR code scanning and authentication
-      const results = await waService.waitForAllReady(readyTimeout);
+      // Never give up before the configured QR/phone-pairing window closes.
+      const readyTimeout = Math.max(300000, env.WA_QR_TIMEOUT_MS + 30000);
+      let startupTimer;
+      const results = await Promise.race([
+        waService.waitForAllReady(readyTimeout),
+        new Promise((resolve) => {
+          startupTimer = setTimeout(() => {
+            console.warn(
+              `[waService] Startup readiness wait capped at ${STARTUP_READY_WAIT_CAP_MS}ms; continuing with ready clients`
+            );
+            resolve(snapshotClientReadiness());
+          }, STARTUP_READY_WAIT_CAP_MS);
+        })
+      ]);
+      if (startupTimer) clearTimeout(startupTimer);
       
       // Check if at least one client is ready
       const hasReadyClient = results.some(r => r.status === 'success');
