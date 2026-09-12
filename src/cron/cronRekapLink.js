@@ -8,6 +8,7 @@ import { normalizeUserWhatsAppId, minPhoneDigitLength, sendWithClientFallback } 
 import { acquireDistributedLock } from "../service/distributedLockService.js";
 
 import { absensiLink } from "../handler/fetchabsensi/link/absensiLinkAmplifikasi.js";
+import { absensiLinkKhusus } from "../handler/fetchabsensi/link/absensiLinkKhusus.js";
 
 const { primaryClient, fallbackClients } = getOperatorWaRoute();
 
@@ -93,50 +94,69 @@ export async function runCron() {
 
     for (const client of clients) {
       try {
-        const msg = await absensiLink(client.client_id, { roleFlag: "operator" });
         const targets = getRecipients(client);
-        
+        const reports = [
+          {
+            label: 'rutin',
+            generate: () => absensiLink(client.client_id, { roleFlag: "operator" }),
+          },
+          {
+            label: 'khusus',
+            generate: () => absensiLinkKhusus(client.client_id, { roleFlag: "operator" }),
+          },
+        ];
+
         let sentCount = 0;
         let failedCount = 0;
-
-        for (let i = 0; i < targets.length; i++) {
-          const wa = targets[i];
+        for (const report of reports) {
+          let msg;
           try {
-            const success = await sendWithClientFallback({
-              chatId: wa,
-              message: msg,
-              clients: fallbackClients,
-              reportClient: primaryClient,
-              reportContext: {
-                jobKey: JOB_KEY,
-                clientId: client.client_id,
-                chatId: wa,
-                menu: 'rekap-link',
-              },
-            });
-
-            if (success) {
-              sentCount++;
-            } else {
-              failedCount++;
-            }
-
-            // Add delay between messages to avoid race conditions
-            if (i < targets.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, MESSAGE_DELAY_MS));
-            }
+            msg = await report.generate();
           } catch (err) {
-            failedCount++;
+            failedCount += targets.length;
             sendDebug({
               tag: CRON_TAG,
-              msg: `[${client.client_id}] Gagal kirim ke ${wa}: ${err.message || err}`,
+              msg: `[${client.client_id}] Gagal membuat laporan ${report.label}: ${err.message || err}`,
             });
+            continue;
+          }
+
+          for (let i = 0; i < targets.length; i++) {
+            const wa = targets[i];
+            try {
+              const success = await sendWithClientFallback({
+                chatId: wa,
+                message: msg,
+                clients: fallbackClients,
+                reportClient: primaryClient,
+                reportContext: {
+                  jobKey: JOB_KEY,
+                  clientId: client.client_id,
+                  chatId: wa,
+                  menu: `rekap-link-${report.label}`,
+                },
+              });
+
+              if (success) sentCount++;
+              else failedCount++;
+            } catch (err) {
+              failedCount++;
+              sendDebug({
+                tag: CRON_TAG,
+                msg: `[${client.client_id}] Gagal kirim laporan ${report.label} ke ${wa}: ${err.message || err}`,
+              });
+            }
+
+            // Add delay between messages to avoid race conditions.
+            if (i < targets.length - 1 || report !== reports[reports.length - 1]) {
+              await new Promise(resolve => setTimeout(resolve, MESSAGE_DELAY_MS));
+            }
           }
         }
 
         sendDebug({
           tag: CRON_TAG,
-          msg: `[${client.client_id}] Rekap link selesai: ${sentCount} berhasil, ${failedCount} gagal dari ${targets.length} penerima`,
+          msg: `[${client.client_id}] Rekap rutin dan khusus selesai: ${sentCount} berhasil, ${failedCount} gagal dari ${targets.length} penerima per laporan`,
         });
 
         processedCount++;

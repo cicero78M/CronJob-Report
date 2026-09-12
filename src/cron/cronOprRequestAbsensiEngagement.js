@@ -13,7 +13,13 @@ import { acquireDistributedLock } from '../service/distributedLockService.js';
 
 export const JOB_KEY = './src/cron/cronOprRequestAbsensiEngagement.js';
 const CRON_EXPRESSION = '20 15,18,20 * * *';
-const CRON_OPTIONS = { timezone: 'Asia/Jakarta' };
+// Recover a scheduled tick when the event loop is briefly stalled (for
+// example by severe memory pressure or a reconnect storm). Without this,
+// node-cron silently drops that day's attendance delivery.
+const CRON_OPTIONS = {
+  timezone: 'Asia/Jakarta',
+  recoverMissedExecutions: true,
+};
 const CRON_TAG = 'CRON OPRREQUEST ABSENSI ENGAGEMENT';
 const ROLE_FLAG = 'operator';
 const ABSENSI_MODE = 'all';

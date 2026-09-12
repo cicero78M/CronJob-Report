@@ -68,7 +68,10 @@ export async function runCron() {
 const JOB_KEY = "./src/cron/cronDirRequestRekapUpdate.js";
 
 if (process.env.JEST_WORKER_ID === undefined) {
-  scheduleCronJob(JOB_KEY, "0 8-18/4 * * *", () => runCron(), { timezone: "Asia/Jakarta" });
+  scheduleCronJob(JOB_KEY, "0 8-18/4 * * *", () => runCron(), {
+    timezone: "Asia/Jakarta",
+    recoverMissedExecutions: true,
+  });
 }
 
 export default null;

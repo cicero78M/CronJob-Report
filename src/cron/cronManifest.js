@@ -13,13 +13,7 @@ export default [
     affinity: 'operatorPolres',
     description: 'Generate and deliver monthly amplification spreadsheets on the last day of the month.',
   },
-  {
-    jobKey: './src/cron/cronDirRequestRekapUpdate.js',
-    modulePath: './src/cron/cronDirRequestRekapUpdate.js',
-    bucket: 'direktorat',
-    affinity: 'direktorat',
-    description: 'Send Ditbinmas executive summaries and rekap updates to admins and broadcast groups.',
-  },
+  // Disabled by operator request: user insight and rekap update notifications.
   {
     jobKey: './src/cron/cronDashboardSubscriptionExpiry.js',
     modulePath: './src/cron/cronDashboardSubscriptionExpiry.js',
@@ -34,13 +28,7 @@ export default [
     affinity: 'platform',
     description: 'Expire premium access for mobile users when premium_end_date has passed.',
   },
-  {
-    jobKey: './src/cron/cronOprRequestAbsensiUpdateDataUsername.js',
-    modulePath: './src/cron/cronOprRequestAbsensiUpdateDataUsername.js',
-    bucket: 'operatorPolres',
-    affinity: 'operatorPolres',
-    description: 'Send hourly oprrequest absensi update data username recaps to each org client WhatsApp group.',
-  },
+  // Disabled by operator request: absensi update data personil/username notifications.
   {
     jobKey: './src/cron/cronOprRequestAbsensiEngagement.js',
     modulePath: './src/cron/cronOprRequestAbsensiEngagement.js',
@@ -60,6 +48,6 @@ export default [
     modulePath: './src/cron/cronOprRequestDailyReport.js',
     bucket: 'operatorPolres',
     affinity: 'operatorPolres',
-    description: 'Send oprrequest daily amplification reports (tugas rutin no 1 and no 2) to operator WhatsApp for active org clients with amplification enabled.',
+    description: 'Send separate oprrequest reports for official/routine tasks and special tasks, plus the existing routine yesterday report, to operator WhatsApp for active org clients with amplification enabled.',
   },
 ];
