@@ -10,6 +10,8 @@ export const env = cleanEnv(process.env, {
   DB_NAME: str({ default: '' }),
   DB_PASS: str({ default: '' }),
   DB_PORT: port({ default: 5432 }),
+  DB_POOL_MAX: num({ default: 5 }),
+  DB_IDLE_TIMEOUT_MS: num({ default: 30000 }),
   DB_CONNECTION_TIMEOUT_MS: num({ default: 10000 }),
   DB_QUERY_TIMEOUT_MS: num({ default: 30000 }),
   DB_STATEMENT_TIMEOUT_MS: num({ default: 30000 }),
