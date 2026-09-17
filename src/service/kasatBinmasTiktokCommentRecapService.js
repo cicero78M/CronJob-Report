@@ -6,6 +6,7 @@ import { buildKasatBinmasRoster } from "./kasatBinmasRosterService.js";
 import { toJakartaDateKey } from "../utils/jakartaTime.js";
 import {
   extractUsernamesFromComments,
+  getTikTokUsernameAliases,
   normalizeUsername,
 } from "../handler/fetchabsensi/tiktok/absensiKomentarTiktok.js";
 
@@ -188,12 +189,13 @@ function formatEntryLine(entry, index, totalKonten) {
 async function buildLiveFallbackCounts(kasatUsers, referenceDate) {
   const usernameToUsers = new Map();
   kasatUsers.forEach((user) => {
-    const normalizedUsername = normalizeUsername(user?.tiktok);
-    if (!normalizedUsername) return;
-    if (!usernameToUsers.has(normalizedUsername)) {
-      usernameToUsers.set(normalizedUsername, []);
-    }
-    usernameToUsers.get(normalizedUsername).push(user);
+    getTikTokUsernameAliases(user).forEach((normalizedUsername) => {
+      if (!usernameToUsers.has(normalizedUsername)) {
+        usernameToUsers.set(normalizedUsername, []);
+      }
+      const mappedUsers = usernameToUsers.get(normalizedUsername);
+      if (!mappedUsers.includes(user)) mappedUsers.push(user);
+    });
   });
 
   const commentCountByUser = new Map();

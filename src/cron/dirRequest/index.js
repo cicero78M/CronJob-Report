@@ -26,6 +26,10 @@ import {
   JOB_KEY as DITBINMAS_ABSENSI_TODAY_JOB_KEY,
 } from '../cronDirRequestDitbinmasAbsensiToday.js';
 import {
+  runCron as runDitbinmasTiktok1940,
+  JOB_KEY as DITBINMAS_TIKTOK_1940_JOB_KEY,
+} from '../cronDirRequestDitbinmasTiktok1940.js';
+import {
   runCron as runDitintelkamMorning,
   runCronAt2202 as runDitintelkamMorningAt2202,
   JOB_KEY as DITINTELKAM_MORNING_JOB_KEY,
@@ -127,6 +131,15 @@ const dirRequestCrons = [
       'Send Ditbinmas absensi recap (menu 5/6/9/10, today) to the dedicated recipient only.',
     schedules: [
       { cronExpression: '49 20 * * *', handler: () => runDitbinmasAbsensiToday(), options: DEFAULT_CRON_OPTIONS },
+    ],
+  },
+  // Ditbinmas TikTok absensi menus 5/6/9/10/34/35 at 19:40 WIB
+  {
+    jobKey: DITBINMAS_TIKTOK_1940_JOB_KEY,
+    description:
+      'Send Ditbinmas TikTok attendance menus 5/6/9/10/34/35 to the dedicated recipient at 19:40 WIB.',
+    schedules: [
+      { cronExpression: '40 19 * * *', handler: () => runDitbinmasTiktok1940(), options: DEFAULT_CRON_OPTIONS },
     ],
   },
   // Ditintelkam morning rekap at 07:02

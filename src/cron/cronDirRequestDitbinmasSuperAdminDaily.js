@@ -2,7 +2,7 @@ import { sendDebug } from '../middleware/debugHandler.js';
 import { runDitbinmasSuperAdminDailyRecap } from './cronDirRequestCustomSequence.js';
 
 export const JOB_KEY = './src/cron/cronDirRequestDitbinmasSuperAdminDaily.js';
-const CRON_TAG = 'CRON DIRREQ DITBINMAS 18:10';
+const CRON_TAG = 'CRON DIRREQ DITBINMAS 20:45';
 
 export async function runCron(referenceDate = new Date()) {
   sendDebug({

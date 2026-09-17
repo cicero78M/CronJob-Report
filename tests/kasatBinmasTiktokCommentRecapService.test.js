@@ -119,6 +119,32 @@ test('menyusun ringkasan absensi komentar TikTok untuk Kasat Binmas', async () =
   expect(summary).not.toMatch(/Delta/);
 });
 
+test('fallback live Menu 35 tetap menghitung alias username TikTok historis', async () => {
+  mockGetUsersByClient.mockResolvedValue([
+    {
+      user_id: 'ary-1',
+      nama: 'ARY MURTINI',
+      title: 'AKBP',
+      jabatan: 'Kasat Binmas',
+      client_id: 'POLRESA',
+      client_name: 'Polres A',
+      tiktok: '@ary.murtini',
+      tiktok_legacy: '@arymurtini',
+    },
+  ]);
+  mockGetRekapKomentarByClient.mockResolvedValue([]);
+  mockGetPostsTodayByClient.mockResolvedValue([{ video_id: 'video-1' }]);
+  mockGetCommentsByVideoId.mockResolvedValue({
+    comments: [{ username: '@arymurtini' }],
+  });
+
+  const summary = await generateKasatBinmasTiktokCommentRecap({ period: 'daily' });
+
+  expect(summary).toContain('Lengkap: 1/1 pers');
+  expect(summary).toContain('ARY MURTINI (POLRES A) — Lengkap (1/1 konten)');
+  expect(summary).not.toContain('Belum komentar: 1/1 pers');
+});
+
 test('menampilkan nama Polres ketika tidak ada Kasat Binmas aktif', async () => {
   mockFindAllOrgClients.mockResolvedValue([
     { client_id: 'POLRESA', nama: 'Polres A', regional_id: 'JATIM' },

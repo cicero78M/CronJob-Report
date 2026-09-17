@@ -22,6 +22,14 @@ const PERIOD_DESCRIPTIONS = {
   all_time: "semua periode",
 };
 
+function getTikTokUsernameAliases(user) {
+  return [...new Set(
+    [user?.effective_tiktok, user?.tiktok_legacy, user?.tiktok]
+      .filter((value) => typeof value === "string" && value.trim() !== "")
+      .map(normalizeUsername),
+  )];
+}
+
 function toDateKey(value) {
   return toJakartaDateKey(value);
 }
@@ -247,14 +255,18 @@ function computeCommentSummary(users = [], commentSets = [], totalKonten = 0) {
       return { ...base, status: "lengkap" };
     }
 
-    const username = normalizeUsername(user.tiktok);
-    if (!username) {
+    const usernameAliases = getTikTokUsernameAliases(user);
+    if (!usernameAliases.length) {
       return { ...base, status: "noUsername" };
     }
 
     let count = 0;
     sets.forEach((set) => {
-      if (set && typeof set.has === "function" && set.has(username)) {
+      if (
+        set &&
+        typeof set.has === "function" &&
+        usernameAliases.some((username) => set.has(username))
+      ) {
         count += 1;
       }
     });

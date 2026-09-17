@@ -1,9 +1,26 @@
 import './src/utils/logger.js';
+import { close as closeDatabase } from './src/db/index.js';
 // Note: Environment validation happens automatically through imports in services
 import cronManifest from './src/cron/cronManifest.js';
 import { registerDirRequestCrons } from './src/cron/dirRequest/index.js';
 import { initializeWAService, waClient, waGatewayClient } from './src/service/waService.js';
 import { startOtpWorker } from './src/service/otpQueue.js';
+
+let shuttingDown = false;
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[APP] ${signal} received; closing database pool`);
+    try {
+      await closeDatabase();
+    } catch (error) {
+      console.error('[APP] Failed to close database pool:', error?.message || error);
+    } finally {
+      process.exit(0);
+    }
+  });
+}
 
 const cronBuckets = cronManifest.reduce((buckets, { bucket, modulePath }) => {
   if (!bucket || !modulePath) return buckets;

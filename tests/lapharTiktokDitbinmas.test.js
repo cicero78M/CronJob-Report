@@ -135,6 +135,37 @@ test('classifies missing username based on tiktok field, not insta field', async
   expect(result.text).not.toContain('User Tiktok Ada, TikTok Kosong');
 });
 
+test('keeps historical TikTok username counted in Menu 21 group report', async () => {
+  mockGetPostsByClientOnJakartaDate.mockResolvedValue([{ video_id: 'v-ary', caption: 'Konten ARY' }]);
+  mockGetCommentsByVideoId.mockResolvedValue({ comments: [{ username: 'arymurtini' }] });
+  mockGetClientsByRole.mockResolvedValue([]);
+  mockGetUsersByDirektorat.mockResolvedValue([
+    {
+      user_id: 'ary-1',
+      client_id: 'DITBINMAS',
+      title: 'AKBP',
+      nama: 'ARY MURTINI',
+      tiktok: '@ary.murtini',
+      tiktok_legacy: '@arymurtini',
+      status: true,
+    },
+  ]);
+  mockQuery.mockResolvedValue({
+    rows: [{ nama: 'DITBINMAS', client_tiktok: '@binmas.poldajatim', client_type: 'direktorat' }],
+  });
+
+  let lapharTiktokDitbinmas;
+  await jest.isolateModulesAsync(async () => {
+    ({ lapharTiktokDitbinmas } = await import('../src/handler/fetchabsensi/tiktok/absensiKomentarTiktok.js'));
+  });
+
+  const result = await lapharTiktokDitbinmas();
+
+  expect(result.text).toContain('*DITBINMAS* : 1 / 1 / 0 / 0 / 0 / 0');
+  expect(result.text).toContain('ARY MURTINI, 1');
+  expect(result.text).toContain('Belum Update Username TikTok : 0 pers');
+});
+
 afterAll(() => {
   jest.resetModules();
 });
